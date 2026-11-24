@@ -116,3 +116,16 @@ for (const [wall, x, facing] of [['left', 14, 1], ['right', WORLD_W - 14, -1]]) 
     assert.equal(a.facing, Math.sign(e.x - a.x), 'faces the target');
   });
 }
+
+test('a knockout trail stops once the ragdoll comes to rest (issue #30)', () => {
+  const { game, a, e } = load();
+  for (const f of game.fighters) if (f !== e) f.hp = 1000;
+  e.hp = 1;
+  e.takeHit(a, game.MOVES.find(m => m.id === 'jab'), 'body', e.bodyPoint(), { dmg: 50 });
+  assert.equal(e.state, 'ko');
+  assert.equal(e.trailOn, true, 'no trail while flying');
+  for (let t = 0; t < 4; t += 1 / 60) game.update(1 / 60);
+  assert.equal(game.fighters[1], e, 'a new round started');
+  assert.equal(e.trailOn, false, 'trail still recording');
+  assert.equal(e.trail.length, 0, 'afterimages stacked on the body');
+});

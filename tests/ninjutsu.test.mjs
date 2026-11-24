@@ -175,3 +175,17 @@ test('turning ninjutsu off drops a readied substitution', () => {
   e.takeHit(a, jab(game), 'body', { x: 0, y: 0 });
   assert.ok(e.hp < hp, 'substituted after ninjutsu was turned off');
 });
+
+test('a substitution readied against a shuriken throw triggers when a star hits (issue #31)', () => {
+  const { game, a, e } = load();
+  e.subFrom = a; e.subT = 1;
+  const hp = e.hp, y = (e.W.sh.y + e.W.hip.y) / 2;
+  // Two stars of one fan reach the body in the same step; the second must miss the log
+  for (const dy of [0, 6]) game.shots.push({ x: e.W.sh.x - 8, y: y + dy, vx: 600, vy: 0, z: e.z, owner: a,
+    m: tech(game, 'shuriken'), life: 3, col: '#fff', kind: 'star', dmg: 3 });
+  game.update(1 / 60);
+  assert.equal(game.stats.subs, 1, 'no substitution');
+  assert.equal(e.hp, hp, 'the star did damage');
+  assert.equal(e.move && e.move.id, 'substitute');
+  assert.ok(Math.abs(e.x - a.x) < 40, `appeared at ${e.x}, thrower at ${a.x}`);
+});
