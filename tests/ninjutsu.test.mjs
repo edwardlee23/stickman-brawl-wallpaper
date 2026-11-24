@@ -49,12 +49,12 @@ test('shuriken are thrown as a fan of three stars that hit the target', () => {
   const { game, a, e } = load();
   Object.assign(e, { state: 'hit', st: 0, dur: 99 });   // Cannot block, dodge or jump
   a.startMove(tech(game, 'shuriken'));
-  let most = 0;
+  let first = 0;   // Stars in flight on the step the first throw leaves the hand
   for (let t = 0; t < 1.5; t += 1 / 60) {
     game.update(1 / 60);
-    most = Math.max(most, game.shots.filter(s => s.kind === 'star').length);
+    if (!first) first = game.shots.filter(s => s.kind === 'star').length;
   }
-  assert.equal(most, 3);
+  assert.equal(first, 3);
   assert.ok(game.stats.hits.shuriken >= 1, 'no star hit');
   assert.ok(e.hp < 1000);
 });
