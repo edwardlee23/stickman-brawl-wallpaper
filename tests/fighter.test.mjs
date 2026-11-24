@@ -59,6 +59,19 @@ for (const kind of ['over', 'reap', 'takedown']) {
   });
 }
 
+test('a teleport follows up only with moves from enabled styles', () => {
+  const { game, a, e } = load();
+  for (const s of Object.keys(game.cfg.styles)) game.cfg.styles[s] = s === 'super';
+  a.target = e;
+  for (let i = 0; i < 50; i++) {
+    a.startMove(game.SUPER.find(m => m.id === 'teleport'));
+    a.md.ph = 'gone';
+    a.st = 0.25;
+    a.u_teleport(0);
+    assert.equal(a.move.style, 'super', `follow-up ${a.move.id}`);
+  }
+});
+
 test('a knockout clears the special but keeps the ragdoll trail', () => {
   const { e } = load();
   midSpecial(e);
