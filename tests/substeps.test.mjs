@@ -1,0 +1,58 @@
+// Runs main.js in a node:vm sandbox with a stubbed canvas, window and
+// requestAnimationFrame, and checks that a slow, fast-forwarded frame still
+// simulates the fight in small steps: an energy blast must not pass through a
+// fighter at 300% speed and 20 fps (issue #4).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+
+const source = readFileSync('main.js', 'utf8');
+
+// Loads the wallpaper with the given query string and returns its debug hook
+// plus a function that runs one animation frame at the given time in ms.
+function load(query) {
+  const noop = () => {};
+  // Any 2D context call or property is a no-op that returns the same stub.
+  const ctx = new Proxy(function () {}, { get: () => ctx, set: () => true, apply: () => ctx });
+  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
+  let next = null;
+  const window = {
+    innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
+    addEventListener: noop,
+  };
+  Object.assign(window, {
+    window,
+    document: { getElementById: () => canvas, body: { style: {} } },
+    location: { search: query },
+    URLSearchParams,
+    performance: { now: () => 0 },
+    requestAnimationFrame: cb => { next = cb; },
+    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  });
+  vm.runInNewContext(source, window);
+  return { game: window.__stickmanBrawl, frame: now => next(now) };
+}
+
+test('a blast cannot pass through a fighter at 300% speed and 20 fps', () => {
+  let hits = 0;
+  const tries = 20;
+  for (let k = 0; k < tries; k++) {
+    const { game, frame } = load('?count=2&speed=3');
+    frame(50);   // One 50 ms frame first, so every fighter has world joints
+    const [owner, target] = game.fighters;
+    owner.state = 'idle';
+    target.state = 'idle';
+    const W = target.W;
+    // Aim at the middle of the torso from 40 units away. One unsplit 0.15 s
+    // step moves the blast 81 units, from in front of the body to behind it.
+    const y = (W.hip.y + W.sh.y) / 2, x = (W.hip.x + W.sh.x) / 2 - 40;
+    game.shots.length = 0;
+    game.shots.push({ x, y, vx: 540, vy: 0, z: target.z, owner, m: game.SUPER[0], life: 3, col: '#fff' });
+    const hp = target.hp;
+    frame(100);
+    if (target.hp < hp) hits++;
+  }
+  // The target moves a little within the frame, so allow a rare miss.
+  assert.ok(hits >= tries - 2, `only ${hits} of ${tries} blasts hit`);
+});
