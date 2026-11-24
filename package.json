@@ -9,6 +9,6 @@
     "node": ">=24"
   },
   "scripts": {
-    "check": "node --check main.js && node --test"
+    "check": "node --check wallpaper/main.js && node --test"
   }
 }

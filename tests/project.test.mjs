@@ -1,17 +1,25 @@
 // Checks that the wallpaper's files agree with each other: project.json is
-// valid, every settings label is translated in every language, and every
-// setting the panel offers is read by main.js.
+// valid, every settings label is translated in every language, every setting
+// the panel offers is read by main.js, and wallpaper/ holds only the files
+// Wallpaper Engine needs, since the Workshop upload takes the whole folder.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
-const project = JSON.parse(readFileSync('project.json', 'utf8'));
-const main = readFileSync('main.js', 'utf8');
+const DIR = 'wallpaper';
+const project = JSON.parse(readFileSync(join(DIR, 'project.json'), 'utf8'));
+const main = readFileSync(join(DIR, 'main.js'), 'utf8');
 const { properties, localization } = project.general;
 
 test('the entry file and preview image exist', () => {
-  assert.ok(existsSync(project.file), project.file);
-  assert.ok(existsSync(project.preview), project.preview);
+  assert.ok(existsSync(join(DIR, project.file)), project.file);
+  assert.ok(existsSync(join(DIR, project.preview)), project.preview);
+});
+
+test('the wallpaper folder holds only the files Wallpaper Engine needs', () => {
+  const want = ['index.html', 'main.js', 'preview.jpg', 'project.json'];
+  assert.deepEqual(readdirSync(DIR).sort(), want);
 });
 
 test('every label is a ui_ token translated in every language', () => {

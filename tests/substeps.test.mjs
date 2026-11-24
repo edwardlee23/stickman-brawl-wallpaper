@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const source = readFileSync('main.js', 'utf8');
+const source = readFileSync('wallpaper/main.js', 'utf8');
 
 // Loads the wallpaper with the given query string and returns its debug hook
 // plus a function that runs one animation frame at the given time in ms.

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const source = readFileSync('main.js', 'utf8');
+const source = readFileSync('wallpaper/main.js', 'utf8');
 
 function load(query) {
   const ctx = new Proxy(function () {}, { get: () => ctx, set: () => true, apply: () => ctx });

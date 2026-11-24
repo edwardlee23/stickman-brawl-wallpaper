@@ -15,7 +15,9 @@ is left.
 
 1. Download or clone this repository.
 2. In Wallpaper Engine, choose **Open Wallpaper → Open from File** and pick
-   `project.json`.
+   `wallpaper/project.json`. The `wallpaper/` folder holds only the files the
+   wallpaper needs, so a Workshop upload from it leaves out the rest of the
+   repository.
 
 ## Settings
 
@@ -29,15 +31,16 @@ stops the screen shaking. Turn it off for the full comic look. With every
 style turned off, fighters use all five martial-arts styles, without the
 specials.
 
-Opened in a plain browser, `index.html` also reads `count`, `mode`, `speed`
-and `reducemotion` from the query string, for example
+Opened in a plain browser, `wallpaper/index.html` also reads `count`, `mode`,
+`speed` and `reducemotion` from the query string, for example
 `index.html?count=8&mode=teams` or `index.html?reducemotion=0`. `count` (2
 to 16) and `speed` (0.25 to 3, where 1 is 100%) are clamped to the panel's
 ranges, `mode` is `ffa` or `teams`, and any other value keeps the default.
 
 ## Development
 
-There is no build step: `index.html` loads `main.js` directly. See
+There is no build step: `wallpaper/index.html` loads `wallpaper/main.js`
+directly. See
 [AGENTS.md](AGENTS.md) for the commands and rules, and
 [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 

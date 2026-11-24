@@ -6,17 +6,19 @@ Stickman Brawl is a web wallpaper for Wallpaper Engine. A single canvas shows
 comic-style stick figures fighting: keyframed poses for martial-arts moves,
 comic specials (energy blasts, wall running, wall slams), and a verlet ragdoll
 on knockout. It is plain browser JavaScript with no dependencies and no build
-step; Wallpaper Engine loads `index.html`, which loads `main.js`.
+step; Wallpaper Engine loads `wallpaper/index.html`, which loads
+`wallpaper/main.js`.
 
 ## Commands
 
 ```bash
 npm ci            # installs nothing today, but keeps CI and local runs alike
-npm run check     # syntax check of main.js, then the tests in tests/
+npm run check     # syntax check of wallpaper/main.js, then the tests in tests/
 ```
 
-To see the wallpaper, open `index.html` in a browser (`?count=8&mode=teams`
-works there), or load `project.json` in Wallpaper Engine for the settings panel.
+To see the wallpaper, open `wallpaper/index.html` in a browser
+(`?count=8&mode=teams` works there), or load `wallpaper/project.json` in
+Wallpaper Engine for the settings panel.
 
 ## Never
 
@@ -25,6 +27,9 @@ works there), or load `project.json` in Wallpaper Engine for the settings panel.
 - Never load anything from the network at runtime. Wallpapers run offline.
 - Never use a name, character or art from an existing game. The English
   title was changed from "Stick Fight" for that reason.
+- Never put a file in `wallpaper/` that the wallpaper does not load at
+  runtime. A Workshop upload takes the whole folder; the tests list what may
+  be there.
 - Never commit secrets, `.env` or `.dev.vars`.
 
 ## Rules
@@ -48,16 +53,17 @@ works there), or load `project.json` in Wallpaper Engine for the settings panel.
   after a 7-day cooldown. Minor and patch updates merge themselves once
   `check` passes; majors wait for a person.
 - There is no release process yet. Workshop uploads are done by hand from
-  Wallpaper Engine's editor.
+  Wallpaper Engine's editor, with `wallpaper/project.json` opened.
 
 ## Repository layout
 
 | Path | Content |
 |---|---|
-| `index.html` | Page that holds the canvas and loads `main.js`. |
-| `main.js` | The whole wallpaper: settings, skeleton, moves, fighters, rounds, rendering. |
-| `project.json` | Wallpaper Engine manifest: title, settings panel, translations. |
-| `preview.jpg` | Workshop preview image. |
+| `wallpaper/` | Everything Wallpaper Engine loads, and nothing else. |
+| `wallpaper/index.html` | Page that holds the canvas and loads `main.js`. |
+| `wallpaper/main.js` | The whole wallpaper: settings, skeleton, moves, fighters, rounds, rendering. |
+| `wallpaper/project.json` | Wallpaper Engine manifest: title, settings panel, translations. |
+| `wallpaper/preview.jpg` | Workshop preview image. |
 | `demo.gif` | Animated demo shown in the README; not used by Wallpaper Engine. |
 | `tests/` | `node:test` checks that the files agree with each other. |
 
