@@ -113,3 +113,29 @@ test('at most 6 sounds play at once, and a slot frees once a sound ends', () => 
   AC.instances[0].currentTime = 5;
   assert.equal(game.sfx('ko', 100), true);
 });
+
+test('the panel turns sound on and sets the volume, including 0', () => {
+  const { game, window, AC } = load('?count=2');
+  window.wallpaperPropertyListener.applyUserProperties({ soundeffects: { value: true }, soundvolume: { value: 0 } });
+  assert.equal(game.sfx('hit', 100), true);
+  assert.equal(AC.instances[0].gains[0].gain.value, 0);
+  window.wallpaperPropertyListener.applyUserProperties({ soundvolume: { value: 80 } });
+  assert.equal(AC.instances[0].gains[0].gain.value, 0.8);
+});
+
+test('turning sound off stops later sounds', () => {
+  const { game, window } = load('?count=2&sound=1');
+  game.sfx('hit', 100);
+  window.wallpaperPropertyListener.applyUserProperties({ soundeffects: { value: false } });
+  assert.equal(game.sfx('ko', 100), false);
+});
+
+test('pausing suspends and resumes the context, and is safe before any sound', () => {
+  const { game, window, AC } = load('?count=2&sound=1');
+  window.wallpaperPropertyListener.setPaused(true);
+  assert.equal(AC.instances.length, 0);
+  game.sfx('hit', 100);
+  window.wallpaperPropertyListener.setPaused(true);
+  window.wallpaperPropertyListener.setPaused(false);
+  assert.deepEqual(AC.instances[0].calls, ['suspend', 'resume']);
+});

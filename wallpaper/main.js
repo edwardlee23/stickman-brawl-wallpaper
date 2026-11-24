@@ -37,6 +37,8 @@ cfg.count = Math.round(qNum('count', 2, 16, cfg.count));
 cfg.speed = qNum('speed', 0.25, 3, cfg.speed);
 if (q.get('mode') === 'ffa' || q.get('mode') === 'teams') cfg.mode = q.get('mode');
 if (q.has('reducemotion')) cfg.reduceMotion = !/^(0|false|off)$/i.test(q.get('reducemotion'));
+if (q.has('sound')) cfg.sound = !/^(0|false|off)$/i.test(q.get('sound'));
+cfg.volume = qNum('volume', 0, 100, cfg.volume * 100) / 100;
 
 // ---------- Skeleton ----------
 const L = { torso: 34, neck: 5, head: 8, uarm: 17, farm: 17, thigh: 22, shin: 22 };
@@ -1505,6 +1507,8 @@ window.wallpaperPropertyListener = {
     if (p.backgroundcolor) { cfg.bg = weColor(p.backgroundcolor.value); document.body.style.background = cfg.bg; }
     if (p.linecolor) cfg.line = weColor(p.linecolor.value);
     if (p.reducemotion) cfg.reduceMotion = p.reducemotion.value;
+    if (p.soundeffects) cfg.sound = p.soundeffects.value;
+    if (p.soundvolume) { cfg.volume = p.soundvolume.value / 100; soundSetVolume(); }
     let styles = false;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
     // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes
@@ -1512,10 +1516,12 @@ window.wallpaperPropertyListener = {
     if (reset) newRound();
   },
   applyGeneralProperties(p) { if (p.fps !== undefined) cfg.fps = p.fps; },
-  setPaused(v) { paused = v; },
+  setPaused(v) { paused = v; soundSetPaused(v); },
 };
 
 window.addEventListener('resize', resize);
+// A plain browser keeps audio suspended until the page is clicked; Wallpaper Engine does not.
+window.addEventListener('pointerdown', () => { if (!paused && snd.ac && snd.ac.state === 'suspended') soundSetPaused(false); });
 resize();
 newRound();
 requestAnimationFrame(frame);
