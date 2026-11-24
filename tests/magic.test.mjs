@@ -27,14 +27,14 @@ function load() {
 }
 const spell = (game, id) => game.MAGIC.find(m => m.id === id);
 
-// Runs the attacker's spell, then the whole world, for the given seconds.
+// Runs the whole world, every fighter and projectile, for the given seconds.
 function run(game, sec, step = 1 / 60) {
   for (let t = 0; t < sec; t += step) game.update(step);
 }
 
 test('every spell belongs to the magic style and has its own update function', () => {
   const { game, a } = load();
-  assert.deepEqual([...game.MAGIC.map(m => m.id)].sort(),['fireball', 'ice', 'lightning', 'shield']);
+  assert.deepEqual([...game.MAGIC.map(m => m.id)].sort(), ['fireball', 'ice', 'lightning', 'shield']);
   for (const m of game.MAGIC) {
     assert.equal(m.style, 'magic', m.id);
     assert.equal(typeof a['u_' + m.type], 'function', m.id);
@@ -55,12 +55,13 @@ test('with magic off, no spell is picked', () => {
   for (let i = 0; i < 300; i++) assert.notEqual(game.pickMove(a, e).style, 'magic');
 });
 
-test('a fireball flies to the target, launches it and leaves a flame', () => {
+test('a fireball flies to the target and launches it', () => {
   const { game, a, e } = load();
   Object.assign(e, { state: 'hit', st: 0, dur: 99 });   // Cannot block, dodge or jump
   a.startMove(spell(game, 'fireball'));
   run(game, 1.5);
   assert.ok(game.stats.hits.fireball >= 1, 'fireball never hit');
+  assert.ok(game.stats.launches >= 1, 'target was not launched');
   assert.ok(e.hp < 1000, `hp ${e.hp}`);
 });
 
