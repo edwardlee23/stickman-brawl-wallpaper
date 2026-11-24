@@ -191,7 +191,10 @@ let SW = 0, SH = 0, dpr = 1, S = 1, worldW = 0, worldH = 0, floorTop = 0;
 const DEPTH = 120;           // Front-to-back depth, so a crowd doesn't stand on one line
 const G = 1400;              // Comic gravity: jump high, fall fast
 const groundY = z => floorTop + z;
-const maxAlt = z => groundY(z) - 24;
+// A standing figure's health bar tops out about 108 above its feet; the highest altitude
+// keeps it on screen, which matters at large figure sizes, where the screen is short
+const FIG_TOP = 110;
+const maxAlt = z => groundY(z) - FIG_TOP;
 function resize() {
   dpr = window.devicePixelRatio || 1;
   SW = window.innerWidth; SH = window.innerHeight;
@@ -581,7 +584,7 @@ class Fighter {
       case 'thrown': {
         const th = this.th, u = Math.min(1, this.st / th.dur), e = ease(u);
         th.hx = th.hx0 + (th.hx1 - th.hx0) * e;
-        th.hy = th.hy0 + (th.hy1 - th.hy0) * e - Math.sin(Math.PI * u) * 150;
+        th.hy = th.hy0 + (th.hy1 - th.hy0) * e - Math.sin(Math.PI * u) * th.arc;
         this.rot = 1.5 * Math.PI * e;
         lerpPose(this.from, DOWN, Math.min(1, u * 1.5), this.pose);
         if (u >= 1) {
@@ -1145,13 +1148,15 @@ class Fighter {
         md.hit = true;
         const near = t.hittable && Math.abs(t.x - this.x) < 60 && Math.abs(t.z - this.z) < 16 && Math.abs(t.alt - this.alt) < 45;
         if (near) {
-          // Both clones land a hit, then the real fighter's launches the target
+          // Both clones land a hit, then the real fighter's launches the target. A substitution
+          // readied against this fighter takes the first hit, and the rest go to the log.
+          let log = false;
           for (const c of md.clones) {
             if (!t.hittable) break;
             const pt = t.bodyPoint();
-            t.takeHit({ facing: c.fac * this.facing }, m, 'body', pt, { dmg: m.dmg, hold: true });
+            if (t.takeHit({ facing: c.fac * this.facing, owner: this }, m, 'body', pt, { dmg: m.dmg, hold: true }) === 'sub') { log = true; break; }
           }
-          if (t.hittable) t.takeHit(this, m, 'head', t.bodyPoint(), { dmg: m.dmg * 1.6, launch: { vx: this.facing * 520, va: 360 }, big: true });
+          if (!log && t.hittable) t.takeHit(this, m, 'head', t.bodyPoint(), { dmg: m.dmg * 1.6, launch: { vx: this.facing * 520, va: 360 }, big: true });
         } else sfx('whiff', this.x);
       }
       if (this.st - md.t0 > 0.2) {
@@ -1234,7 +1239,7 @@ class Fighter {
       p.lF += Math.sin(this.walk) * 0.7; p.lB -= Math.sin(this.walk) * 0.7;
       lerpPose(this.pose, p, Math.min(1, dt * 20), this.pose);
       if (Math.random() < 0.3) spawnSparks(this.x, groundY(this.z) - this.alt, 'rgba(200,200,200,0.6)', 1, false);
-      if (this.st - md.t0 > md.dur || this.alt > maxAlt(this.z) - 70) {
+      if (this.st - md.t0 > md.dur || this.alt >= maxAlt(this.z)) {
         md.ph = 'leap'; this.rot = 0; this.hover = false; md.prev = null;
         this.facing = -md.dir;
         this.hover = true; md.t0 = this.st;
@@ -1403,6 +1408,9 @@ class Fighter {
       e.facing = -af; e.state = 'thrown'; e.st = 0; e.from = clonePose(e.pose); e.alt = 0;
       e.th = { hx0: e.W.hip.x, hy0: e.W.hip.y, hx1: clamp(this.x - af * 68, 40, worldW - 40),
         hy1: groundY(e.z) - 5, hx: e.W.hip.x, hy: e.W.hip.y, dur: 0.75 };
+      // The arc over the thrower's head, lower on a short screen: the health bar can be
+      // about 70 above the spinning hip, and stays on screen
+      e.th.arc = clamp(Math.min(e.th.hy0, e.th.hy1) - 72, 0, 150);
     } else {
       e.knockDown(af, m.grab === 'takedown' ? 0.25 : 0.3);
     }
@@ -1415,13 +1423,14 @@ class Fighter {
     this.invis = false; this.alpha = 1; this.aura = 0; this.rot = 0; this.trailOn = false;
   }
 
-  // att is the attacker, or a stand-in with its facing: { facing, owner } for a projectile, { facing } for a clone
+  // att is the attacker, or a stand-in with its facing: { facing, owner } for a projectile or a clone.
+  // Returns 'sub' when a readied substitution took the hit instead.
   takeHit(att, m, zone, H, o = {}) {
     const dir = att.facing, src = att.owner || att;
     if (this.subFrom === src && src.alive && !this.invis && SUB_STATES.has(this.state)) {
       spawnSparks(H.x, H.y, '#ffe28a', 6); sfx('hit', H.x);
       this.substitute(src);
-      return;
+      return 'sub';
     }
     if (!o.unblockable && this.shieldUp() && this.facing === -dir) {
       // The shield takes the hit in full and breaks
