@@ -31,7 +31,9 @@ specials.
 
 Opened in a plain browser, `index.html` also reads `count`, `mode`, `speed`
 and `reducemotion` from the query string, for example
-`index.html?count=8&mode=teams` or `index.html?reducemotion=0`.
+`index.html?count=8&mode=teams` or `index.html?reducemotion=0`. `count` (2
+to 16) and `speed` (0.25 to 3, where 1 is 100%) are clamped to the panel's
+ranges, `mode` is `ffa` or `teams`, and any other value keeps the default.
 
 ## Development
 

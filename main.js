@@ -17,12 +17,6 @@ const cfg = {
   reduceMotion: true,   // skip full-screen flashes and speed lines, no screen shake
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true },
 };
-const q = new URLSearchParams(location.search);
-if (q.has('count')) cfg.count = +q.get('count');
-if (q.has('mode')) cfg.mode = q.get('mode');
-if (q.has('speed')) cfg.speed = +q.get('speed');
-if (q.has('reducemotion')) cfg.reduceMotion = !/^(0|false|off)$/i.test(q.get('reducemotion'));
-
 // ---------- Helpers ----------
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -32,6 +26,15 @@ const easeOut = u => 1 - (1 - u) * (1 - u);
 const sgn = v => (v >= 0 ? 1 : -1);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
+// Query string, for a plain browser: numbers are clamped to the settings panel's ranges,
+// and a value that is not a number or a known mode keeps the default.
+const q = new URLSearchParams(location.search);
+const qNum = (k, lo, hi, d) => { const v = parseFloat(q.get(k)); return Number.isFinite(v) ? clamp(v, lo, hi) : d; };
+cfg.count = Math.round(qNum('count', 2, 16, cfg.count));
+cfg.speed = qNum('speed', 0.25, 3, cfg.speed);
+if (q.get('mode') === 'ffa' || q.get('mode') === 'teams') cfg.mode = q.get('mode');
+if (q.has('reducemotion')) cfg.reduceMotion = !/^(0|false|off)$/i.test(q.get('reducemotion'));
 
 // ---------- Skeleton ----------
 const L = { torso: 34, neck: 5, head: 8, uarm: 17, farm: 17, thigh: 22, shin: 22 };
