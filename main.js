@@ -21,7 +21,7 @@ const q = new URLSearchParams(location.search);
 if (q.has('count')) cfg.count = +q.get('count');
 if (q.has('mode')) cfg.mode = q.get('mode');
 if (q.has('speed')) cfg.speed = +q.get('speed');
-if (q.has('reducemotion')) cfg.reduceMotion = q.get('reducemotion') !== '0';
+if (q.has('reducemotion')) cfg.reduceMotion = !/^(0|false|off)$/i.test(q.get('reducemotion'));
 
 // ---------- Helpers ----------
 const rand = (a, b) => a + Math.random() * (b - a);
