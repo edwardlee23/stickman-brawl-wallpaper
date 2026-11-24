@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in the wallpaper does not work as expected.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The commit or Workshop update you are running, and your Wallpaper Engine version.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Which settings you use and what you did.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead. A screenshot or short recording helps.
+    validations:
+      required: true

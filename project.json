@@ -1,0 +1,126 @@
+{
+	"file" : "index.html",
+	"title" : "火柴人格鬥 Stickman Brawl",
+	"description" : "漫畫風火柴人大亂鬥：格鬥技、氣功波、飛簷走壁、擊飛撞牆。\nComic-style stick figure brawl: martial arts, energy blasts, wall running, and knockbacks that slam fighters into walls.",
+	"type" : "web",
+	"preview" : "preview.jpg",
+	"tags" : [ "Abstract" ],
+	"general" :
+	{
+		"properties" :
+		{
+			"fightercount" :
+			{
+				"order" : 1,
+				"text" : "ui_fightercount",
+				"type" : "slider",
+				"min" : 2,
+				"max" : 16,
+				"value" : 6,
+				"fraction" : false
+			},
+			"gamemode" :
+			{
+				"order" : 2,
+				"text" : "ui_gamemode",
+				"type" : "combo",
+				"value" : "ffa",
+				"options" :
+				[
+					{ "label" : "ui_gamemode_ffa", "value" : "ffa" },
+					{ "label" : "ui_gamemode_teams", "value" : "teams" }
+				]
+			},
+			"gamespeed" :
+			{
+				"order" : 3,
+				"text" : "ui_gamespeed",
+				"type" : "slider",
+				"min" : 25,
+				"max" : 300,
+				"value" : 100,
+				"fraction" : false
+			},
+			"figurescale" :
+			{
+				"order" : 4,
+				"text" : "ui_figurescale",
+				"type" : "slider",
+				"min" : 50,
+				"max" : 200,
+				"value" : 100,
+				"fraction" : false
+			},
+			"styleboxing" : { "order" : 10, "text" : "ui_styleboxing", "type" : "bool", "value" : true },
+			"stylemuaythai" : { "order" : 11, "text" : "ui_stylemuaythai", "type" : "bool", "value" : true },
+			"styletaekwondo" : { "order" : 12, "text" : "ui_styletaekwondo", "type" : "bool", "value" : true },
+			"stylejudo" : { "order" : 13, "text" : "ui_stylejudo", "type" : "bool", "value" : true },
+			"stylewrestling" : { "order" : 14, "text" : "ui_stylewrestling", "type" : "bool", "value" : true },
+			"stylesuper" : { "order" : 15, "text" : "ui_stylesuper", "type" : "bool", "value" : true },
+			"showhealth" : { "order" : 21, "text" : "ui_showhealth", "type" : "bool", "value" : true },
+			"colorful" : { "order" : 22, "text" : "ui_colorful", "type" : "bool", "value" : true },
+			"backgroundcolor" : { "order" : 30, "text" : "ui_backgroundcolor", "type" : "color", "value" : "0.067 0.075 0.094" },
+			"linecolor" : { "order" : 31, "text" : "ui_linecolor", "type" : "color", "value" : "0.925 0.925 0.925" }
+		},
+		"localization" :
+		{
+			"en-us" :
+			{
+				"ui_fightercount" : "Fighters",
+				"ui_gamemode" : "Mode",
+				"ui_gamemode_ffa" : "Free-for-all",
+				"ui_gamemode_teams" : "Red vs Blue",
+				"ui_gamespeed" : "Speed (%)",
+				"ui_figurescale" : "Figure size (%)",
+				"ui_styleboxing" : "Moves: Boxing",
+				"ui_stylemuaythai" : "Moves: Muay Thai",
+				"ui_styletaekwondo" : "Moves: Taekwondo",
+				"ui_stylejudo" : "Moves: Judo",
+				"ui_stylewrestling" : "Moves: Wrestling",
+				"ui_stylesuper" : "Moves: Specials (energy blasts, wall running…)",
+				"ui_showhealth" : "Show health bars",
+				"ui_colorful" : "Unique color per fighter in free-for-all",
+				"ui_backgroundcolor" : "Background color",
+				"ui_linecolor" : "Line color"
+			},
+			"zh-cht" :
+			{
+				"ui_fightercount" : "人數",
+				"ui_gamemode" : "模式",
+				"ui_gamemode_ffa" : "大亂鬥",
+				"ui_gamemode_teams" : "紅藍兩隊",
+				"ui_gamespeed" : "速度 (%)",
+				"ui_figurescale" : "火柴人大小 (%)",
+				"ui_styleboxing" : "招式：拳擊",
+				"ui_stylemuaythai" : "招式：泰拳",
+				"ui_styletaekwondo" : "招式：跆拳道",
+				"ui_stylejudo" : "招式：柔道",
+				"ui_stylewrestling" : "招式：角力",
+				"ui_stylesuper" : "招式：必殺技（氣功波、飛簷走壁…）",
+				"ui_showhealth" : "顯示血條",
+				"ui_colorful" : "大亂鬥時每人不同顏色",
+				"ui_backgroundcolor" : "背景顏色",
+				"ui_linecolor" : "線條顏色"
+			},
+			"zh-chs" :
+			{
+				"ui_fightercount" : "人数",
+				"ui_gamemode" : "模式",
+				"ui_gamemode_ffa" : "大乱斗",
+				"ui_gamemode_teams" : "红蓝两队",
+				"ui_gamespeed" : "速度 (%)",
+				"ui_figurescale" : "火柴人大小 (%)",
+				"ui_styleboxing" : "招式：拳击",
+				"ui_stylemuaythai" : "招式：泰拳",
+				"ui_styletaekwondo" : "招式：跆拳道",
+				"ui_stylejudo" : "招式：柔道",
+				"ui_stylewrestling" : "招式：摔跤",
+				"ui_stylesuper" : "招式：必杀技（气功波、飞檐走壁…）",
+				"ui_showhealth" : "显示血条",
+				"ui_colorful" : "大乱斗时每人不同颜色",
+				"ui_backgroundcolor" : "背景颜色",
+				"ui_linecolor" : "线条颜色"
+			}
+		}
+	}
+}

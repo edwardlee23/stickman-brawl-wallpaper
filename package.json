@@ -1,0 +1,14 @@
+{
+  "name": "stickman-brawl-wallpaper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Comic-style stickman brawl wallpaper for Wallpaper Engine (web)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check": "node --check main.js && node --test"
+  }
+}

@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # The wallpaper has no npm dependencies today; this entry starts working as
+  # soon as one is added.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Nothing is proposed until it has been out for a week: hijacked releases
+    # are usually pulled within days, and minor/patch updates merge themselves.
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        update-types: [minor, patch]
