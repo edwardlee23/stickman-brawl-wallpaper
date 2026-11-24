@@ -1020,7 +1020,8 @@ class Fighter {
         crack(side < 0 ? 0 : worldW, wy, 'wall', 70);
         addFx({ type: 'ring', x: side < 0 ? 0 : worldW, y: wy, r0: 4, r1: 60, dur: 0.3, w: 3 });
         shake = Math.max(shake, 10); freeze = Math.max(freeze, 0.07);
-        this.state = 'splat'; this.st = 0; this.vx = 0; this.va = 0; this.splatSide = side;
+        // This step may also have crossed the floor, and the ground check below is skipped
+        this.state = 'splat'; this.st = 0; this.vx = 0; this.va = 0; this.alt = Math.max(this.alt, 0); this.splatSide = side;
         this.rot = side * this.facing * Math.PI / 2; this.trailOn = false; stats.splats++;
         if (this.hp <= 0) this.koPending = true;
         return;

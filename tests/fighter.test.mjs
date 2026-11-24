@@ -72,6 +72,15 @@ test('a teleport follows up only with moves from enabled styles', () => {
   }
 });
 
+test('a fighter knocked into a wall near the floor does not sink below it', () => {
+  const { e } = load();
+  e.x = 15;
+  e.launch(-600, -300);
+  e.updLaunched(0.05);   // Crosses the wall and the floor in the same step
+  assert.equal(e.state, 'splat');
+  assert.ok(e.alt >= 0, `alt ${e.alt}`);
+});
+
 test('a knockout clears the special but keeps the ragdoll trail', () => {
   const { e } = load();
   midSpecial(e);
