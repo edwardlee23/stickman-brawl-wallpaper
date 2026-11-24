@@ -180,7 +180,7 @@ const sparks = [], fx = [], shots = [];
 let shake = 0, freeze = 0;
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
 const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0 };
-window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, get fighters() { return fighters; } };
+window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, shots, get fighters() { return fighters; } };
 
 // ---------- Effects ----------
 function spawnSparks(x, y, col, n, up, speed = 1) {
@@ -1098,13 +1098,14 @@ function checkRound(dt) {
 function updateShots(dt) {
   for (let i = shots.length - 1; i >= 0; i--) {
     const s = shots[i];
+    const P0 = { x: s.x, y: s.y };   // Sweep from the last position so a fast blast can't skip a body
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
     let boom = s.life <= 0 || s.x < -20 || s.x > worldW + 20 || s.y < -20;
     if (!boom && s.y >= groundY(s.z)) { boom = true; crack(s.x, groundY(s.z), 'ground', 25); }
     if (!boom) {
       for (const e of fighters) {
         if (!isEnemy(s.owner, e) || !e.hittable || Math.abs(e.z - s.z) > 16 || !e.W) continue;
-        const zone = hitTest(s, s, e.W, 4);
+        const zone = hitTest(P0, s, e.W, 4);
         if (zone) {
           const air = e.alt > 0 || Math.random() < 0.25;
           e.takeHit({ facing: sgn(s.vx) }, s.m, zone, { x: s.x, y: s.y },
@@ -1359,6 +1360,7 @@ function render() {
 }
 
 // ---------- Main loop ----------
+const SUBSTEP = 1 / 60, MAX_SUBSTEPS = 12;   // real is capped at 0.05 s, so 300% needs at most 9
 let paused = false, last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
@@ -1368,7 +1370,17 @@ function frame(now) {
   last = now;
   shake = shake > 0.3 ? shake * Math.pow(0.0015, real) : 0;
   if (freeze > 0) { freeze -= real; render(); return; }   // Hit stop
-  update(real * cfg.speed);
+  // Split the simulated time into equal substeps of at most about 1/60 s, so blasts,
+  // strike and grab windows and ragdolls see the same step size at any speed or frame rate.
+  // The 0.1 slack keeps a slightly long 60 fps frame at 100% speed in one step.
+  const sim = real * cfg.speed;
+  const n = clamp(Math.ceil(sim / SUBSTEP - 0.1), 1, MAX_SUBSTEPS);
+  for (let i = 0; i < n; i++) {
+    update(sim / n);
+    // A hit started a hit stop: drop the rest of this frame's time, so the fight pauses
+    // at the hit instead of running on past it. At 100% speed a frame is one step anyway.
+    if (freeze > 0) break;
+  }
   render();
 }
 
