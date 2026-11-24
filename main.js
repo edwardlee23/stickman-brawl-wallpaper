@@ -316,6 +316,7 @@ function pickMove(me, t) {
       items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1)]);
     }
   }
+  // Every style turned off: fight with all the martial-arts moves rather than stand still (see README)
   if (!items.length) for (const m of MOVES) items.push([m, m.w]);
   let r = Math.random() * items.reduce((s, it) => s + it[1], 0);
   for (const [m, w] of items) { r -= w; if (r <= 0) return m; }
@@ -324,6 +325,7 @@ function pickMove(me, t) {
 
 // ---------- Stickman ----------
 const TMP = clonePose(GUARD);
+const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 'rising', 'barrage'];
 const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run' };
 class Fighter {
   constructor(id, x, z, team, hue) {
@@ -856,9 +858,9 @@ class Fighter {
       this.z = t.z; this.alt = t.alt; this.va = 0;
       this.facing = sgn(t.x - this.x);
       addFx({ type: 'ring', x: this.x, y: groundY(this.z) - this.alt - 45, r0: 2, r1: 40, dur: 0.2, w: 2 });
-      // Follow up with an attack right after appearing behind
-      const follow = MOVE_BY[pick(['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 'rising', 'barrage'])];
-      this.startMove(follow, true);
+      // Follow up with an attack right after appearing behind, from the styles that are turned on
+      const ids = TELEPORT_FOLLOW.filter(id => cfg.styles[MOVE_BY[id].style]);
+      this.startMove(MOVE_BY[pick(ids.length ? ids : TELEPORT_FOLLOW)], true);
     }
   }
 

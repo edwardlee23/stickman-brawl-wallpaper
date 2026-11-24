@@ -25,7 +25,9 @@ red vs blue teams, speed, figure size, which fighting styles are used, health
 bars, per-fighter colors, the background and line colors, and "Reduce
 flashing and screen shake". That last one is on by default: it hides the
 full-screen white flash of energy blasts and the speed lines of big hits, and
-stops the screen shaking. Turn it off for the full comic look.
+stops the screen shaking. Turn it off for the full comic look. With every
+style turned off, fighters use all five martial-arts styles, without the
+specials.
 
 Opened in a plain browser, `index.html` also reads `count`, `mode`, `speed`
 and `reducemotion` from the query string, for example
