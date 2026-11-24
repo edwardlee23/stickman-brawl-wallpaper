@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose a new move, setting or other change, so we can agree on it before code is written.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you would like
+      description: The move, effect or behavior, described as you would see it on screen.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What it adds to the wallpaper, or what problem it solves.
+    validations:
+      required: true
+  - type: textarea
+    id: setting
+    attributes:
+      label: New setting
+      description: >-
+        Does it need a new option in the settings panel? If so, what should it
+        be called? Every setting needs English, Traditional Chinese and
+        Simplified Chinese labels; suggestions are welcome but not required.
+    validations:
+      required: false
