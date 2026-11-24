@@ -101,17 +101,20 @@ async function record(browser, seed, out) {
 
 function parseArgs(argv) {
   const opt = { seed: 8, scan: null, out: path.join(ROOT, 'demo.gif') };
-  for (let i = 0; i < argv.length; i++) {
+  for (let i = 0; i < argv.length; i += 2) {
     const a = argv[i], v = argv[i + 1];
-    if (a === '--seed') { opt.seed = Number(v); i++; }
-    else if (a === '--scan') {
-      const [lo, hi = lo] = v.split('-').map(Number);
-      opt.scan = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k); i++;
-    } else if (a === '--out') { opt.out = path.resolve(v); i++; }
-    else throw new Error('Unknown argument: ' + a);
+    if (!['--seed', '--scan', '--out'].includes(a)) throw new Error('Unknown argument: ' + a);
+    if (v === undefined) throw new Error(a + ' needs a value');
+    if (a === '--seed') {
+      opt.seed = Number(v);
+      if (!/^\d+$/.test(v)) throw new Error('--seed takes a whole number');
+    } else if (a === '--scan') {
+      const m = /^(\d+)(?:-(\d+))?$/.exec(v);
+      const lo = m && Number(m[1]), hi = m && Number(m[2] ?? m[1]);
+      if (!m || lo > hi) throw new Error('--scan takes a seed or a range such as 1-12');
+      opt.scan = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
+    } else opt.out = path.resolve(v);
   }
-  if (!Number.isInteger(opt.seed)) throw new Error('--seed takes a whole number');
-  if (opt.scan && !opt.scan.every(Number.isInteger)) throw new Error('--scan takes a range such as 1-12');
   return opt;
 }
 
