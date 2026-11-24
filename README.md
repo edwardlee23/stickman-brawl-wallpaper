@@ -9,7 +9,7 @@ specials: energy blasts, wall running, and hits that slam them into walls. A
 knockout turns the loser into a ragdoll, and a new round starts when one side
 is left.
 
-![Preview](preview.jpg)
+![Six fighters brawling in free-for-all mode](demo.gif)
 
 ## Install
 
