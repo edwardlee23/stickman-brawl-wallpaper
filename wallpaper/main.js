@@ -149,19 +149,21 @@ const SUPER = [
 ];
 // Elemental spells. The shield is never picked as an attack: a fighter raises it when warned of a hit.
 const MAGIC = [
-  { id: 'fireball', type: 'fireball', range: [90, 9999], w: 2.5, air: true, dmg: 10 },
+  { id: 'fireball', type: 'fireball', range: [90, 9999], w: 2.5, air: true, dmg: 10, speed: 430 },
   { id: 'lightning', type: 'lightning', range: [120, 9999], w: 2, dmg: 14 },
   { id: 'ice', type: 'ice', range: [80, 9999], w: 2.5, air: true, dmg: 5 },
   { id: 'shield', type: 'shield', range: [0, 9999], w: 0, reactive: true },
 ];
 // Ninja techniques. Smoke escape and substitution are reactions to a warned attack, never picked as attacks.
 const NINJA = [
-  { id: 'shuriken', type: 'shuriken', range: [80, 9999], w: 2.5, air: true, dmg: 3 },
+  { id: 'shuriken', type: 'shuriken', range: [80, 9999], w: 2.5, air: true, dmg: 3, speed: 620 },
   { id: 'clones', type: 'clones', range: [40, 220], w: 2, dmg: 5 },
   { id: 'smoke', type: 'smoke', range: [0, 9999], w: 0, reactive: true },
   { id: 'substitute', type: 'substitute', range: [0, 9999], w: 0, reactive: true },
 ];
 const SPECIALS = [...SUPER, ...MAGIC, ...NINJA];
+const SHIELD_UP = 1.1;       // Seconds a shield stays up, longer against a far projectile
+const SMOKE_OUT = 0.3;       // Seconds hidden in a smoke escape, longer against a far projectile
 const MOVE_BY = {};
 for (const m of MOVES) {
   MOVE_BY[m.id] = m;
@@ -727,21 +729,24 @@ class Fighter {
       if (!isEnemy(this, e) || e.state !== 'idle') continue;
       if (Math.abs(e.x - this.x) > reach || Math.abs(e.z - this.z) > 14) continue;
       if (sgn(e.x - this.x) !== this.facing) continue;
+      // A projectile is thrown as it warns and needs time to fly; a block, shield, smoke
+      // escape or substitution lasts that much longer, so it is still up when the shot arrives
+      const fly = this.move.speed ? Math.abs(e.x - this.x) / this.move.speed : 0;
       const r = Math.random();
       if (!grab && r < 0.25) {
-        e.state = 'block'; e.st = 0; e.dur = (this.move.wind || 0.3) + (this.move.act || 0.4) + rand(0.05, 0.2);
+        e.state = 'block'; e.st = 0; e.dur = (this.move.wind || 0.3) + (this.move.act || 0.4) + rand(0.05, 0.2) + fly;
         e.facing = sgn(this.x - e.x);
       } else if (r < 0.37) {
         e.evade = 0.3; e.vx = sgn(e.x - this.x) * rand(160, 230);
       } else if (!grab && r < 0.47 && cfg.styles.magic) {
         e.facing = sgn(this.x - e.x);
         e.startMove(MOVE_BY.shield, true);
-        e.md.from = this;
+        e.md.from = this; e.md.hold = SHIELD_UP + fly;
       } else if (r >= 0.47 && r < 0.55 && cfg.styles.ninjutsu) {
         e.startMove(MOVE_BY.smoke, true);
-        e.md.from = this.x;
+        e.md.from = this.x; e.md.hold = SMOKE_OUT + fly;
       } else if (!grab && r >= 0.55 && r < 0.63 && cfg.styles.ninjutsu) {
-        e.subFrom = this; e.subT = (this.move.wind || 0.3) + (this.move.act || 0.4) + 0.3;
+        e.subFrom = this; e.subT = (this.move.wind || 0.3) + (this.move.act || 0.4) + 0.3 + fly;
       }
     }
   }
@@ -1074,7 +1079,7 @@ class Fighter {
       if (this.st >= 0.16 && this.W) {
         // A fan of three stars, spread a little above and below the aim
         md.ph = 'throw'; md.t0 = this.st;
-        for (const off of [-0.16, 0, 0.16]) this.castShot(this.W.hF, 'star', 620, 0.02, off);
+        for (const off of [-0.16, 0, 0.16]) this.castShot(this.W.hF, 'star', this.move.speed, 0.02, off);
         sfx('toss', this.x);
         this.warn(9999, false);
       }
@@ -1155,7 +1160,7 @@ class Fighter {
         sfx('poof', this.x);
       }
       this.vx = 0;
-      if (this.st >= 0.3) {
+      if (this.st >= (md.hold || SMOKE_OUT)) {
         // Reappear a short way off, away from the attacker; at a wall, the other way
         const away = md.from === undefined ? -this.facing : sgn(this.x - md.from);
         let x = this.x + away * rand(70, 110);
@@ -1186,6 +1191,8 @@ class Fighter {
     this.clearMove();
     this.state = 'idle'; this.vx = 0; this.vz = 0;
     this.appearBehind(att);
+    // The attack that follows goes for the attacker, whoever this fighter was after before
+    this.target = att; this.retarget = rand(1.2, 3);
     this.W = this.joints();   // So the other stars of a fan, tested this same step, miss the log
     puff(this.x, groundY(this.z) - this.alt - 40, 0.6);
     this.startMove(MOVE_BY.substitute, true);
@@ -1268,7 +1275,7 @@ class Fighter {
       if (!md.chargeSfx) { md.chargeSfx = true; sfx('charge', this.x, 0.6); }
       if (this.st >= 0.4 && this.W) {
         md.ph = 'throw'; md.t0 = this.st;
-        this.castShot(mid(this.W.hF, this.W.hB), 'fire', 430, 0.05);
+        this.castShot(mid(this.W.hF, this.W.hB), 'fire', this.move.speed, 0.05);
         sfx('fire', this.x);
         this.warn(9999, false);
       }
@@ -1342,7 +1349,7 @@ class Fighter {
       if (t && t.alive && Math.abs(t.x - this.x) > 1) this.facing = sgn(t.x - this.x);
       lerpPose(this.pose, WARD, Math.min(1, dt * 20), this.pose);
       if (!md.upSfx) { md.upSfx = true; sfx('shield', this.x, 0.6); }
-      if (this.st >= 1.1) { md.ph = 'rec'; md.t0 = this.st; }
+      if (this.st >= (md.hold || SHIELD_UP)) { md.ph = 'rec'; md.t0 = this.st; }
     } else {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 10), this.pose);
       if (this.st - md.t0 > 0.2) this.endMove();
