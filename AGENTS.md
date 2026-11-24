@@ -22,6 +22,20 @@ To see the wallpaper, open `wallpaper/index.html` in a browser
 (`?count=8&mode=teams` works there), or load `wallpaper/project.json` in
 Wallpaper Engine for the settings panel.
 
+Re-record `demo.gif` after a change people can see in the fight, such as a
+new move style. Playwright is a tool for this one script, not a dependency,
+so it is installed without saving it; the script also needs Google Chrome
+(or `CHROME=<path to a Chromium>`) and ffmpeg:
+
+```bash
+npm install --no-save playwright-core
+node scripts/record-demo.mjs --scan 1-12   # move styles each seed shows
+node scripts/record-demo.mjs --seed 8      # record that seed to demo.gif
+```
+
+With the same Chrome and ffmpeg, a seed gives the same GIF byte for byte.
+Pick a seed where every style appears, and name it in the commit message.
+
 ## Never
 
 - Never add a runtime dependency or a build step: Wallpaper Engine must be
@@ -67,6 +81,7 @@ Wallpaper Engine for the settings panel.
 | `wallpaper/project.json` | Wallpaper Engine manifest: title, settings panel, translations. |
 | `wallpaper/preview.jpg` | Workshop preview image. |
 | `demo.gif` | Animated demo shown in the README; not used by Wallpaper Engine. |
+| `scripts/record-demo.mjs` | Records `demo.gif` (seeded, fixed time step); needs Playwright and ffmpeg. |
 | `tests/` | `node:test` checks that the files agree with each other. |
 
 ## Phase status
