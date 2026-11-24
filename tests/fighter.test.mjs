@@ -90,3 +90,19 @@ test('a knockout clears the special but keeps the ragdoll trail', () => {
   assertCleared(e);
   assert.equal(e.trailOn, true, 'trailOn');
 });
+
+// The stub window is 1280 x 720 at 100% figure size, so the world is 960 wide.
+const WORLD_W = 1280 / (720 / 540);
+for (const [wall, x, facing] of [['left', 14, 1], ['right', WORLD_W - 14, -1]]) {
+  test(`a teleport to a target with its back to the ${wall} wall lands beside it, facing it`, () => {
+    const { game, a, e } = load();
+    Object.assign(e, { x, facing, state: 'idle', alt: 0 });
+    a.x = WORLD_W / 2; a.target = e;
+    a.startMove(game.SUPER.find(m => m.id === 'teleport'));
+    a.md.ph = 'gone';
+    a.st = 0.25;
+    a.u_teleport(0);
+    assert.ok(Math.abs(a.x - e.x) >= 20, `attacker at ${a.x}, target at ${e.x}`);
+    assert.equal(a.facing, Math.sign(e.x - a.x), 'faces the target');
+  });
+}

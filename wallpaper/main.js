@@ -857,11 +857,14 @@ class Fighter {
       }
     } else if (this.st >= 0.24) {
       this.invis = false; this.alpha = 1; this.trailOn = false; this.trail.length = 0;
-      this.x = clamp(t.x - t.facing * 28, 14, worldW - 14);
+      // Appear behind the target; with its back to a wall there is no room behind, so appear in front
+      let x = t.x - t.facing * 28;
+      if (x < 14 || x > worldW - 14) x = t.x + t.facing * 28;
+      this.x = clamp(x, 14, worldW - 14);
       this.z = t.z; this.alt = t.alt; this.va = 0;
-      this.facing = sgn(t.x - this.x);
+      this.facing = this.x !== t.x ? sgn(t.x - this.x) : -t.facing;
       addFx({ type: 'ring', x: this.x, y: groundY(this.z) - this.alt - 45, r0: 2, r1: 40, dur: 0.2, w: 2 });
-      // Follow up with an attack right after appearing behind, from the styles that are turned on
+      // Follow up with an attack right after appearing, from the styles that are turned on
       const ids = TELEPORT_FOLLOW.filter(id => cfg.styles[MOVE_BY[id].style]);
       this.startMove(MOVE_BY[pick(ids.length ? ids : TELEPORT_FOLLOW)], true);
     }
