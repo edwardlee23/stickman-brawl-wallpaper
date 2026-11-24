@@ -50,14 +50,18 @@ The owner picked approach 1.
   notes) where `winnerText` is set.
 - At most 6 sounds play at once; the same kind plays at most once per 40 ms.
 - Settings: `soundeffects` (bool, default off; "Sound effects" / 音效 /
-  音效) and `soundvolume` (slider 0–100, default 50; "Volume" / 音效音量 /
-  音效音量). For a plain browser, `?sound=1&volume=50`, clamped like the
+  音效) and `soundvolume` (slider 0–100, default 50; "Volume (%)" / 音效音量 (%)
+  / 音效音量 (%), with "(%)" like the panel's other sliders, shown only while
+  sound is on). For a plain browser, `?sound=1&volume=50`, clamped like the
   other query values.
+- A limiter (`DynamicsCompressorNode`) sits between the master gain and the
+  speakers, so several loud sounds at once do not clip.
 
 ### Calls made by Claude
 
 - Stereo pan follows the fighter's x position on screen.
-- `setPaused` suspends and resumes the audio context.
+- The audio context is suspended while the wallpaper is paused or sound is
+  off, so it does not process silence for hours, and resumed otherwise.
 - In a plain browser, the first click resumes the context, since browsers
   block audio until a user gesture. Wallpaper Engine does not need it.
 
