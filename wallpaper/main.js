@@ -15,6 +15,8 @@ const cfg = {
   line: '#ececec',
   fps: 0,               // 0 = uncapped
   reduceMotion: true,   // skip full-screen flashes and speed lines, no screen shake
+  sound: false,         // sound effects, off unless turned on
+  volume: 0.5,          // 0 to 1
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true },
 };
 // ---------- Helpers ----------
@@ -184,8 +186,8 @@ let fighters = [];
 const sparks = [], fx = [], shots = [];
 let shake = 0, freeze = 0;
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
-const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0 };
-window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, shots, get fighters() { return fighters; } };
+const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
+window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, shots, sfx, soundSetVolume, soundSetPaused, get fighters() { return fighters; } };
 
 // ---------- Effects ----------
 function spawnSparks(x, y, col, n, up, speed = 1) {
@@ -226,6 +228,96 @@ function quake(x, y, r) {
   crack(x, y, 'ground', r * 0.7);
   spawnSparks(x, y, 'rgba(210,210,210,0.75)', 22, true, 2);
   shake = Math.max(shake, 10);
+}
+
+// ---------- Sound ----------
+// Every sound is synthesized from noise and oscillators, so nothing is loaded.
+// The AudioContext is created on the first sound played while sound is on.
+const MAX_VOICES = 6, SFX_GAP = 0.04;      // sounds at once; seconds between two of one kind
+const snd = { ac: null, master: null, noise: null, ends: [], last: {} };
+function soundContext() {
+  if (snd.ac) return snd.ac;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  try { snd.ac = new AC(); } catch (e) { return null; }
+  snd.master = snd.ac.createGain();
+  snd.master.gain.value = cfg.volume;
+  snd.master.connect(snd.ac.destination);
+  const n = Math.floor(snd.ac.sampleRate * 0.5);
+  snd.noise = snd.ac.createBuffer(1, n, snd.ac.sampleRate);
+  const d = snd.noise.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  return snd.ac;
+}
+// A gain that rises to peak in 5 ms and decays to silence by t + dur.
+function envGain(ac, out, t, peak, dur) {
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  g.connect(out);
+  return g;
+}
+// An oscillator gliding from f0 to f1 Hz.
+function tone(ac, out, t, type, f0, f1, dur, peak) {
+  const o = ac.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  o.connect(envGain(ac, out, t, peak, dur));
+  o.start(t); o.stop(t + dur + 0.02);
+}
+// White noise through a filter whose frequency glides from f0 to f1 Hz.
+function noise(ac, out, t, filter, f0, f1, dur, peak, q = 1) {
+  const s = ac.createBufferSource();
+  s.buffer = snd.noise;
+  const f = ac.createBiquadFilter();
+  f.type = filter; f.Q.value = q;
+  f.frequency.setValueAtTime(f0, t);
+  f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  s.connect(f); f.connect(envGain(ac, out, t, peak, dur));
+  s.start(t, Math.random() * 0.2); s.stop(t + dur + 0.02);
+}
+// Each recipe plays one sound at time t and returns how long it lasts.
+// s scales loudness (0.3 to 1.6); v is a small random detune, so repeats differ.
+const SFX = {
+  hit: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 1800 * v, 1500 * v, 0.06, 0.4 * s, 1.2); tone(ac, o, t, 'sine', 160 * v, 70 * v, 0.09, 0.5 * s); return 0.1; },
+  hitBig: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 1200 * v, 800 * v, 0.12, 0.55 * s, 1); tone(ac, o, t, 'sine', 120 * v, 45 * v, 0.18, 0.7 * s); return 0.2; },
+  block: (ac, o, t, s, v) => { noise(ac, o, t, 'highpass', 2500 * v, 2500 * v, 0.04, 0.25 * s); tone(ac, o, t, 'triangle', 900 * v, 700 * v, 0.03, 0.2 * s); return 0.05; },
+  whiff: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 600 * v, 2000 * v, 0.15, 0.12 * s, 2); return 0.16; },
+  boom: (ac, o, t, s, v) => { tone(ac, o, t, 'sine', 90 * v, 35 * v, 0.4, 0.6 * s); noise(ac, o, t, 'lowpass', 400 * v, 150 * v, 0.35, 0.4 * s); return 0.4; },
+  wall: (ac, o, t, s, v) => { noise(ac, o, t, 'lowpass', 1500 * v, 400 * v, 0.3, 0.5 * s); tone(ac, o, t, 'square', 70 * v, 50 * v, 0.2, 0.1 * s); return 0.3; },
+  ko: (ac, o, t, s, v) => { tone(ac, o, t, 'sine', 110 * v, 30 * v, 0.45, 0.75 * s); noise(ac, o, t, 'lowpass', 600 * v, 200 * v, 0.2, 0.25 * s); return 0.45; },
+  charge: (ac, o, t, s, v) => { tone(ac, o, t, 'triangle', 200 * v, 800 * v, 0.5, 0.1 * s); return 0.5; },
+  fire: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 3000 * v, 500 * v, 0.25, 0.35 * s); tone(ac, o, t, 'sine', 300 * v, 80 * v, 0.2, 0.4 * s); return 0.25; },
+  step: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 900 * v, 900 * v, 0.025, 0.1 * s, 1.5); return 0.03; },
+  win: (ac, o, t, s) => { [523, 659, 784].forEach((f, i) => tone(ac, o, t + i * 0.13, 'triangle', f, f, 0.12, 0.2 * s)); return 0.4; },
+};
+// Plays a sound of the given kind, panned to world x; false if it did not start.
+function sfx(kind, x, strength = 1) {
+  if (!cfg.sound || !SFX[kind]) return false;
+  const ac = soundContext();
+  if (!ac) return false;
+  const t = ac.currentTime;
+  if (t - (snd.last[kind] ?? -1) < SFX_GAP) return false;
+  snd.ends = snd.ends.filter(end => end > t);
+  if (snd.ends.length >= MAX_VOICES) return false;
+  let out = snd.master;
+  if (ac.createStereoPanner) {
+    out = ac.createStereoPanner();
+    out.pan.value = x === undefined || !worldW ? 0 : clamp(x / worldW * 2 - 1, -1, 1) * 0.6;
+    out.connect(snd.master);
+  }
+  const dur = SFX[kind](ac, out, t, clamp(strength, 0.3, 1.6), rand(0.94, 1.06));
+  snd.last[kind] = t; snd.ends.push(t + dur);
+  stats.sfx[kind] = (stats.sfx[kind] || 0) + 1;
+  return true;
+}
+function soundSetVolume() { if (snd.master) snd.master.gain.value = cfg.volume; }
+function soundSetPaused(v) {
+  if (!snd.ac) return;
+  const p = v ? snd.ac.suspend() : snd.ac.resume();
+  if (p && p.catch) p.catch(() => {});
 }
 
 // ---------- ragdoll ----------
