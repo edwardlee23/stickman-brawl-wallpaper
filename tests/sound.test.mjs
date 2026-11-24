@@ -139,3 +139,28 @@ test('pausing suspends and resumes the context, and is safe before any sound', (
   window.wallpaperPropertyListener.setPaused(false);
   assert.deepEqual(AC.instances[0].calls, ['suspend', 'resume']);
 });
+
+test('a hit, a block, a whiff and a knockout each play their sound', () => {
+  const { game, a, e, AC } = load('?count=2&sound=1');
+  const tick = () => { if (AC.instances[0]) AC.instances[0].currentTime += 10; };
+  const m = game.MOVES.find(x => x.id === 'jab');
+  e.state = 'idle'; e.hp = 1000; e.alt = 0;
+  e.takeHit(a, m, 'body', { x: 100, y: 100 }); tick();
+  assert.equal((game.stats.sfx.hit || 0) + (game.stats.sfx.hitBig || 0), 1);
+  e.state = 'block'; e.facing = -a.facing;
+  e.takeHit(a, m, 'body', { x: 100, y: 100 }); tick();
+  assert.equal(game.stats.sfx.block, 1);
+  a.move = m; a.hitDone = false; a.endMove(); tick();
+  assert.equal(game.stats.sfx.whiff, 1);
+  e.ko(0, -40);
+  assert.equal(game.stats.sfx.ko, 1);
+});
+
+test('a round end plays the win sting once', () => {
+  const { game, AC } = load('?count=2&sound=1');
+  game.fighters[1].state = 'ko';
+  game.checkRound(0.016);
+  AC.instances[0].currentTime += 10;
+  game.checkRound(0.016);
+  assert.equal(game.stats.sfx.win, 1);
+});

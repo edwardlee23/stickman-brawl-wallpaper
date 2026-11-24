@@ -189,7 +189,7 @@ const sparks = [], fx = [], shots = [];
 let shake = 0, freeze = 0;
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
 const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
-window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, shots, sfx, soundSetVolume, soundSetPaused, get fighters() { return fighters; } };
+window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, shots, sfx, soundSetVolume, soundSetPaused, checkRound, get fighters() { return fighters; } };
 
 // ---------- Effects ----------
 function spawnSparks(x, y, col, n, up, speed = 1) {
@@ -217,10 +217,12 @@ function crack(x, y, kind, size) {
     lines.push(pts);
   }
   addFx({ type: 'crack', x, y, kind, size, lines, dur: 5 });
+  if (kind === 'wall') sfx('wall', x);
 }
 function impact(x, y, big) {
   addFx({ type: 'ring', x, y, r0: 4, r1: big ? 70 : 34, dur: big ? 0.35 : 0.22, w: big ? 3 : 2 });
   spawnSparks(x, y, '#ffe28a', big ? 18 : 10, false, big ? 1.6 : 1);
+  sfx(big ? 'hitBig' : 'hit', x);
   shake = Math.max(shake, big ? 9 : 4);
   freeze = Math.max(freeze, big ? 0.09 : 0.035);
   if (big) addFx({ type: 'focus', x, y, dur: 0.28 });
@@ -228,6 +230,7 @@ function impact(x, y, big) {
 function quake(x, y, r) {
   addFx({ type: 'ring', x, y, r0: 6, r1: r, dur: 0.4, w: 3, flat: true });
   crack(x, y, 'ground', r * 0.7);
+  sfx('boom', x, r / 110);
   spawnSparks(x, y, 'rgba(210,210,210,0.75)', 22, true, 2);
   shake = Math.max(shake, 10);
 }
@@ -661,8 +664,15 @@ class Fighter {
     }
   }
 
+  // Advances the running cycle of a wall run; each footfall plays a step.
+  runStep(dt) {
+    const before = Math.floor(this.walk / Math.PI);
+    this.walk += dt * 26;
+    if (Math.floor(this.walk / Math.PI) !== before) sfx('step', this.x, 0.4);
+  }
+
   endMove() {
-    if (this.move && !this.move.type && !this.hitDone) stats.whiff++;
+    if (this.move && !this.move.type && !this.hitDone) { stats.whiff++; sfx('whiff', this.x); }
     this.state = this.alt > 0 ? 'air' : 'idle'; this.st = 0;
     this.move = null; this.md = null; this.spin = false; this.hover = false; this.ghost = false;
     this.rot = 0; this.trailOn = false; this.invis = false; this.alpha = 1; this.vz = 0;
@@ -726,10 +736,11 @@ class Fighter {
     if (md.ph === 'charge') {
       this.aura = 1;
       lerpPose(this.pose, CHARGE, Math.min(1, dt * 10), this.pose);
+      if (!md.chargeSfx) { md.chargeSfx = true; sfx('charge', this.x); }
       if (t && t.alive) this.facing = sgn(t.x - this.x);
 
       if (this.st >= 0.75) {
-        md.ph = 'fire'; md.t0 = this.st; md.hit = new Set();
+        md.ph = 'fire'; md.t0 = this.st; sfx('fire', this.x, 1.5); md.hit = new Set();
         const H = mid(this.W.hF, this.W.hB);
         let aim = 0;
         if (t && t.W) {
@@ -793,7 +804,7 @@ class Fighter {
         if (t && t.W) { const c = mid(t.W.sh, t.W.hip); a = Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1); }
         a = clamp(a + rand(-0.12, 0.12), -1, 1.1);
         const sp = 540;
-        shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, life: 3, col: colorOf(this) });
+        shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, life: 3, col: colorOf(this) }); sfx('fire', H.x, 0.5);
         spawnSparks(H.x, H.y, '#ffffff', 3);
       }
     } else {
@@ -969,7 +980,7 @@ class Fighter {
     if (md.ph === 'run') {
       if (md.dir === undefined) md.dir = this.x < worldW / 2 ? -1 : 1;
       this.facing = md.dir; this.vx = md.dir * 450; this.trailOn = true;
-      this.walk += dt * 26;
+      this.runStep(dt);
       const p = Object.assign(TMP, RUN);
       p.lF += Math.sin(this.walk) * 0.7; p.lB -= Math.sin(this.walk) * 0.7;
       lerpPose(this.pose, p, Math.min(1, dt * 20), this.pose);
@@ -980,7 +991,7 @@ class Fighter {
       }
       if (this.st > 2.5) this.endMove();
     } else if (md.ph === 'climb') {
-      this.walk += dt * 26;
+      this.runStep(dt);
       const p = Object.assign(TMP, RUN);
       p.lF += Math.sin(this.walk) * 0.7; p.lB -= Math.sin(this.walk) * 0.7;
       lerpPose(this.pose, p, Math.min(1, dt * 20), this.pose);
@@ -1065,7 +1076,7 @@ class Fighter {
     if (this.state === 'block' && this.facing === -dir) {
       this.hp -= (o.dmg ?? m.dmg) * 0.15;
       this.vx = dir * (o.launch ? Math.abs(o.launch.vx) * 0.5 : (m.push || 30) * 1.2 + 60);
-      spawnSparks(H.x, H.y, '#9fd4ff', 8); stats.blocked++;
+      spawnSparks(H.x, H.y, '#9fd4ff', 8); stats.blocked++; sfx('block', H.x);
       if (this.hp <= 0) this.ko(dir * 300, -250);
       return;
     }
@@ -1161,7 +1172,7 @@ class Fighter {
 
   ko(vx, vy) {
     this.state = 'ko'; this.st = 0; this.clearMove(); this.trailOn = true;
-    this.rag = makeRag(this.W, vx, vy); stats.ko++;
+    this.rag = makeRag(this.W, vx, vy); stats.ko++; sfx('ko', this.x);
   }
 }
 
@@ -1192,7 +1203,7 @@ function checkRound(dt) {
   const alive = fighters.filter(f => f.alive);
   const sides = new Set(alive.map(f => (cfg.mode === 'teams' ? f.team : f.id)));
   if (sides.size <= 1) {
-    roundOver = true; roundTimer = 4.5; stats.rounds++;
+    roundOver = true; roundTimer = 4.5; stats.rounds++; sfx('win', worldW / 2);
     const w = alive[0];
     winnerText = !w ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[w.team] + ' WINS!' : '#' + (w.id + 1) + ' WINS!';
     winnerColor = w ? colorOf(w) : cfg.line;
