@@ -60,6 +60,8 @@
 			"showhealth" : { "order" : 21, "text" : "ui_showhealth", "type" : "bool", "value" : true },
 			"colorful" : { "order" : 22, "text" : "ui_colorful", "type" : "bool", "value" : true },
 			"reducemotion" : { "order" : 23, "text" : "ui_reducemotion", "type" : "bool", "value" : true },
+			"soundeffects" : { "order" : 24, "text" : "ui_soundeffects", "type" : "bool", "value" : false },
+			"soundvolume" : { "order" : 25, "text" : "ui_soundvolume", "type" : "slider", "min" : 0, "max" : 100, "value" : 50, "condition" : "soundeffects.value" },
 			"backgroundcolor" : { "order" : 30, "text" : "ui_backgroundcolor", "type" : "color", "value" : "0.067 0.075 0.094" },
 			"linecolor" : { "order" : 31, "text" : "ui_linecolor", "type" : "color", "value" : "0.925 0.925 0.925" }
 		},
@@ -82,6 +84,8 @@
 				"ui_showhealth" : "Show health bars",
 				"ui_colorful" : "Unique color per fighter in free-for-all",
 				"ui_reducemotion" : "Reduce flashing and screen shake",
+				"ui_soundeffects" : "Sound effects",
+				"ui_soundvolume" : "Volume (%)",
 				"ui_backgroundcolor" : "Background color",
 				"ui_linecolor" : "Line color"
 			},
@@ -102,6 +106,8 @@
 				"ui_showhealth" : "顯示血條",
 				"ui_colorful" : "大亂鬥時每人不同顏色",
 				"ui_reducemotion" : "減少閃光與畫面震動",
+				"ui_soundeffects" : "音效",
+				"ui_soundvolume" : "音效音量 (%)",
 				"ui_backgroundcolor" : "背景顏色",
 				"ui_linecolor" : "線條顏色"
 			},
@@ -122,6 +128,8 @@
 				"ui_showhealth" : "显示血条",
 				"ui_colorful" : "大乱斗时每人不同颜色",
 				"ui_reducemotion" : "减少闪光与画面震动",
+				"ui_soundeffects" : "音效",
+				"ui_soundvolume" : "音效音量 (%)",
 				"ui_backgroundcolor" : "背景颜色",
 				"ui_linecolor" : "线条颜色"
 			}

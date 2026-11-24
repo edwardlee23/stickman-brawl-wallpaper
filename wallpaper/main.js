@@ -15,6 +15,8 @@ const cfg = {
   line: '#ececec',
   fps: 0,               // 0 = uncapped
   reduceMotion: true,   // skip full-screen flashes and speed lines, no screen shake
+  sound: false,         // sound effects, off unless turned on
+  volume: 0.5,          // 0 to 1
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true },
 };
 // ---------- Helpers ----------
@@ -35,6 +37,8 @@ cfg.count = Math.round(qNum('count', 2, 16, cfg.count));
 cfg.speed = qNum('speed', 0.25, 3, cfg.speed);
 if (q.get('mode') === 'ffa' || q.get('mode') === 'teams') cfg.mode = q.get('mode');
 if (q.has('reducemotion')) cfg.reduceMotion = !/^(0|false|off)$/i.test(q.get('reducemotion'));
+if (q.has('sound')) cfg.sound = !/^(0|false|off)$/i.test(q.get('sound'));
+cfg.volume = qNum('volume', 0, 100, cfg.volume * 100) / 100;
 
 // ---------- Skeleton ----------
 const L = { torso: 34, neck: 5, head: 8, uarm: 17, farm: 17, thigh: 22, shin: 22 };
@@ -184,8 +188,8 @@ let fighters = [];
 const sparks = [], fx = [], shots = [];
 let shake = 0, freeze = 0;
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
-const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0 };
-window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, shots, get fighters() { return fighters; } };
+const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
+window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, shots, sfx, soundSetVolume, soundSetPaused, checkRound, get fighters() { return fighters; } };
 
 // ---------- Effects ----------
 function spawnSparks(x, y, col, n, up, speed = 1) {
@@ -213,10 +217,12 @@ function crack(x, y, kind, size) {
     lines.push(pts);
   }
   addFx({ type: 'crack', x, y, kind, size, lines, dur: 5 });
+  if (kind === 'wall') sfx('wall', x);
 }
 function impact(x, y, big) {
   addFx({ type: 'ring', x, y, r0: 4, r1: big ? 70 : 34, dur: big ? 0.35 : 0.22, w: big ? 3 : 2 });
   spawnSparks(x, y, '#ffe28a', big ? 18 : 10, false, big ? 1.6 : 1);
+  sfx(big ? 'hitBig' : 'hit', x);
   shake = Math.max(shake, big ? 9 : 4);
   freeze = Math.max(freeze, big ? 0.09 : 0.035);
   if (big) addFx({ type: 'focus', x, y, dur: 0.28 });
@@ -224,8 +230,106 @@ function impact(x, y, big) {
 function quake(x, y, r) {
   addFx({ type: 'ring', x, y, r0: 6, r1: r, dur: 0.4, w: 3, flat: true });
   crack(x, y, 'ground', r * 0.7);
+  sfx('boom', x, r / 110);
   spawnSparks(x, y, 'rgba(210,210,210,0.75)', 22, true, 2);
   shake = Math.max(shake, 10);
+}
+
+// ---------- Sound ----------
+// Every sound is synthesized from noise and oscillators, so nothing is loaded.
+// The AudioContext is created on the first sound played while sound is on.
+const MAX_VOICES = 6, SFX_GAP = 0.04;      // sounds at once; seconds between two of one kind
+const snd = { ac: null, master: null, noise: null, ends: [], last: {} };
+function soundContext() {
+  if (snd.ac) return snd.ac;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  try { snd.ac = new AC(); } catch (e) { return null; }
+  snd.master = snd.ac.createGain();
+  snd.master.gain.value = cfg.volume;
+  // A limiter after the master, so several loud sounds at once do not clip
+  const lim = snd.ac.createDynamicsCompressor();
+  lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12;
+  lim.attack.value = 0.002; lim.release.value = 0.2;
+  snd.master.connect(lim);
+  lim.connect(snd.ac.destination);
+  const n = Math.floor(snd.ac.sampleRate * 0.5);
+  snd.noise = snd.ac.createBuffer(1, n, snd.ac.sampleRate);
+  const d = snd.noise.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  return snd.ac;
+}
+// A gain that rises to peak in 5 ms and decays to silence by t + dur.
+function envGain(ac, out, t, peak, dur) {
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  g.connect(out);
+  return g;
+}
+// An oscillator gliding from f0 to f1 Hz.
+function tone(ac, out, t, type, f0, f1, dur, peak) {
+  const o = ac.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  o.connect(envGain(ac, out, t, peak, dur));
+  o.start(t); o.stop(t + dur + 0.02);
+}
+// White noise through a filter whose frequency glides from f0 to f1 Hz.
+function noise(ac, out, t, filter, f0, f1, dur, peak, q = 1) {
+  const s = ac.createBufferSource();
+  s.buffer = snd.noise;
+  const f = ac.createBiquadFilter();
+  f.type = filter; f.Q.value = q;
+  f.frequency.setValueAtTime(f0, t);
+  f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  s.connect(f); f.connect(envGain(ac, out, t, peak, dur));
+  s.start(t, Math.random() * 0.2); s.stop(t + dur + 0.02);
+}
+// Each recipe plays one sound at time t and returns how long it lasts.
+// s scales loudness (0.3 to 1.6); v is a small random detune, so repeats differ.
+const SFX = {
+  hit: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 1800 * v, 1500 * v, 0.06, 0.4 * s, 1.2); tone(ac, o, t, 'sine', 160 * v, 70 * v, 0.09, 0.5 * s); return 0.1; },
+  hitBig: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 1200 * v, 800 * v, 0.12, 0.55 * s, 1); tone(ac, o, t, 'sine', 120 * v, 45 * v, 0.18, 0.7 * s); return 0.2; },
+  block: (ac, o, t, s, v) => { noise(ac, o, t, 'highpass', 2500 * v, 2500 * v, 0.04, 0.25 * s); tone(ac, o, t, 'triangle', 900 * v, 700 * v, 0.03, 0.2 * s); return 0.05; },
+  whiff: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 600 * v, 2000 * v, 0.15, 0.12 * s, 2); return 0.16; },
+  boom: (ac, o, t, s, v) => { tone(ac, o, t, 'sine', 90 * v, 35 * v, 0.4, 0.6 * s); noise(ac, o, t, 'lowpass', 400 * v, 150 * v, 0.35, 0.4 * s); return 0.4; },
+  wall: (ac, o, t, s, v) => { noise(ac, o, t, 'lowpass', 1500 * v, 400 * v, 0.3, 0.5 * s); tone(ac, o, t, 'square', 70 * v, 50 * v, 0.2, 0.1 * s); return 0.3; },
+  ko: (ac, o, t, s, v) => { tone(ac, o, t, 'sine', 110 * v, 30 * v, 0.45, 0.75 * s); noise(ac, o, t, 'lowpass', 600 * v, 200 * v, 0.2, 0.25 * s); return 0.45; },
+  charge: (ac, o, t, s, v) => { tone(ac, o, t, 'triangle', 200 * v, 800 * v, 0.5, 0.1 * s); return 0.5; },
+  fire: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 3000 * v, 500 * v, 0.25, 0.35 * s); tone(ac, o, t, 'sine', 300 * v, 80 * v, 0.2, 0.4 * s); return 0.25; },
+  step: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 900 * v, 900 * v, 0.025, 0.1 * s, 1.5); return 0.03; },
+  win: (ac, o, t, s) => { [523, 659, 784].forEach((f, i) => tone(ac, o, t + i * 0.13, 'triangle', f, f, 0.12, 0.2 * s)); return 0.4; },
+};
+// Plays a sound of the given kind, panned to world x; false if it did not start.
+function sfx(kind, x, strength = 1) {
+  if (!cfg.sound || !SFX[kind]) return false;
+  const ac = soundContext();
+  if (!ac) return false;
+  const t = ac.currentTime;
+  if (t - (snd.last[kind] ?? -1) < SFX_GAP) return false;
+  snd.ends = snd.ends.filter(end => end > t);
+  if (snd.ends.length >= MAX_VOICES) return false;
+  let out = snd.master;
+  if (ac.createStereoPanner) {
+    out = ac.createStereoPanner();
+    out.pan.value = x === undefined || !worldW ? 0 : clamp(x / worldW * 2 - 1, -1, 1) * 0.6;
+    out.connect(snd.master);
+  }
+  const dur = SFX[kind](ac, out, t, clamp(strength, 0.3, 1.6), rand(0.94, 1.06));
+  snd.last[kind] = t; snd.ends.push(t + dur);
+  stats.sfx[kind] = (stats.sfx[kind] || 0) + 1;
+  return true;
+}
+function soundSetVolume() { if (snd.master) snd.master.gain.value = cfg.volume; }
+// Suspends the context while the wallpaper is paused or sound is off, so it does not
+// keep processing silence for hours; resumes it otherwise.
+function soundSetPaused(v) {
+  if (!snd.ac) return;
+  const p = v || !cfg.sound ? snd.ac.suspend() : snd.ac.resume();
+  if (p && p.catch) p.catch(() => {});
 }
 
 // ---------- ragdoll ----------
@@ -567,8 +671,15 @@ class Fighter {
     }
   }
 
+  // Advances the running cycle of a wall run; each footfall plays a step.
+  runStep(dt) {
+    const before = Math.floor(this.walk / Math.PI);
+    this.walk += dt * 26;
+    if (Math.floor(this.walk / Math.PI) !== before) sfx('step', this.x, 0.4);
+  }
+
   endMove() {
-    if (this.move && !this.move.type && !this.hitDone) stats.whiff++;
+    if (this.move && !this.move.type && !this.hitDone) { stats.whiff++; sfx('whiff', this.x); }
     this.state = this.alt > 0 ? 'air' : 'idle'; this.st = 0;
     this.move = null; this.md = null; this.spin = false; this.hover = false; this.ghost = false;
     this.rot = 0; this.trailOn = false; this.invis = false; this.alpha = 1; this.vz = 0;
@@ -632,10 +743,11 @@ class Fighter {
     if (md.ph === 'charge') {
       this.aura = 1;
       lerpPose(this.pose, CHARGE, Math.min(1, dt * 10), this.pose);
+      if (!md.chargeSfx) { md.chargeSfx = true; sfx('charge', this.x); }
       if (t && t.alive) this.facing = sgn(t.x - this.x);
 
       if (this.st >= 0.75) {
-        md.ph = 'fire'; md.t0 = this.st; md.hit = new Set();
+        md.ph = 'fire'; md.t0 = this.st; sfx('fire', this.x, 1.5); md.hit = new Set();
         const H = mid(this.W.hF, this.W.hB);
         let aim = 0;
         if (t && t.W) {
@@ -699,7 +811,7 @@ class Fighter {
         if (t && t.W) { const c = mid(t.W.sh, t.W.hip); a = Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1); }
         a = clamp(a + rand(-0.12, 0.12), -1, 1.1);
         const sp = 540;
-        shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, life: 3, col: colorOf(this) });
+        shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, life: 3, col: colorOf(this) }); sfx('fire', H.x, 0.5);
         spawnSparks(H.x, H.y, '#ffffff', 3);
       }
     } else {
@@ -875,7 +987,7 @@ class Fighter {
     if (md.ph === 'run') {
       if (md.dir === undefined) md.dir = this.x < worldW / 2 ? -1 : 1;
       this.facing = md.dir; this.vx = md.dir * 450; this.trailOn = true;
-      this.walk += dt * 26;
+      this.runStep(dt);
       const p = Object.assign(TMP, RUN);
       p.lF += Math.sin(this.walk) * 0.7; p.lB -= Math.sin(this.walk) * 0.7;
       lerpPose(this.pose, p, Math.min(1, dt * 20), this.pose);
@@ -886,7 +998,7 @@ class Fighter {
       }
       if (this.st > 2.5) this.endMove();
     } else if (md.ph === 'climb') {
-      this.walk += dt * 26;
+      this.runStep(dt);
       const p = Object.assign(TMP, RUN);
       p.lF += Math.sin(this.walk) * 0.7; p.lB -= Math.sin(this.walk) * 0.7;
       lerpPose(this.pose, p, Math.min(1, dt * 20), this.pose);
@@ -971,7 +1083,7 @@ class Fighter {
     if (this.state === 'block' && this.facing === -dir) {
       this.hp -= (o.dmg ?? m.dmg) * 0.15;
       this.vx = dir * (o.launch ? Math.abs(o.launch.vx) * 0.5 : (m.push || 30) * 1.2 + 60);
-      spawnSparks(H.x, H.y, '#9fd4ff', 8); stats.blocked++;
+      spawnSparks(H.x, H.y, '#9fd4ff', 8); stats.blocked++; sfx('block', H.x);
       if (this.hp <= 0) this.ko(dir * 300, -250);
       return;
     }
@@ -1067,7 +1179,7 @@ class Fighter {
 
   ko(vx, vy) {
     this.state = 'ko'; this.st = 0; this.clearMove(); this.trailOn = true;
-    this.rag = makeRag(this.W, vx, vy); stats.ko++;
+    this.rag = makeRag(this.W, vx, vy); stats.ko++; sfx('ko', this.x);
   }
 }
 
@@ -1098,7 +1210,7 @@ function checkRound(dt) {
   const alive = fighters.filter(f => f.alive);
   const sides = new Set(alive.map(f => (cfg.mode === 'teams' ? f.team : f.id)));
   if (sides.size <= 1) {
-    roundOver = true; roundTimer = 4.5; stats.rounds++;
+    roundOver = true; roundTimer = 4.5; stats.rounds++; sfx('win', worldW / 2);
     const w = alive[0];
     winnerText = !w ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[w.team] + ' WINS!' : '#' + (w.id + 1) + ' WINS!';
     winnerColor = w ? colorOf(w) : cfg.line;
@@ -1413,6 +1525,8 @@ window.wallpaperPropertyListener = {
     if (p.backgroundcolor) { cfg.bg = weColor(p.backgroundcolor.value); document.body.style.background = cfg.bg; }
     if (p.linecolor) cfg.line = weColor(p.linecolor.value);
     if (p.reducemotion) cfg.reduceMotion = p.reducemotion.value;
+    if (p.soundeffects) { cfg.sound = p.soundeffects.value; soundSetPaused(paused); }
+    if (p.soundvolume) { cfg.volume = p.soundvolume.value / 100; soundSetVolume(); }
     let styles = false;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
     // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes
@@ -1420,10 +1534,12 @@ window.wallpaperPropertyListener = {
     if (reset) newRound();
   },
   applyGeneralProperties(p) { if (p.fps !== undefined) cfg.fps = p.fps; },
-  setPaused(v) { paused = v; },
+  setPaused(v) { paused = v; soundSetPaused(v); },
 };
 
 window.addEventListener('resize', resize);
+// A plain browser keeps audio suspended until the page is clicked; Wallpaper Engine does not.
+window.addEventListener('pointerdown', () => { if (!paused && cfg.sound && snd.ac && snd.ac.state === 'suspended') soundSetPaused(false); });
 resize();
 newRound();
 requestAnimationFrame(frame);

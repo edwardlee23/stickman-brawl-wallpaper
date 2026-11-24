@@ -31,11 +31,18 @@ stops the screen shaking. Turn it off for the full comic look. With every
 style turned off, fighters use all five martial-arts styles, without the
 specials.
 
+"Sound effects" plays short comic sounds for hits, blocks, specials,
+knockouts and the end of a round, with its own volume. It is off by default.
+The sounds are made in code when they play, so the wallpaper loads no audio
+files and works offline.
+
 Opened in a plain browser, `wallpaper/index.html` also reads `count`, `mode`,
-`speed` and `reducemotion` from the query string, for example
-`index.html?count=8&mode=teams` or `index.html?reducemotion=0`. `count` (2
-to 16) and `speed` (0.25 to 3, where 1 is 100%) are clamped to the panel's
-ranges, `mode` is `ffa` or `teams`, and any other value keeps the default.
+`speed`, `reducemotion`, `sound` and `volume` from the query string, for
+example `index.html?count=8&mode=teams` or `index.html?sound=1&volume=50`.
+`count` (2 to 16), `speed` (0.25 to 3, where 1 is 100%) and `volume` (0 to
+100) are clamped to the panel's ranges, `mode` is `ffa` or `teams`, and any
+other value keeps the default. A browser plays sound only after the page has
+been clicked once.
 
 ## Development
 

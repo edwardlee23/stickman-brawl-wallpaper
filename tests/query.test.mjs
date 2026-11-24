@@ -51,3 +51,13 @@ test('valid values are used as given', () => {
   assert.equal(game.cfg.speed, 2.5);
   assert.equal(game.cfg.mode, 'teams');
 });
+
+test('sound is off by default, and the query string turns it on with a clamped volume', () => {
+  assert.equal(load('').cfg.sound, false);
+  assert.equal(load('').cfg.volume, 0.5);
+  assert.equal(load('?sound=1').cfg.sound, true);
+  assert.equal(load('?sound=off').cfg.sound, false);
+  assert.equal(load('?volume=250').cfg.volume, 1);
+  assert.equal(load('?volume=-3').cfg.volume, 0);
+  assert.equal(load('?volume=abc').cfg.volume, 0.5);
+});
