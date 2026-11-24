@@ -42,10 +42,11 @@ function assertCleared(f) {
   assert.equal(f.alpha, 1, 'alpha');
   assert.equal(f.invis, false, 'invis');
   assert.equal(f.aura, 0, 'aura');
+  assert.equal(f.rot, 0, 'rot');
 }
 
 for (const kind of ['over', 'reap', 'takedown']) {
-  test(`a ${kind} grab clears the grabbed fighter's special`, () => {
+  test(`the "${kind}" grab clears the grabbed fighter's special`, () => {
     const { game, a, e } = load();
     a.move = game.MOVES.find(m => m.grab === kind);
     midSpecial(e);
