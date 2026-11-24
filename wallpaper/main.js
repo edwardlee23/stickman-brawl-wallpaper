@@ -200,7 +200,16 @@ function resize() {
   S = cfg.scale * SH / 540;
   worldW = SW / S; worldH = SH / S;
   floorTop = worldH * 0.74 - DEPTH / 2;
-  for (const f of fighters) f.x = clamp(f.x, 14, worldW - 14);
+  for (const f of fighters) {
+    f.x = clamp(f.x, 14, worldW - 14);
+    // A body at rest no longer simulates, so slide it whole back inside a narrower screen
+    if (f.rag) {
+      const xs = Object.values(f.rag.pts).map(o => o.x);
+      const lo = Math.min(...xs), hi = Math.max(...xs);
+      const dx = hi > worldW - 4 ? Math.max(worldW - 4 - hi, 4 - lo) : lo < 4 ? 4 - lo : 0;
+      if (dx) for (const o of Object.values(f.rag.pts)) { o.x += dx; o.px += dx; }
+    }
+  }
 }
 
 const TEAM_COLOR = ['#ff6b6b', '#4dabf7'];
@@ -613,7 +622,10 @@ class Fighter {
       this.alt = clamp(this.alt + this.va * dt, 0, maxAlt(this.z));
     } else if (this.alt > 0 || this.va > 0) {
       this.va -= G * dt;
-      this.alt = Math.min(this.alt + this.va * dt, maxAlt(this.z));
+      this.alt += this.va * dt;
+      // At the top of the screen, start falling instead of hanging there while still rising
+      const top = maxAlt(this.z);
+      if (this.alt > top) { this.alt = top; this.va = Math.min(this.va, 0); }
       if (this.alt <= 0) { this.alt = 0; this.va = 0; this.onLand(); }
     }
   }
@@ -628,6 +640,9 @@ class Fighter {
   updIdle(dt) {
     const tp = Object.assign(TMP, GUARD);
     if (this.alt > 0) { this.state = 'air'; return; }
+    // Back on its feet by any path (getup, a thaw, a hold hit, a special's landing): the
+    // juggle count and the air dash and double jump start over
+    this.juggle = 0; this.dashed = false; this.dj = false;
     this.retarget -= dt; this.cool -= dt;
     let t = this.target;
     if (!t || !t.alive || this.retarget <= 0) { t = this.target = pickTarget(this); this.retarget = rand(1.2, 3); }
@@ -1381,6 +1396,7 @@ class Fighter {
   applyGrab(e) {
     const m = this.move, af = this.facing;
     e.hp -= m.dmg * rand(0.9, 1.1); e.flash = 0.12; e.clearMove();
+    e.va = 0; e.vx = 0;   // A victim grabbed while rising must not keep floating up once down
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1; stats.throws++;
     spawnSparks(e.W.sh.x, e.W.sh.y, '#ffe28a', 6);
     if (m.grab === 'over') {
@@ -1947,13 +1963,26 @@ function render() {
 }
 
 // ---------- Main loop ----------
-const SUBSTEP = 1 / 60, MAX_SUBSTEPS = 12;   // real is capped at 0.05 s, so 300% needs at most 9
-let paused = false, last = performance.now();
+// real is capped at 0.2 s at most, so 300% needs at most 36 substeps
+const SUBSTEP = 1 / 60, MAX_SUBSTEPS = 36;
+let paused = false, last = performance.now(), next = 0;
 function frame(now) {
   requestAnimationFrame(frame);
-  if (paused) { last = now; return; }
-  if (cfg.fps > 0 && now - last < 1000 / cfg.fps - 2) return;
-  const real = Math.min(0.05, (now - last) / 1000);
+  if (paused) { last = now; next = 0; return; }
+  if (cfg.fps > 0) {
+    // Draw on the first refresh at or after the due time, then move the due time on by one
+    // interval rather than from now, so the time a refresh lands late is not lost each frame
+    // and the rate averages out at the limit. 1 ms of slack absorbs timer jitter.
+    const interval = 1000 / cfg.fps;
+    if (now < next - 1) return;
+    next += interval;
+    if (next < now) next = now + interval;   // Fell behind (first frame, a stall): start over
+  }
+  // Real time per frame is capped, so a stall or a page coming back from a hidden tab does
+  // not jump the fight ahead. Below 20 fps the cap follows the frame-rate limit, or game time
+  // would fall behind real time.
+  const maxReal = Math.min(0.2, Math.max(0.05, cfg.fps > 0 ? 1.5 / cfg.fps : 0));
+  const real = Math.min(maxReal, (now - last) / 1000);
   last = now;
   shake = shake > 0.3 ? shake * Math.pow(0.0015, real) : 0;
   if (freeze > 0) { freeze -= real; render(); return; }   // Hit stop
