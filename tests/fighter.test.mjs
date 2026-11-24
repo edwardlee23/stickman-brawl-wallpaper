@@ -1,5 +1,5 @@
 // Runs main.js in a sandbox with a stubbed canvas and window, then checks
-// fighter state after grabs and knockouts.
+// fighter state after grabs, knockouts, landings and resizes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,7 +11,8 @@ function load() {
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const window = {
     innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener() {},
+    listeners: {},
+    addEventListener(type, f) { this.listeners[type] = f; },
   };
   const context = vm.createContext({
     window, console, performance, URLSearchParams,
@@ -128,4 +129,87 @@ test('a knockout trail stops once the ragdoll comes to rest (issue #30)', () => 
   assert.equal(game.fighters[1], e, 'a new round started');
   assert.equal(e.trailOn, false, 'trail still recording');
   assert.equal(e.trail.length, 0, 'afterimages stacked on the body');
+});
+
+// Steps one fighter alone, with every other fighter held still, for up to
+// `seconds` or until `stop` returns true.
+function stepUntil(game, f, stop, seconds = 5) {
+  for (let t = 0; t < seconds && !stop(); t += 1 / 60) {
+    for (const o of game.fighters) if (o !== f) Object.assign(o, { state: 'hit', st: 0, dur: 999 });
+    game.update(1 / 60);
+  }
+}
+
+for (const kind of ['over', 'reap', 'takedown']) {
+  test(`a fighter caught rising by the "${kind}" grab does not float up while down (issue #46)`, () => {
+    const { game, a, e } = load();
+    Object.assign(e, { state: 'air', alt: 5, va: 600, vx: 200, hp: 1000 });
+    a.move = game.MOVES.find(m => m.grab === kind);
+    a.applyGrab(e);
+    let top = 0;
+    stepUntil(game, e, () => {
+      if (e.state === 'fall' || e.state === 'down') top = Math.max(top, e.alt);
+      return e.state === 'getup';
+    }, 4);
+    assert.equal(e.state, 'getup');
+    assert.ok(top <= 5, `rose to ${top.toFixed(1)} while falling or down`);
+    assert.equal(e.alt, 0, 'on the floor by the getup');
+  });
+}
+
+for (const kind of ['ice', 'hold']) {
+  test(`a fighter back on its feet after ${kind === 'ice' ? 'an ice' : 'a hold'} hit in the air can be juggled again (issue #47)`, () => {
+    const { game, a, e } = load();
+    Object.assign(e, { x: 600, z: 50, hp: 1000, cool: 99 });
+    Object.assign(a, { x: 200 });
+    e.launch(100, 500); e.launch(100, 300); e.launch(100, 200);   // Three juggles in the air
+    stepUntil(game, e, () => false, 0.1);
+    e.takeHit({ facing: 1 }, game.MOVES[0], 'body', { x: e.x, y: 300 },
+      kind === 'ice' ? { dmg: 1, freeze: 1.1 } : { dmg: 1, hold: true });
+    stepUntil(game, e, () => e.state === 'idle' && e.alt === 0);
+    assert.equal(e.state, 'idle');
+    stepUntil(game, e, () => false, 1 / 60);   // One idle step on the floor
+    e.launch(100, 500);
+    assert.equal(e.hittable, true, `juggle ${e.juggle}`);
+  });
+}
+
+test('a slam from the air gives back the air dash and double jump on landing (issue #48)', () => {
+  const { game, a, e } = load();
+  Object.assign(a, { state: 'air', alt: 150, va: 0, dashed: true, dj: true, target: e });
+  e.x = a.x + 300;
+  a.W = a.joints();
+  a.startMove(game.SUPER.find(m => m.id === 'slam'));
+  stepUntil(game, a, () => a.state !== 'attack', 3);
+  stepUntil(game, a, () => false, 1 / 60);   // One step on the floor
+  assert.equal(a.alt, 0, 'landed');
+  assert.equal(a.dashed, false, 'dashed');
+  assert.equal(a.dj, false, 'dj');
+});
+
+test('a jump that reaches the top of the screen falls back at once (issue #49)', () => {
+  const { game, window } = load();
+  // At 200% the top of the screen is below a normal jump's apex
+  window.wallpaperPropertyListener.applyUserProperties({ figurescale: { value: 200 } });
+  const [f] = game.fighters;
+  Object.assign(f, { x: 200, z: 0, alt: 1, va: 640, state: 'air', cool: 99, dashed: true, dj: true });
+  const path = [];
+  stepUntil(game, f, () => { path.push({ alt: f.alt, va: f.va }); return f.state !== 'air'; }, 2);
+  const top = Math.max(...path.map(p => p.alt));
+  const held = path.filter(p => p.alt === top && p.va > 0).length;
+  assert.ok(held <= 1, `held at the top for ${held} steps while still rising`);
+});
+
+test('a knocked-out body at rest moves back on screen when the window narrows (issue #45)', () => {
+  const { game, e, window } = load();
+  e.x = 940;
+  e.W = e.joints();
+  e.ko(300, -100);
+  stepUntil(game, e, () => e.rag.age >= 6, 8);
+  window.innerWidth = 640;
+  window.listeners.resize();
+  const xs = Object.values(e.rag.pts).map(o => o.x);
+  const worldW = 640 / (720 / 540);
+  assert.ok(Math.max(...xs) <= worldW - 4 + 1e-9, `body reaches x ${Math.max(...xs).toFixed(1)} of ${worldW}`);
+  assert.ok(Math.min(...xs) >= 4 - 1e-9, `body reaches x ${Math.min(...xs).toFixed(1)}`);
 });
