@@ -17,7 +17,7 @@ const cfg = {
   reduceMotion: true,   // skip full-screen flashes and speed lines, no screen shake
   sound: false,         // sound effects, off unless turned on
   volume: 0.5,          // 0 to 1
-  styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true },
+  styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true },
 };
 // ---------- Helpers ----------
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -70,6 +70,9 @@ const SLAM_UP = P({ t: 0.1, aF: 2.8, eF: 0.3, aB: 2.9, eB: 0.3, lF: 0.9, kF: -1.
 const SLAM_DN = P({ t: 0.7, aF: 1.0, eF: 0, aB: 1.1, eB: 0, lF: 0.9, kF: -1.8, lB: -0.2, kB: -1.5 });
 const FLYKICK = P({ t: -0.9, lF: 1.65, kF: 0.05, lB: 0.3, kB: -1.8, aF: 0.6, eF: 1.0, aB: -0.4, eB: 0.5 });
 const RUN = P({ t: 0.35, lF: 0.6, kF: -0.8, lB: -0.5, kB: -0.6, aF: 0.9, eF: 1.3, aB: -0.6, eB: 1.0 });
+const CALL = P({ t: -0.1, aF: 2.95, eF: 0.1, aB: 0.9, eB: 1.6 });              // Front arm raised to call down lightning
+const FLING = P({ t: -0.15, aF: -0.3, eF: 1.2, aB: 0.6, eB: 1.8, lF: 0.6, kF: -0.4 });  // Front hand drawn back to throw
+const WARD = P({ t: 0.05, aF: 1.6, eF: 0.25, aB: 1.3, eB: 2.4, lF: 0.5, kF: -0.4 });  // Open palm held out for a shield
 
 function limb(J, n1, n2, o, a, b, l1, l2) {
   const m = { x: o.x + Math.sin(a) * l1, y: o.y + Math.cos(a) * l1 };
@@ -143,6 +146,14 @@ const SUPER = [
   { id: 'teleport', type: 'teleport', range: [110, 9999], w: 2 },
   { id: 'wallrun', type: 'wallrun', range: [0, 9999], w: 2.5, needWall: true },
 ];
+// Elemental spells. The shield is never picked as an attack: a fighter raises it when warned of a hit.
+const MAGIC = [
+  { id: 'fireball', type: 'fireball', range: [90, 9999], w: 2.5, air: true, dmg: 10 },
+  { id: 'lightning', type: 'lightning', range: [120, 9999], w: 2, dmg: 14 },
+  { id: 'ice', type: 'ice', range: [80, 9999], w: 2.5, air: true, dmg: 5 },
+  { id: 'shield', type: 'shield', range: [0, 9999], w: 0, reactive: true },
+];
+const SPECIALS = [...SUPER, ...MAGIC];
 const MOVE_BY = {};
 for (const m of MOVES) {
   MOVE_BY[m.id] = m;
@@ -158,6 +169,8 @@ for (const m of MOVES) {
   }
 }
 for (const m of SUPER) { m.style = 'super'; MOVE_BY[m.id] = m; }
+for (const m of MAGIC) { m.style = 'magic'; MOVE_BY[m.id] = m; }
+const ELEMENT = { fire: '#ff8a3d', ice: '#9fe8ff', bolt: '#fff3a0' };
 
 // ---------- Canvas and world ----------
 const canvas = document.getElementById('c');
@@ -180,16 +193,17 @@ function resize() {
 
 const TEAM_COLOR = ['#ff6b6b', '#4dabf7'];
 const TEAM_NAME = ['RED', 'BLUE'];
-const HIT_STATES = new Set(['idle', 'air', 'attack', 'hit', 'block', 'launched', 'splat']);
-const SOLID = new Set(['idle', 'attack', 'hit', 'block']);
+const HIT_STATES = new Set(['idle', 'air', 'attack', 'hit', 'block', 'launched', 'splat', 'frozen']);
+const SOLID = new Set(['idle', 'attack', 'hit', 'block', 'frozen']);
 const isEnemy = (a, b) => a !== b && (cfg.mode === 'teams' ? a.team !== b.team : true);
 
 let fighters = [];
 const sparks = [], fx = [], shots = [];
 let shake = 0, freeze = 0;
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
-const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
-window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, shots, sfx, soundSetVolume, soundSetPaused, checkRound, get fighters() { return fighters; } };
+const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
+window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, shots, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove,
+  get fighters() { return fighters; } };
 
 // ---------- Effects ----------
 function spawnSparks(x, y, col, n, up, speed = 1) {
@@ -301,6 +315,9 @@ const SFX = {
   charge: (ac, o, t, s, v) => { tone(ac, o, t, 'triangle', 200 * v, 800 * v, 0.5, 0.1 * s); return 0.5; },
   fire: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 3000 * v, 500 * v, 0.25, 0.35 * s); tone(ac, o, t, 'sine', 300 * v, 80 * v, 0.2, 0.4 * s); return 0.25; },
   step: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 900 * v, 900 * v, 0.025, 0.1 * s, 1.5); return 0.03; },
+  zap: (ac, o, t, s, v) => { noise(ac, o, t, 'highpass', 5000 * v, 1200 * v, 0.35, 0.5 * s); tone(ac, o, t, 'square', 1400 * v, 90 * v, 0.2, 0.12 * s); return 0.35; },
+  freeze: (ac, o, t, s, v) => { tone(ac, o, t, 'triangle', 2600 * v, 1700 * v, 0.14, 0.18 * s); noise(ac, o, t, 'highpass', 6000 * v, 4000 * v, 0.12, 0.2 * s); return 0.14; },
+  shield: (ac, o, t, s, v) => { tone(ac, o, t, 'sine', 520 * v, 880 * v, 0.22, 0.25 * s); tone(ac, o, t, 'triangle', 1040 * v, 1760 * v, 0.18, 0.08 * s); return 0.22; },
   win: (ac, o, t, s) => { [523, 659, 784].forEach((f, i) => tone(ac, o, t + i * 0.13, 'triangle', f, f, 0.12, 0.2 * s)); return 0.4; },
 };
 // Plays a sound of the given kind, panned to world x; false if it did not start.
@@ -416,12 +433,10 @@ function pickMove(me, t) {
     if (!cfg.styles[m.style] || meAir) continue;
     items.push([m, m.w * (tAir ? 0.15 : 1)]);
   }
-  if (cfg.styles.super) {
-    for (const m of SUPER) {
-      if (meAir && !m.air) continue;
-      if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
-      items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1)]);
-    }
+  for (const m of SPECIALS) {
+    if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air)) continue;
+    if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
+    items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1)]);
   }
   // Every style turned off: fight with all the martial-arts moves rather than stand still (see README)
   if (!items.length) for (const m of MOVES) items.push([m, m.w]);
@@ -433,7 +448,8 @@ function pickMove(me, t) {
 // ---------- Stickman ----------
 const TMP = clonePose(GUARD);
 const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 'rising', 'barrage'];
-const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run' };
+const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run',
+  fireball: 'charge', lightning: 'cast', ice: 'cast', shield: 'up' };
 class Fighter {
   constructor(id, x, z, team, hue) {
     Object.assign(this, { id, x, z, team, hue });
@@ -502,6 +518,14 @@ class Fighter {
       }
       case 'down':
         if (this.st >= this.downDur) { this.state = 'getup'; this.st = 0; }
+        break;
+      case 'frozen':
+        // Held in its pose inside the ice; it still falls if frozen in the air
+        if (this.st >= this.dur) {
+          this.state = this.alt > 0 ? 'air' : 'idle'; this.st = 0; this.cool = rand(0.1, 0.3);
+          spawnSparks(this.x, groundY(this.z) - this.alt - 40, ELEMENT.ice, 10);
+          sfx('freeze', this.x, 0.5);
+        }
         break;
       case 'getup': {
         // Comic kip-up: spring straight back up
@@ -655,7 +679,8 @@ class Fighter {
     if (!m.type && !surprise) this.warn(m.range[1] + 15, !!m.grab);
   }
 
-  // Nearby opponents may block or back off to dodge. Throws cannot be blocked.
+  // Nearby opponents may block, back off to dodge, or (with magic on) raise a shield.
+  // Throws cannot be blocked or shielded.
   warn(reach, grab) {
     for (const e of fighters) {
       if (!isEnemy(this, e) || e.state !== 'idle') continue;
@@ -667,6 +692,9 @@ class Fighter {
         e.facing = sgn(this.x - e.x);
       } else if (r < 0.37) {
         e.evade = 0.3; e.vx = sgn(e.x - this.x) * rand(160, 230);
+      } else if (!grab && r < 0.47 && cfg.styles.magic) {
+        e.facing = sgn(this.x - e.x);
+        e.startMove(MOVE_BY.shield, true);
       }
     }
   }
@@ -1036,6 +1064,109 @@ class Fighter {
     }
   }
 
+  // ---- Spells ----
+  // Throws a projectile of the given element from point H, aimed at the target's body.
+  castShot(H, kind, speed, spread) {
+    const t = this.target;
+    let a = 0;
+    if (t && t.W) { const c = mid(t.W.sh, t.W.hip); a = Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1); }
+    a = clamp(a + rand(-spread, spread), -1, 1.1);
+    shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * speed, vy: Math.sin(a) * speed, z: this.z,
+      owner: this, m: this.move, life: 3, col: ELEMENT[kind], kind, dmg: this.move.dmg });
+  }
+
+  u_fireball(dt) {
+    const md = this.md, t = this.target;
+    if (this.alt > 0) { this.hover = true; this.va = 0; }
+    if (t && t.alive) this.facing = sgn(t.x - this.x);
+    this.vx = approach(this.vx, 0, 700 * dt);
+    if (md.ph === 'charge') {
+      this.aura = 0.8;
+      lerpPose(this.pose, CHARGE, Math.min(1, dt * 12), this.pose);
+      if (!md.chargeSfx) { md.chargeSfx = true; sfx('charge', this.x, 0.6); }
+      if (this.st >= 0.4 && this.W) {
+        md.ph = 'throw'; md.t0 = this.st;
+        this.castShot(mid(this.W.hF, this.W.hB), 'fire', 430, 0.05);
+        sfx('fire', this.x);
+        this.warn(9999, false);
+      }
+    } else {
+      lerpPose(this.pose, FIRE, Math.min(1, dt * 20), this.pose);
+      if (this.st - md.t0 > 0.35) this.endMove();
+    }
+  }
+
+  u_ice(dt) {
+    const md = this.md, t = this.target;
+    if (this.alt > 0) { this.hover = true; this.va = 0; }
+    if (t && t.alive) this.facing = sgn(t.x - this.x);
+    this.vx = approach(this.vx, 0, 700 * dt);
+    if (md.ph === 'cast') {
+      lerpPose(this.pose, FLING, Math.min(1, dt * 18), this.pose);
+      if (this.st >= 0.2 && this.W) {
+        md.ph = 'throw'; md.t0 = this.st;
+        this.castShot(this.W.hF, 'ice', 720, 0.04);
+        sfx('freeze', this.x, 0.7);
+      }
+    } else {
+      lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
+      if (this.st - md.t0 > 0.3) this.endMove();
+    }
+  }
+
+  u_lightning(dt) {
+    const md = this.md, m = this.move, t = this.target;
+    this.vx = approach(this.vx, 0, 700 * dt);
+    if (md.ph === 'cast') {
+      lerpPose(this.pose, CALL, Math.min(1, dt * 14), this.pose);
+      this.aura = 0.6;
+      if (this.st >= 0.15) {
+        if (!t || !t.alive) { this.endMove(); return; }
+        // Mark where the target stands; the bolt falls there a moment later
+        md.ph = 'mark'; md.x = clamp(t.x + t.vx * 0.25, 14, worldW - 14); md.z = t.z;
+        addFx({ type: 'mark', x: md.x, y: groundY(md.z), dur: 0.6, col: ELEMENT.bolt });
+      }
+    } else if (md.ph === 'mark') {
+      lerpPose(this.pose, CALL, Math.min(1, dt * 14), this.pose);
+      this.aura = 0.8;
+      if (this.st >= 0.75) {
+        md.ph = 'rec'; md.t0 = this.st;
+        const gy = groundY(md.z), pts = [];
+        for (let y = 0, x = md.x; y < gy; y += rand(18, 32)) { pts.push([x, y]); x = md.x + rand(-12, 12); }
+        pts.push([md.x, gy]);
+        addFx({ type: 'bolt', pts, dur: 0.25, col: ELEMENT.bolt });
+        addFx({ type: 'flash', dur: 0.12 });
+        crack(md.x, gy, 'ground', 40);
+        spawnSparks(md.x, gy, ELEMENT.bolt, 14, true, 1.5);
+        sfx('zap', md.x, 1.3);
+        shake = Math.max(shake, 8);
+        for (const e of fighters) {
+          if (!isEnemy(this, e) || !e.hittable || !e.W || Math.abs(e.x - md.x) > 24 || Math.abs(e.z - md.z) > 20) continue;
+          e.takeHit(this, m, 'head', e.bodyPoint(),
+            { launch: { vx: (e.x >= md.x ? 1 : -1) * 150, va: 420 }, big: true, unblockable: true });
+        }
+      }
+    } else {
+      lerpPose(this.pose, GUARD, Math.min(1, dt * 8), this.pose);
+      if (this.st - md.t0 > 0.3) this.endMove();
+    }
+  }
+
+  u_shield(dt) {
+    const md = this.md, t = this.target;
+    this.vx = approach(this.vx, 0, 700 * dt);
+    if (md.ph === 'up') {
+      if (t && t.alive && Math.abs(t.x - this.x) > 1) this.facing = sgn(t.x - this.x);
+      lerpPose(this.pose, WARD, Math.min(1, dt * 20), this.pose);
+      if (!md.upSfx) { md.upSfx = true; sfx('shield', this.x, 0.6); }
+      if (this.st >= 1.1) { md.ph = 'rec'; md.t0 = this.st; }
+    } else {
+      lerpPose(this.pose, GUARD, Math.min(1, dt * 10), this.pose);
+      if (this.st - md.t0 > 0.2) this.endMove();
+    }
+  }
+  shieldUp() { return this.state === 'attack' && this.move && this.move.type === 'shield' && this.md.ph === 'up'; }
+
   checkHit() {
     if (this.state !== 'attack' || this.hitDone || this.move.type) return;
     const m = this.move, T1 = m.wind;
@@ -1080,7 +1211,15 @@ class Fighter {
 
   takeHit(att, m, zone, H, o = {}) {
     const dir = att.facing;
-    if (this.state === 'block' && this.facing === -dir) {
+    if (!o.unblockable && this.shieldUp() && this.facing === -dir) {
+      // The shield takes the hit in full and breaks
+      this.md.ph = 'rec'; this.md.t0 = this.st;
+      addFx({ type: 'ring', x: H.x, y: H.y, r0: 6, r1: 40, dur: 0.25, w: 2.5, col: colorOf(this) });
+      spawnSparks(H.x, H.y, colorOf(this), 12); stats.shielded++; sfx('shield', H.x);
+      this.vx = dir * 60;
+      return;
+    }
+    if (!o.unblockable && this.state === 'block' && this.facing === -dir) {
       this.hp -= (o.dmg ?? m.dmg) * 0.15;
       this.vx = dir * (o.launch ? Math.abs(o.launch.vx) * 0.5 : (m.push || 30) * 1.2 + 60);
       spawnSparks(H.x, H.y, '#9fd4ff', 8); stats.blocked++; sfx('block', H.x);
@@ -1089,6 +1228,9 @@ class Fighter {
     }
     const dmg = (o.dmg ?? m.dmg) * (zone === 'head' ? 1.35 : zone === 'leg' ? 0.8 : 1) * rand(0.85, 1.15) * 0.85;
     this.hp -= dmg; this.flash = 0.1;
+    // Any hit shatters the ice; another ice shard does not freeze again, so nobody is frozen in a loop
+    const wasFrozen = this.state === 'frozen';
+    if (wasFrozen) { spawnSparks(H.x, H.y, ELEMENT.ice, 12); sfx('freeze', H.x); }
     this.clearMove();
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1;
     let Lv = o.launch;
@@ -1102,6 +1244,11 @@ class Fighter {
       freeze = Math.max(freeze, 0.16); shake = Math.max(shake, 12);
       addFx({ type: 'focus', x: H.x, y: H.y, dur: 0.4 });
       this.ko(v.vx * 1.4, -v.va * 1.3 - 150);
+      return;
+    }
+    if (o.freeze && !wasFrozen) {
+      this.state = 'frozen'; this.st = 0; this.dur = o.freeze;
+      this.vx = 0; this.vz = 0; this.va = Math.min(this.va, 0);
       return;
     }
     if (Lv) { this.launch(Lv.vx, Lv.va); return; }
@@ -1225,15 +1372,23 @@ function updateShots(dt) {
     const P0 = { x: s.x, y: s.y };   // Sweep from the last position so a fast blast can't skip a body
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
     let boom = s.life <= 0 || s.x < -20 || s.x > worldW + 20 || s.y < -20;
-    if (!boom && s.y >= groundY(s.z)) { boom = true; crack(s.x, groundY(s.z), 'ground', 25); }
+    if (!boom && s.y >= groundY(s.z)) {
+      boom = true; crack(s.x, groundY(s.z), 'ground', 25);
+      if (s.kind === 'fire') addFx({ type: 'flame', x: s.x, y: groundY(s.z), dur: 0.7 });
+    }
+    if (s.kind === 'fire' && Math.random() < 0.6) spawnSparks(s.x, s.y, ELEMENT.fire, 1, true, 0.5);
     if (!boom) {
       for (const e of fighters) {
         if (!isEnemy(s.owner, e) || !e.hittable || Math.abs(e.z - s.z) > 16 || !e.W) continue;
-        const zone = hitTest(P0, s, e.W, 4);
+        const zone = hitTest(P0, s, e.W, s.kind === 'fire' ? 7 : 4);
         if (zone) {
-          const air = e.alt > 0 || Math.random() < 0.25;
-          e.takeHit({ facing: sgn(s.vx) }, s.m, zone, { x: s.x, y: s.y },
-            air ? { dmg: 4, launch: { vx: sgn(s.vx) * 280, va: 200 } } : { dmg: 4, hold: true });
+          const dir = sgn(s.vx), dmg = s.dmg ?? 4;
+          let o;
+          if (s.kind === 'fire') o = { dmg, launch: { vx: dir * 420, va: 300 }, big: true };
+          else if (s.kind === 'ice') o = { dmg, freeze: 1.1 };
+          else o = e.alt > 0 || Math.random() < 0.25 ? { dmg, launch: { vx: dir * 280, va: 200 } } : { dmg, hold: true };
+          e.takeHit({ facing: dir }, s.m, zone, { x: s.x, y: s.y }, o);
+          if (s.kind === 'fire') addFx({ type: 'flame', x: s.x, y: s.y + 10, dur: 0.5 });
           boom = true;
           break;
         }
@@ -1346,9 +1501,39 @@ function drawFighter(f) {
   for (const tr of f.trail) drawSkeleton(tr.p, col, tr.life * 0.3 * f.alpha, 2, false);
   if (f.aura > 0 && f.alive) drawAura(f, col);
   const base = (f.alive ? 1 : 0.5) * f.alpha;
-  drawSkeleton(J, f.flash > 0 ? '#ffffff' : col, base, 3.2, true);
+  const frozen = f.state === 'frozen';
+  drawSkeleton(J, f.flash > 0 ? '#ffffff' : frozen ? ELEMENT.ice : col, base, 3.2, true);
+  if (frozen) {
+    // A block of ice around the body
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const k of JOINTS) { const p = J[k]; x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+    x0 -= 8; y0 -= L.head + 4; x1 += 8; y1 += 4;
+    ctx.globalAlpha = 0.18; ctx.fillStyle = ELEMENT.ice; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.globalAlpha = 0.6; ctx.strokeStyle = ELEMENT.ice; ctx.lineWidth = 1.2; ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    path({ x: x0 + 4, y: y0 + 10 }, { x: x0 + 12, y: y0 + 2 });
+  }
   ctx.globalAlpha = 1;
   const m = f.move;
+  if (m && f.md && m.type === 'fireball' && f.md.ph === 'charge') {
+    // The fireball growing between the hands
+    const H = mid(J.hF, J.hB), r = 3 + Math.min(1, f.st / 0.4) * 8 + Math.sin(f.time * 40);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(H.x, H.y, 0, H.x, H.y, r * 1.6);
+    g.addColorStop(0, '#ffe28a'); g.addColorStop(0.5, ELEMENT.fire); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(H.x, H.y, r * 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  if (m && f.md && m.type === 'shield' && f.md.ph === 'up') {
+    // A curved barrier in front of the open palm
+    const c = mid(J.sh, J.hip), fac = f.facing, flick = 0.85 + Math.sin(f.time * 30) * 0.1;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (fac > 0) ctx.arc(c.x - 6, c.y, 34, -1, 1); else ctx.arc(c.x + 6, c.y, 34, Math.PI - 1, Math.PI + 1);
+    ctx.globalAlpha = 0.18 * flick; ctx.fill();
+    ctx.globalAlpha = 0.8 * flick; ctx.stroke();
+    ctx.restore();
+  }
   if (f.ghost) {
     // Rapid punches: several afterimage fists
     ctx.strokeStyle = col; ctx.lineWidth = 2.5;
@@ -1398,6 +1583,31 @@ function drawFx(o, layer) {
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       ctx.stroke();
     }
+  } else if (o.type === 'mark' && layer === 0) {
+    // Where lightning will strike: a pulsing ring on the floor
+    const p = 0.6 + Math.sin(o.t * 30) * 0.4;
+    ctx.globalAlpha = 0.7 * p; ctx.strokeStyle = o.col; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(o.x, o.y, 24, 5, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.15 * p; ctx.fillStyle = o.col; ctx.fill();
+  } else if (o.type === 'bolt' && layer === 1) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round';
+    ctx.shadowColor = o.col; ctx.shadowBlur = 18;
+    for (const [w, col, a] of [[7, o.col, 0.5], [2.5, '#ffffff', 1]]) {
+      ctx.globalAlpha = a * (1 - u); ctx.strokeStyle = col; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(o.pts[0][0], o.pts[0][1]);
+      for (let i = 1; i < o.pts.length; i++) ctx.lineTo(o.pts[i][0], o.pts[i][1]);
+      ctx.stroke();
+    }
+    ctx.restore();
+  } else if (o.type === 'flame' && layer === 1) {
+    // A few flickering tongues of fire that shrink away
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 5; i++) {
+      const x = o.x + (i - 2) * 5, h = (14 + rand(0, 8)) * (1 - u) * (i % 2 ? 0.7 : 1);
+      ctx.globalAlpha = 0.7 * (1 - u); ctx.fillStyle = i % 2 ? '#ffe28a' : ELEMENT.fire;
+      ctx.beginPath(); ctx.moveTo(x - 4, o.y); ctx.quadraticCurveTo(x + rand(-3, 3), o.y - h * 1.4, x + 4, o.y); ctx.fill();
+    }
+    ctx.restore();
   } else if (o.type === 'ring' && layer === 1) {
     const r = o.r0 + (o.r1 - o.r0) * easeOut(u);
     ctx.globalAlpha = 1 - u; ctx.strokeStyle = o.col || '#ffffff'; ctx.lineWidth = o.w * (1 - u * 0.6);
@@ -1450,10 +1660,21 @@ function render() {
   ctx.globalCompositeOperation = 'lighter';
   for (const s of shots) {
     ctx.shadowColor = s.col; ctx.shadowBlur = 14;
+    if (s.kind === 'ice') {
+      // A thin diamond pointing where it flies
+      const a = Math.atan2(s.vy, s.vx), c = Math.cos(a), sn = Math.sin(a);
+      const pt = (f, w) => ({ x: s.x + c * f - sn * w, y: s.y + sn * f + c * w });
+      ctx.fillStyle = s.col; ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      for (const p of [pt(9, 0), pt(-2, 3), pt(-12, 0), pt(-2, -3)]) ctx.lineTo(p.x, p.y);
+      ctx.closePath(); ctx.fill();
+      continue;
+    }
+    const r = s.kind === 'fire' ? 11 + Math.sin(s.life * 40) * 1.5 : 7;
     ctx.fillStyle = s.col; ctx.globalAlpha = 0.6;
-    ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 1;
-    ctx.beginPath(); ctx.arc(s.x, s.y, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = s.kind === 'fire' ? '#ffe28a' : '#ffffff'; ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(s.x, s.y, r / 2, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 
