@@ -1150,14 +1150,13 @@ class Fighter {
         if (near) {
           // Both clones land a hit, then the real fighter's launches the target. A substitution
           // readied against this fighter takes the first hit, and the rest go to the log.
-          const subs = stats.subs;
-          const open = () => t.hittable && stats.subs === subs;
+          let log = false;
           for (const c of md.clones) {
-            if (!open()) break;
+            if (!t.hittable) break;
             const pt = t.bodyPoint();
-            t.takeHit({ facing: c.fac * this.facing, owner: this }, m, 'body', pt, { dmg: m.dmg, hold: true });
+            if (t.takeHit({ facing: c.fac * this.facing, owner: this }, m, 'body', pt, { dmg: m.dmg, hold: true }) === 'sub') { log = true; break; }
           }
-          if (open()) t.takeHit(this, m, 'head', t.bodyPoint(), { dmg: m.dmg * 1.6, launch: { vx: this.facing * 520, va: 360 }, big: true });
+          if (!log && t.hittable) t.takeHit(this, m, 'head', t.bodyPoint(), { dmg: m.dmg * 1.6, launch: { vx: this.facing * 520, va: 360 }, big: true });
         } else sfx('whiff', this.x);
       }
       if (this.st - md.t0 > 0.2) {
@@ -1424,13 +1423,14 @@ class Fighter {
     this.invis = false; this.alpha = 1; this.aura = 0; this.rot = 0; this.trailOn = false;
   }
 
-  // att is the attacker, or a stand-in with its facing: { facing, owner } for a projectile, { facing } for a clone
+  // att is the attacker, or a stand-in with its facing: { facing, owner } for a projectile or a clone.
+  // Returns 'sub' when a readied substitution took the hit instead.
   takeHit(att, m, zone, H, o = {}) {
     const dir = att.facing, src = att.owner || att;
     if (this.subFrom === src && src.alive && !this.invis && SUB_STATES.has(this.state)) {
       spawnSparks(H.x, H.y, '#ffe28a', 6); sfx('hit', H.x);
       this.substitute(src);
-      return;
+      return 'sub';
     }
     if (!o.unblockable && this.shieldUp() && this.facing === -dir) {
       // The shield takes the hit in full and breaks
