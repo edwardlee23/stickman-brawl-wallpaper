@@ -1972,9 +1972,10 @@ function frame(now) {
   if (cfg.fps > 0) {
     // Draw on the first refresh at or after the due time, then move the due time on by one
     // interval rather than from now, so the time a refresh lands late is not lost each frame
-    // and the rate averages out at the limit. 1 ms of slack absorbs timer jitter.
+    // and the rate averages out at the limit. 2 ms of slack absorbs timer jitter, so a limit
+    // equal to the display rate does not drop a refresh that comes slightly early.
     const interval = 1000 / cfg.fps;
-    if (now < next - 1) return;
+    if (now < next - 2) return;
     next += interval;
     if (next < now) next = now + interval;   // Fell behind (first frame, a stall): start over
   }

@@ -50,10 +50,11 @@ function hold(game) {
 }
 
 // Runs `seconds` of refreshes at `hz` and returns the frames drawn per second.
-function drawRate(hz, fps, seconds = 10) {
+// `jitter(i)` moves refresh i off its exact time, in ms.
+function drawRate(hz, fps, seconds = 10, jitter = () => 0) {
   const { game, we, frame, draws } = load();
   we.applyGeneralProperties({ fps });
-  for (let i = 1; i <= hz * seconds; i++) { hold(game); frame(i * 1000 / hz); }
+  for (let i = 1; i <= hz * seconds; i++) { hold(game); frame(i * 1000 / hz + jitter(i)); }
   return draws() / seconds;
 }
 
@@ -67,6 +68,8 @@ for (const [hz, fps] of [[60, 25], [60, 50], [144, 60], [144, 100], [144, 120], 
 test('a limit at or above the display rate draws every refresh', () => {
   assert.equal(drawRate(60, 60), 60);
   assert.equal(drawRate(60, 144), 60);
+  // Refreshes that come up to 1.5 ms early are still drawn
+  assert.equal(drawRate(60, 60, 10, i => (i % 3 ? -1.5 : 0)), 60);
 });
 
 for (const fps of [10, 15, 30, 0]) {
