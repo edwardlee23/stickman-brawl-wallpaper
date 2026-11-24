@@ -40,8 +40,7 @@ ranges, `mode` is `ffa` or `teams`, and any other value keeps the default.
 ## Development
 
 There is no build step: `wallpaper/index.html` loads `wallpaper/main.js`
-directly. See
-[AGENTS.md](AGENTS.md) for the commands and rules, and
+directly. See [AGENTS.md](AGENTS.md) for the commands and rules, and
 [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## License
