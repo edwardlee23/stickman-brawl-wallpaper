@@ -160,3 +160,19 @@ test('a fighter about to be hit may raise a shield, only while magic is on', () 
     assert.ok(!e.move || e.move.id !== 'shield', 'raised a shield with magic off');
   }
 });
+
+test('a shield faces the attacker it was raised against, not its own target (issue #32)', () => {
+  const { game, a, e } = load();
+  const jab = game.MOVES.find(m => m.id === 'jab');
+  a.move = jab;
+  for (let i = 0; i < 400 && !(e.move && e.move.id === 'shield'); i++) {
+    Object.assign(e, { state: 'idle', move: null, md: null, facing: 1, evade: 0, subFrom: null });
+    a.warn(250, false);
+  }
+  assert.equal(e.move && e.move.id, 'shield', 'never raised a shield');
+  e.target = { alive: true, x: 900, z: 50 };   // Its own target stands on the other side
+  e.update(0.05);
+  assert.equal(e.facing, -1, 'shield turned away from the attacker');
+  e.takeHit(a, jab, 'body', { x: 0, y: 0 });
+  assert.equal(e.hp, 1000, 'the hit it was raised against landed');
+});

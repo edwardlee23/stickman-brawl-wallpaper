@@ -192,3 +192,16 @@ test('a round end plays the win sting once', () => {
   game.checkRound(0.016);
   assert.equal(game.stats.sfx.win, 1);
 });
+
+test('nothing is queued while the browser keeps audio suspended before a click (issue #33)', () => {
+  const { game, window, AC } = load('?count=2&sound=1');
+  // A browser starts a context made before any click suspended, with its clock stopped.
+  window.AudioContext = class extends AC { constructor() { super(); this.state = 'suspended'; } };
+  for (const k of KINDS) assert.equal(game.sfx(k, 100), false, `${k} queued while suspended`);
+  const ac = AC.instances[0];
+  assert.ok(ac, 'no context made, so a click cannot resume it');
+  assert.deepEqual({ ...game.stats.sfx }, {});
+  window.wallpaperPropertyListener.setPaused(false);   // What the click handler does
+  assert.equal(ac.state, 'running');
+  assert.equal(game.sfx('hit', 100), true, 'no sound after the click');
+});

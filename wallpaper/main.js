@@ -343,7 +343,9 @@ const SFX = {
 function sfx(kind, x, strength = 1) {
   if (!cfg.sound || !SFX[kind]) return false;
   const ac = soundContext();
-  if (!ac) return false;
+  // A suspended context (a browser before the first click) has its clock stopped: a sound
+  // scheduled now would wait and play with every other one at once when it resumes.
+  if (!ac || ac.state !== 'running') return false;
   const t = ac.currentTime;
   if (t - (snd.last[kind] ?? -1) < SFX_GAP) return false;
   snd.ends = snd.ends.filter(end => end > t);
@@ -583,6 +585,9 @@ class Fighter {
       case 'ko': {
         const r = this.rag;
         r.age += dt;
+        // Afterimages follow the flight only: stacked on a body at rest they would undo its dimming
+        if (this.trailOn && r.age > 0.2 &&
+            (r.age >= 5 || Math.hypot(r.pts.hip.x - r.pts.hip.px, r.pts.hip.y - r.pts.hip.py) < 120 * RAG_H)) this.trailOn = false;
         if (r.age < 5) {
           r.acc = Math.min(r.acc + dt, RAG_H * 12);
           while (r.acc >= RAG_H) { stepRag(r, groundY(this.z)); r.acc -= RAG_H; }
@@ -719,6 +724,7 @@ class Fighter {
       } else if (!grab && r < 0.47 && cfg.styles.magic) {
         e.facing = sgn(this.x - e.x);
         e.startMove(MOVE_BY.shield, true);
+        e.md.from = this;
       } else if (r >= 0.47 && r < 0.55 && cfg.styles.ninjutsu) {
         e.startMove(MOVE_BY.smoke, true);
         e.md.from = this.x;
@@ -1168,6 +1174,7 @@ class Fighter {
     this.clearMove();
     this.state = 'idle'; this.vx = 0; this.vz = 0;
     this.appearBehind(att);
+    this.W = this.joints();   // So the other stars of a fan, tested this same step, miss the log
     puff(this.x, groundY(this.z) - this.alt - 40, 0.6);
     this.startMove(MOVE_BY.substitute, true);
   }
@@ -1316,7 +1323,8 @@ class Fighter {
   }
 
   u_shield(dt) {
-    const md = this.md, t = this.target;
+    // Faces the attacker it was raised against, which need not be its own target
+    const md = this.md, t = md.from && md.from.alive ? md.from : this.target;
     this.vx = approach(this.vx, 0, 700 * dt);
     if (md.ph === 'up') {
       if (t && t.alive && Math.abs(t.x - this.x) > 1) this.facing = sgn(t.x - this.x);
@@ -1372,11 +1380,12 @@ class Fighter {
     this.invis = false; this.alpha = 1; this.aura = 0; this.rot = 0; this.trailOn = false;
   }
 
+  // att is the attacker, or a stand-in with its facing: { facing, owner } for a projectile, { facing } for a clone
   takeHit(att, m, zone, H, o = {}) {
-    const dir = att.facing;
-    if (this.subFrom === att && att.alive && !this.invis && SUB_STATES.has(this.state)) {
+    const dir = att.facing, src = att.owner || att;
+    if (this.subFrom === src && src.alive && !this.invis && SUB_STATES.has(this.state)) {
       spawnSparks(H.x, H.y, '#ffe28a', 6); sfx('hit', H.x);
-      this.substitute(att);
+      this.substitute(src);
       return;
     }
     if (!o.unblockable && this.shieldUp() && this.facing === -dir) {
@@ -1555,7 +1564,7 @@ function updateShots(dt) {
           if (s.kind === 'fire') o = { dmg, launch: { vx: dir * 420, va: 300 }, big: true };
           else if (s.kind === 'ice') o = { dmg, freeze: 1.1 };
           else o = e.alt > 0 || Math.random() < 0.25 ? { dmg, launch: { vx: dir * 280, va: 200 } } : { dmg, hold: true };
-          e.takeHit({ facing: dir }, s.m, zone, { x: s.x, y: s.y }, o);
+          e.takeHit({ facing: dir, owner: s.owner }, s.m, zone, { x: s.x, y: s.y }, o);
           if (s.kind === 'fire') addFx({ type: 'flame', x: s.x, y: s.y + 10, dur: 0.5 });
           boom = true;
           break;
