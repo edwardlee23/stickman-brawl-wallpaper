@@ -135,11 +135,9 @@ test('a shield stops one hit from the front, then breaks', () => {
 
 test('a shield does not stop a hit from behind', () => {
   const { game, a, e } = load();
-  e.facing = 1;                          // Back turned to the attacker
   e.startMove(spell(game, 'shield'), true);
-  e.facing = 1;
   e.update(0.05);
-  e.facing = 1;
+  e.facing = 1;   // Back turned to the attacker; set after update, which turns the caster toward its target
   e.takeHit(a, game.MOVES.find(m => m.id === 'jab'), 'body', { x: 0, y: 0 });
   assert.ok(e.hp < 1000);
 });
