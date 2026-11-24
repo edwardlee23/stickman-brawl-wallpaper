@@ -4,7 +4,9 @@
 	"description" : "漫畫風火柴人大亂鬥：格鬥技、氣功波、飛簷走壁、魔法、忍術、擊飛撞牆。\nComic-style stick figure brawl: martial arts, energy blasts, wall running, magic, ninjutsu, and knockbacks that slam fighters into walls.",
 	"type" : "web",
 	"preview" : "preview.jpg",
-	"tags" : [ "Abstract" ],
+	"tags" : [ "Cartoon" ],
+	"contentrating" : "Everyone",
+	"workshopid" : "3845187060",
 	"general" :
 	{
 		"properties" :
