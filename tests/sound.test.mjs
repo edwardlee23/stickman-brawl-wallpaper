@@ -74,7 +74,7 @@ function load(query, { audio = true, sound } = {}) {
   return { game, a, e, window, AC: FakeAudioContext };
 }
 
-const KINDS = ['hit', 'hitBig', 'block', 'whiff', 'boom', 'wall', 'ko', 'charge', 'fire', 'step', 'win'];
+const KINDS = ['hit', 'hitBig', 'block', 'whiff', 'boom', 'wall', 'ko', 'charge', 'fire', 'step', 'zap', 'freeze', 'shield', 'win'];
 
 test('with sound off, sfx plays nothing and creates no AudioContext', () => {
   const { game, AC } = load('?count=2');
