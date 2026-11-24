@@ -12,8 +12,10 @@ npm ci
 npm run check
 ```
 
-Open `index.html` in a browser to see your change, or load `project.json` in
-Wallpaper Engine to try the settings panel.
+Open `wallpaper/index.html` in a browser to see your change, or load
+`wallpaper/project.json` in Wallpaper Engine to try the settings panel. Keep
+anything the wallpaper does not load at runtime out of `wallpaper/`: the
+Workshop upload takes the whole folder.
 
 ## Pull requests
 

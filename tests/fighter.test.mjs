@@ -19,7 +19,7 @@ function load() {
     document: { getElementById: () => canvas, body: { style: {} } },
     requestAnimationFrame() {},
   });
-  vm.runInContext(readFileSync('main.js', 'utf8'), context, { filename: 'main.js' });
+  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   const game = window.__stickmanBrawl;
   const [a, e] = game.fighters;
   e.W = e.joints();
