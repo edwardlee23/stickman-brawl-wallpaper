@@ -73,9 +73,15 @@ Pick a seed where every style appears, and name it in the commit message.
 - The Workshop item is
   https://steamcommunity.com/sharedfiles/filedetails/?id=3845187060, and
   `workshopid` in `project.json` points the editor at it, so an upload
-  updates that item instead of making a new one. The editor works on a copy
-  under `wallpaper_engine\projects\myprojects\`, which it rewrites in its own
-  key order; copy changes there back by hand, keeping this file's layout.
+  updates that item instead of making a new one. The editor uploads from its
+  own copy under `wallpaper_engine\projects\myprojects\`, not from the
+  repository, and rewrites that copy's `project.json` in its own key order.
+  To publish an update:
+  1. Copy the changed files from `wallpaper/` into that copy, keeping the
+     copy's `workshopid`.
+  2. Upload from the editor.
+  3. Copy any field the editor set (tags, rating) back into
+     `wallpaper/project.json` by hand, keeping this file's layout.
 
 ## Repository layout
 
