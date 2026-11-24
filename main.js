@@ -937,7 +937,7 @@ class Fighter {
 
   applyGrab(e) {
     const m = this.move, af = this.facing;
-    e.hp -= m.dmg * rand(0.9, 1.1); e.flash = 0.12; e.move = null; e.spin = false; e.hover = false; e.rot = 0;
+    e.hp -= m.dmg * rand(0.9, 1.1); e.flash = 0.12; e.clearMove();
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1; stats.throws++;
     spawnSparks(e.W.sh.x, e.W.sh.y, '#ffe28a', 6);
     if (m.grab === 'over') {
@@ -947,6 +947,13 @@ class Fighter {
     } else {
       e.knockDown(af, m.grab === 'takedown' ? 0.25 : 0.3);
     }
+  }
+
+  // Drops the current move and every visual state a special leaves behind
+  // (afterimage fists, fade, invisibility, aura, trail, body rotation).
+  clearMove() {
+    this.move = null; this.md = null; this.spin = false; this.hover = false; this.ghost = false;
+    this.invis = false; this.alpha = 1; this.aura = 0; this.rot = 0; this.trailOn = false;
   }
 
   takeHit(att, m, zone, H, o = {}) {
@@ -960,8 +967,7 @@ class Fighter {
     }
     const dmg = (o.dmg ?? m.dmg) * (zone === 'head' ? 1.35 : zone === 'leg' ? 0.8 : 1) * rand(0.85, 1.15) * 0.85;
     this.hp -= dmg; this.flash = 0.1;
-    this.move = null; this.md = null; this.spin = false; this.hover = false; this.ghost = false;
-    this.invis = false; this.alpha = 1; this.aura = 0; this.rot = 0;
+    this.clearMove();
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1;
     let Lv = o.launch;
     if (!Lv && !o.hold && (this.alt > 0 || Math.random() < (m.kd || 0) * 2 + (dmg >= 8 ? 0.3 : 0))) {
@@ -1044,12 +1050,11 @@ class Fighter {
   knockDown(dir, dur) {
     this.state = 'fall'; this.st = 0; this.dur = dur; this.from = clonePose(this.pose);
     this.fallSign = this.facing === -dir ? -1 : 1;     // Facing the attacker means falling backward
-    this.move = null; this.spin = false;
+    this.clearMove();
   }
 
   ko(vx, vy) {
-    this.state = 'ko'; this.st = 0; this.move = null; this.spin = false; this.hover = false;
-    this.aura = 0; this.trailOn = true; this.invis = false; this.alpha = 1;
+    this.state = 'ko'; this.st = 0; this.clearMove(); this.trailOn = true;
     this.rag = makeRag(this.W, vx, vy); stats.ko++;
   }
 }
