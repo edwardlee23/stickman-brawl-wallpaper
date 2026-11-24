@@ -649,7 +649,8 @@ class Fighter {
       else dir = Math.sin(this.time * 2.3 + this.id) * 0.35;   // Footwork shuffle
       // Replace a queued move that cannot be reached: backed against a wall there is no room
       // to back off into, and a target that keeps its distance is never caught.
-      const pinned = dir < 0 && (this.facing > 0 ? this.x <= 16 : this.x >= worldW - 16);
+      // While the target cannot be hit, footwork keeps clear of it whatever the move, so neither counts.
+      const pinned = t.hittable && dir < 0 && (this.facing > 0 ? this.x <= 16 : this.x >= worldW - 16);
       this.reachT = t.hittable && (dist < m.range[0] || dist > m.range[1]) ? this.reachT + dt : 0;
       if (pinned || this.reachT > 1.5) { this.nextMove = pickMove(this, t, dist); this.reachT = 0; }
       if (this.evade <= 0 && this.dash <= 0) {
