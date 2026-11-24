@@ -447,8 +447,8 @@ function pickTarget(me) {
   }
   return best;
 }
-function pickMove(me, t) {
-  const items = [];
+function pickMove(me, t, dist) {
+  let items = [];
   const tAir = t && t.alt > 50, meAir = me.alt > 0;
   for (const m of MOVES) {
     if (!cfg.styles[m.style] || meAir) continue;
@@ -461,6 +461,11 @@ function pickMove(me, t) {
   }
   // Every style turned off: fight with all the martial-arts moves rather than stand still (see README)
   if (!items.length) for (const m of MOVES) items.push([m, m.w]);
+  // Given a distance, only the moves that reach it, when any of them does
+  if (dist !== undefined) {
+    const near = items.filter(([m]) => dist >= m.range[0] && dist <= m.range[1]);
+    if (near.length) items = near;
+  }
   let r = Math.random() * items.reduce((s, it) => s + it[1], 0);
   for (const [m, w] of items) { r -= w; if (r <= 0) return m; }
   return items[items.length - 1][0];
@@ -486,6 +491,7 @@ class Fighter {
     this.aura = 0; this.alpha = 1; this.invis = false; this.ghost = false;
     this.trail = []; this.trailOn = false; this.trailT = 0;
     this.subFrom = null; this.subT = 0;   // A substitution readied against this attacker, for subT seconds
+    this.reachT = 0;                      // Seconds the queued move has been out of reach
   }
   get alive() { return this.state !== 'ko'; }
   get hittable() {
@@ -641,6 +647,12 @@ class Fighter {
       else if (dist > m.range[1] - 2) dir = 1;
       else if (dist < m.range[0] + 2) dir = -1;
       else dir = Math.sin(this.time * 2.3 + this.id) * 0.35;   // Footwork shuffle
+      // Replace a queued move that cannot be reached: backed against a wall there is no room
+      // to back off into, and a target that keeps its distance is never caught.
+      // While the target cannot be hit, footwork keeps clear of it whatever the move, so neither counts.
+      const pinned = t.hittable && dir < 0 && (this.facing > 0 ? this.x <= 16 : this.x >= worldW - 16);
+      this.reachT = t.hittable && (dist < m.range[0] || dist > m.range[1]) ? this.reachT + dt : 0;
+      if (pinned || this.reachT > 1.5) { this.nextMove = pickMove(this, t, dist); this.reachT = 0; }
       if (this.evade <= 0 && this.dash <= 0) {
         this.vx = approach(this.vx, dir * this.facing * 110, 600 * dt);
         this.vz = approach(this.vz, clamp(dz * 4, -45, 45), 300 * dt);
@@ -700,7 +712,7 @@ class Fighter {
   }
 
   startMove(m, surprise) {
-    this.state = 'attack'; this.st = 0; this.move = m; this.nextMove = null; this.hover = false;
+    this.state = 'attack'; this.st = 0; this.move = m; this.nextMove = null; this.reachT = 0; this.hover = false;
     this.hitDone = false; this.prevHP = null; this.from = clonePose(this.pose);
     this.md = { ph: INIT_PHASE[m.type], next: 0.05, fired: 0 };
     stats.att[m.id] = (stats.att[m.id] || 0) + 1;
@@ -1538,6 +1550,10 @@ function checkRound(dt) {
     const w = alive[0];
     winnerText = !w ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[w.team] + ' WINS!' : '#' + (w.id + 1) + ' WINS!';
     winnerColor = w ? colorOf(w) : cfg.line;
+    // Nothing may hurt the winners now: shots still in flight, some from fighters already
+    // knocked out, burst where they are
+    for (const s of shots) burst(s);
+    shots.length = 0;
   } else if (roundTime > 150) {
     newRound();
   }
@@ -1571,12 +1587,13 @@ function updateShots(dt) {
         }
       }
     }
-    if (boom) {
-      addFx({ type: 'ring', x: s.x, y: s.y, r0: 3, r1: 22, dur: 0.2, w: 2, col: s.col });
-      spawnSparks(s.x, s.y, s.col, 6);
-      shots.splice(i, 1);
-    }
+    if (boom) { burst(s); shots.splice(i, 1); }
   }
+}
+// The small ring and sparks of a shot that ends
+function burst(s) {
+  addFx({ type: 'ring', x: s.x, y: s.y, r0: 3, r1: 22, dur: 0.2, w: 2, col: s.col });
+  spawnSparks(s.x, s.y, s.col, 6);
 }
 
 function update(dt) {
