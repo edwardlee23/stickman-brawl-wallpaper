@@ -1,0 +1,70 @@
+// Runs main.js in a sandbox with a stubbed canvas and window, then checks
+// fighter state after grabs and knockouts.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+
+function load() {
+  // A canvas context that accepts every call and property write.
+  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
+  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
+  const window = {
+    innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
+    addEventListener() {},
+  };
+  const context = vm.createContext({
+    window, console, performance, URLSearchParams,
+    location: { search: '?count=4&mode=ffa' },
+    document: { getElementById: () => canvas, body: { style: {} } },
+    requestAnimationFrame() {},
+  });
+  vm.runInContext(readFileSync('main.js', 'utf8'), context, { filename: 'main.js' });
+  const game = window.__stickmanBrawl;
+  const [a, e] = game.fighters;
+  e.W = e.joints();
+  return { game, a, e };
+}
+
+// Puts the fighter in the state a special leaves behind mid-move.
+function midSpecial(f) {
+  Object.assign(f, {
+    move: f.move ?? {}, md: { ph: 'fade' }, spin: true, hover: true, rot: 1,
+    ghost: true, alpha: 0.4, trailOn: true, invis: true, aura: 1,
+  });
+}
+
+function assertCleared(f) {
+  assert.equal(f.md, null, 'md');
+  assert.equal(f.spin, false, 'spin');
+  assert.equal(f.hover, false, 'hover');
+  assert.equal(f.ghost, false, 'ghost');
+  assert.equal(f.alpha, 1, 'alpha');
+  assert.equal(f.invis, false, 'invis');
+  assert.equal(f.aura, 0, 'aura');
+  assert.equal(f.rot, 0, 'rot');
+}
+
+for (const kind of ['over', 'reap', 'takedown']) {
+  test(`the "${kind}" grab clears the grabbed fighter's special`, () => {
+    const { game, a, e } = load();
+    a.move = game.MOVES.find(m => m.grab === kind);
+    midSpecial(e);
+    e.hp = 1000;
+    a.applyGrab(e);
+    assert.equal(e.move, null, 'move');
+    assertCleared(e);
+    assert.equal(e.trailOn, false, 'trailOn');
+    assert.equal(e.state, kind === 'over' ? 'thrown' : 'fall');
+  });
+}
+
+test('a knockout clears the special but keeps the ragdoll trail', () => {
+  const { e } = load();
+  midSpecial(e);
+  e.ko(0, -40);
+  assert.equal(e.state, 'ko');
+  assert.equal(e.move, null, 'move');
+  assertCleared(e);
+  assert.equal(e.trailOn, true, 'trailOn');
+});
