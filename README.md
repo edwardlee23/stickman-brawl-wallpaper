@@ -5,10 +5,11 @@
 
 A comic-style stickman brawl for [Wallpaper Engine](https://www.wallpaperengine.io/).
 Fighters mix boxing, Muay Thai, taekwondo, judo and wrestling with comic
-specials (energy blasts, wall running, and hits that slam them into walls)
-and magic: fireballs, lightning strikes, ice shards that freeze the target,
-and shields that stop a hit. A knockout turns the loser into a ragdoll, and a
-new round starts when one side is left.
+specials (energy blasts, wall running, and hits that slam them into walls),
+magic (fireballs, lightning strikes, ice shards that freeze the target, and
+shields that stop a hit) and ninjutsu: shuriken, shadow clones, smoke escapes,
+and a log left behind to take a hit. A knockout turns the loser into a
+ragdoll, and a new round starts when one side is left.
 
 ![Six fighters brawling in free-for-all mode](demo.gif)
 
@@ -30,7 +31,7 @@ flashing and screen shake". That last one is on by default: it hides the
 full-screen white flash of energy blasts and lightning and the speed lines of
 big hits, and stops the screen shaking. Turn it off for the full comic look.
 With every style turned off, fighters use all five martial-arts styles,
-without the specials or magic.
+without the specials, magic or ninjutsu.
 
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.
