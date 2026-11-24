@@ -58,6 +58,7 @@ works there), or load `project.json` in Wallpaper Engine for the settings panel.
 | `main.js` | The whole wallpaper: settings, skeleton, moves, fighters, rounds, rendering. |
 | `project.json` | Wallpaper Engine manifest: title, settings panel, translations. |
 | `preview.jpg` | Workshop preview image. |
+| `demo.gif` | Animated demo shown in the README; not used by Wallpaper Engine. |
 | `tests/` | `node:test` checks that the files agree with each other. |
 
 ## Phase status
