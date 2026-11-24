@@ -235,6 +235,7 @@ test('the attack after a substitution goes for the attacker, not the old target 
 test('a substitution readied against the shadow clones triggers on the first clone hit (issue #51)', () => {
   const { game, a, e } = load();
   e.x = 400; e.W = e.joints();
+  e.state = 'hit'; e.st = 0; e.dur = 99;   // Holds still: an idle fighter may jump out of reach
   a.startMove(tech(game, 'clones'), true);
   e.subFrom = a; e.subT = 5;   // As warn() readies it
   for (let t = 0; t < 2 && !game.stats.subs; t += 1 / 60) game.update(1 / 60);
