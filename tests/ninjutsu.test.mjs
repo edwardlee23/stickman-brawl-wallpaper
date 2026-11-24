@@ -206,6 +206,20 @@ test('a substitution readied against a far shuriken throw lasts until the stars 
   assert.equal(e.subFrom, a, 'the substitution expired before the stars could arrive');
 });
 
+test('a smoke escape from a far shuriken throw stays hidden until the stars can arrive (issue #38)', () => {
+  const { game, a, e } = load();
+  const shuriken = tech(game, 'shuriken'), gap = 800;
+  a.move = shuriken;
+  e.x = a.x + gap;
+  for (let i = 0; i < 400 && !(e.move && e.move.id === 'smoke'); i++) {
+    Object.assign(e, { state: 'idle', move: null, md: null, evade: 0, vx: 0, subFrom: null, invis: false });
+    a.warn(9999, false);
+  }
+  assert.equal(e.move && e.move.id, 'smoke', 'never vanished in smoke');
+  for (let t = 0; t < gap / shuriken.speed - 0.05; t += 1 / 60) e.update(1 / 60);
+  assert.equal(e.hittable, false, 'came out of the smoke before the stars could arrive');
+});
+
 test('the attack after a substitution goes for the attacker, not the old target (issue #39)', () => {
   const { game, a, e } = load();
   e.target = { alive: true, hittable: true, x: 1100, z: 50, alt: 0, vx: 0 };   // Its old target, far away

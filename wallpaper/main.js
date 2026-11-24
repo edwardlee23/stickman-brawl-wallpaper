@@ -163,6 +163,7 @@ const NINJA = [
 ];
 const SPECIALS = [...SUPER, ...MAGIC, ...NINJA];
 const SHIELD_UP = 1.1;       // Seconds a shield stays up, longer against a far projectile
+const SMOKE_OUT = 0.3;       // Seconds hidden in a smoke escape, longer against a far projectile
 const MOVE_BY = {};
 for (const m of MOVES) {
   MOVE_BY[m.id] = m;
@@ -728,8 +729,8 @@ class Fighter {
       if (!isEnemy(this, e) || e.state !== 'idle') continue;
       if (Math.abs(e.x - this.x) > reach || Math.abs(e.z - this.z) > 14) continue;
       if (sgn(e.x - this.x) !== this.facing) continue;
-      // A projectile is thrown as it warns and needs time to fly; a block, shield or
-      // substitution lasts that much longer, so it is still up when the shot arrives
+      // A projectile is thrown as it warns and needs time to fly; a block, shield, smoke
+      // escape or substitution lasts that much longer, so it is still up when the shot arrives
       const fly = this.move.speed ? Math.abs(e.x - this.x) / this.move.speed : 0;
       const r = Math.random();
       if (!grab && r < 0.25) {
@@ -743,7 +744,7 @@ class Fighter {
         e.md.from = this; e.md.hold = SHIELD_UP + fly;
       } else if (r >= 0.47 && r < 0.55 && cfg.styles.ninjutsu) {
         e.startMove(MOVE_BY.smoke, true);
-        e.md.from = this.x;
+        e.md.from = this.x; e.md.hold = SMOKE_OUT + fly;
       } else if (!grab && r >= 0.55 && r < 0.63 && cfg.styles.ninjutsu) {
         e.subFrom = this; e.subT = (this.move.wind || 0.3) + (this.move.act || 0.4) + 0.3 + fly;
       }
@@ -1159,7 +1160,7 @@ class Fighter {
         sfx('poof', this.x);
       }
       this.vx = 0;
-      if (this.st >= 0.3) {
+      if (this.st >= (md.hold || SMOKE_OUT)) {
         // Reappear a short way off, away from the attacker; at a wall, the other way
         const away = md.from === undefined ? -this.facing : sgn(this.x - md.from);
         let x = this.x + away * rand(70, 110);
