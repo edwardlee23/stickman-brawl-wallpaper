@@ -23,7 +23,7 @@ function load() {
   const game = window.__stickmanBrawl;
   const [a, e] = game.fighters;
   e.W = e.joints();
-  return { game, a, e };
+  return { game, a, e, window };
 }
 
 // Puts the fighter in the state a special leaves behind mid-move.
@@ -89,6 +89,16 @@ test('a knockout clears the special but keeps the ragdoll trail', () => {
   assert.equal(e.move, null, 'move');
   assertCleared(e);
   assert.equal(e.trailOn, true, 'trailOn');
+});
+
+test('turning a style off drops the moves fighters had queued from it', () => {
+  const { game, a, e, window } = load();
+  a.nextMove = game.MOVES.find(m => m.style === 'judo');
+  e.nextMove = game.MOVES.find(m => m.style === 'boxing');
+  window.wallpaperPropertyListener.applyUserProperties({ stylejudo: { value: false } });
+  assert.equal(game.cfg.styles.judo, false);
+  assert.equal(a.nextMove, null, 'judo move still queued');
+  assert.equal(e.nextMove.style, 'boxing', 'boxing move dropped');
 });
 
 // The stub window is 1280 x 720 at 100% figure size, so the world is 960 wide.

@@ -1413,7 +1413,10 @@ window.wallpaperPropertyListener = {
     if (p.backgroundcolor) { cfg.bg = weColor(p.backgroundcolor.value); document.body.style.background = cfg.bg; }
     if (p.linecolor) cfg.line = weColor(p.linecolor.value);
     if (p.reducemotion) cfg.reduceMotion = p.reducemotion.value;
-    for (const s of Object.keys(cfg.styles)) if (p['style' + s]) cfg.styles[s] = p['style' + s].value;
+    let styles = false;
+    for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
+    // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes
+    if (styles) for (const f of fighters) if (f.nextMove && !cfg.styles[f.nextMove.style]) f.nextMove = null;
     if (reset) newRound();
   },
   applyGeneralProperties(p) { if (p.fps !== undefined) cfg.fps = p.fps; },
