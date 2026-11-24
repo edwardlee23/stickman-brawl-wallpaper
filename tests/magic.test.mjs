@@ -176,3 +176,21 @@ test('a shield faces the attacker it was raised against, not its own target (iss
   e.takeHit(a, jab, 'body', { x: 0, y: 0 });
   assert.equal(e.hp, 1000, 'the hit it was raised against landed');
 });
+
+test('a shield or block raised against a far fireball lasts until the fireball can arrive (issue #38)', () => {
+  const reactions = { shield: e => e.shieldUp(), block: e => e.state === 'block' };
+  for (const [name, up] of Object.entries(reactions)) {
+    const { game, a, e } = load();
+    const fireball = spell(game, 'fireball'), gap = 600;
+    a.move = fireball;
+    e.x = a.x + gap;
+    for (let i = 0; i < 400 && !up(e); i++) {
+      Object.assign(e, { state: 'idle', move: null, md: null, facing: -1, evade: 0, vx: 0, subFrom: null });
+      a.warn(9999, false);
+    }
+    assert.ok(up(e), `never raised a ${name}`);
+    // The fireball leaves the hand at the warning and needs gap / speed seconds to arrive
+    for (let t = 0; t < gap / fireball.speed - 0.05; t += 1 / 60) e.update(1 / 60);
+    assert.ok(up(e), `${name} was down before the fireball could arrive`);
+  }
+});

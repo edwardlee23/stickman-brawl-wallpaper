@@ -189,3 +189,31 @@ test('a substitution readied against a shuriken throw triggers when a star hits 
   assert.equal(e.move && e.move.id, 'substitute');
   assert.ok(Math.abs(e.x - a.x) < 40, `appeared at ${e.x}, thrower at ${a.x}`);
 });
+
+test('a substitution readied against a far shuriken throw lasts until the stars can arrive (issue #38)', () => {
+  const { game, a, e } = load();
+  const shuriken = tech(game, 'shuriken'), gap = 800;
+  a.move = shuriken;
+  e.x = a.x + gap;
+  for (let i = 0; i < 400 && !e.subFrom; i++) {
+    Object.assign(e, { state: 'idle', move: null, md: null, evade: 0, vx: 0 });
+    a.warn(9999, false);
+  }
+  assert.equal(e.subFrom, a, 'never readied a substitution');
+  // The stars leave the hand at the warning and need gap / speed seconds to arrive
+  Object.assign(e, { state: 'hit', st: 0, dur: 99 });   // Holds still
+  for (let t = 0; t < gap / shuriken.speed - 0.05; t += 1 / 60) e.update(1 / 60);
+  assert.equal(e.subFrom, a, 'the substitution expired before the stars could arrive');
+});
+
+test('the attack after a substitution goes for the attacker, not the old target (issue #39)', () => {
+  const { game, a, e } = load();
+  e.target = { alive: true, hittable: true, x: 1100, z: 50, alt: 0, vx: 0 };   // Its old target, far away
+  e.substitute(a);
+  assert.equal(e.target, a, 'kept its old target');
+  // Forced to the shadow clones, which go for the target: they must hit the attacker
+  a.state = 'hit'; a.st = 0; a.dur = 99;   // Holds still
+  e.startMove(tech(game, 'clones'), true);
+  for (let t = 0; t < 1.2 && e.move; t += 1 / 60) game.update(1 / 60);
+  assert.ok(a.hp < 100, 'the shadow clones missed the attacker');
+});
