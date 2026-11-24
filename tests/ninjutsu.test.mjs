@@ -165,3 +165,13 @@ test('with only ninjutsu on, the attack after a substitution is a ninjutsu one',
   for (let t = 0; t < 0.5 && e.move && e.move.id === 'substitute'; t += 1 / 60) e.update(1 / 60);
   assert.equal(e.move.style, 'ninjutsu', `follow-up ${e.move.id}`);
 });
+
+test('turning ninjutsu off drops a readied substitution', () => {
+  const { game, a, e, window } = load();
+  e.subFrom = a; e.subT = 1;
+  window.wallpaperPropertyListener.applyUserProperties({ styleninjutsu: { value: false } });
+  assert.equal(e.subFrom, null);
+  const hp = e.hp;
+  e.takeHit(a, jab(game), 'body', { x: 0, y: 0 });
+  assert.ok(e.hp < hp, 'substituted after ninjutsu was turned off');
+});

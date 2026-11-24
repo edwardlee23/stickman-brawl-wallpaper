@@ -1958,6 +1958,8 @@ window.wallpaperPropertyListener = {
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
     // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes
     if (styles) for (const f of fighters) if (f.nextMove && !cfg.styles[f.nextMove.style]) f.nextMove = null;
+    // A readied substitution is unseen until the hit, so it goes too
+    if (styles && !cfg.styles.ninjutsu) for (const f of fighters) f.subFrom = null;
     if (reset) newRound();
   },
   applyGeneralProperties(p) { if (p.fps !== undefined) cfg.fps = p.fps; },
