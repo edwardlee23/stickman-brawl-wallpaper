@@ -14,12 +14,14 @@ const cfg = {
   bg: '#111318',
   line: '#ececec',
   fps: 0,               // 0 = uncapped
+  reduceMotion: true,   // skip full-screen flashes and speed lines, no screen shake
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true },
 };
 const q = new URLSearchParams(location.search);
 if (q.has('count')) cfg.count = +q.get('count');
 if (q.has('mode')) cfg.mode = q.get('mode');
 if (q.has('speed')) cfg.speed = +q.get('speed');
+if (q.has('reducemotion')) cfg.reduceMotion = q.get('reducemotion') !== '0';
 
 // ---------- Helpers ----------
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -1259,6 +1261,8 @@ function drawFighter(f) {
   }
 }
 function drawFx(o, layer) {
+  // Full-screen effects that flash or flicker; Reduce motion hides them
+  if (cfg.reduceMotion && (o.type === 'flash' || o.type === 'focus')) return;
   const u = o.t / o.dur;
   if (o.type === 'crack' && layer === 0) {
     const a = u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3;
@@ -1300,7 +1304,8 @@ function drawFx(o, layer) {
 function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, SW, SH);
-  const ox = shake ? rand(-shake, shake) : 0, oy = shake ? rand(-shake, shake) : 0;
+  const sk = cfg.reduceMotion ? 0 : shake;
+  const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
   ctx.setTransform(dpr * S, 0, 0, dpr * S, ox * dpr, oy * dpr);
   ctx.fillStyle = cfg.line;
   ctx.globalAlpha = 0.035; ctx.fillRect(-20, floorTop - 6, worldW + 40, DEPTH + 12);
@@ -1397,6 +1402,7 @@ window.wallpaperPropertyListener = {
     if (p.colorful) cfg.colorful = p.colorful.value;
     if (p.backgroundcolor) { cfg.bg = weColor(p.backgroundcolor.value); document.body.style.background = cfg.bg; }
     if (p.linecolor) cfg.line = weColor(p.linecolor.value);
+    if (p.reducemotion) cfg.reduceMotion = p.reducemotion.value;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) cfg.styles[s] = p['style' + s].value;
     if (reset) newRound();
   },

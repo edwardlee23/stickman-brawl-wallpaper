@@ -59,6 +59,7 @@
 			"stylesuper" : { "order" : 15, "text" : "ui_stylesuper", "type" : "bool", "value" : true },
 			"showhealth" : { "order" : 21, "text" : "ui_showhealth", "type" : "bool", "value" : true },
 			"colorful" : { "order" : 22, "text" : "ui_colorful", "type" : "bool", "value" : true },
+			"reducemotion" : { "order" : 23, "text" : "ui_reducemotion", "type" : "bool", "value" : true },
 			"backgroundcolor" : { "order" : 30, "text" : "ui_backgroundcolor", "type" : "color", "value" : "0.067 0.075 0.094" },
 			"linecolor" : { "order" : 31, "text" : "ui_linecolor", "type" : "color", "value" : "0.925 0.925 0.925" }
 		},
@@ -80,6 +81,7 @@
 				"ui_stylesuper" : "Moves: Specials (energy blasts, wall running…)",
 				"ui_showhealth" : "Show health bars",
 				"ui_colorful" : "Unique color per fighter in free-for-all",
+				"ui_reducemotion" : "Reduce flashing and screen shake",
 				"ui_backgroundcolor" : "Background color",
 				"ui_linecolor" : "Line color"
 			},
@@ -99,6 +101,7 @@
 				"ui_stylesuper" : "招式：必殺技（氣功波、飛簷走壁…）",
 				"ui_showhealth" : "顯示血條",
 				"ui_colorful" : "大亂鬥時每人不同顏色",
+				"ui_reducemotion" : "減少閃光與畫面震動",
 				"ui_backgroundcolor" : "背景顏色",
 				"ui_linecolor" : "線條顏色"
 			},
@@ -118,6 +121,7 @@
 				"ui_stylesuper" : "招式：必杀技（气功波、飞檐走壁…）",
 				"ui_showhealth" : "显示血条",
 				"ui_colorful" : "大乱斗时每人不同颜色",
+				"ui_reducemotion" : "减少闪光与画面震动",
 				"ui_backgroundcolor" : "背景颜色",
 				"ui_linecolor" : "线条颜色"
 			}
