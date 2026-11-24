@@ -213,3 +213,35 @@ test('a knocked-out body at rest moves back on screen when the window narrows (i
   assert.ok(Math.max(...xs) <= worldW - 4 + 1e-9, `body reaches x ${Math.max(...xs).toFixed(1)} of ${worldW}`);
   assert.ok(Math.min(...xs) >= 4 - 1e-9, `body reaches x ${Math.min(...xs).toFixed(1)}`);
 });
+
+// The highest point drawn for a standing fighter: the top of its head or of the health bar above it
+const drawnTop = f => !f.W ? Infinity : Math.min(f.W.head.y - 8, Math.min(f.W.head.y, f.W.hip.y - 30) - 17);
+
+for (const scale of [50, 100, 200]) {
+  test(`at ${scale}% a double jump, a launch and a throw stay on screen (issue #52)`, () => {
+    const { game, window } = load();
+    window.wallpaperPropertyListener.applyUserProperties({ figurescale: { value: scale } });
+    const [f, g] = game.fighters;
+    const watch = (who, state, what) => {
+      let top = Infinity;
+      stepUntil(game, who, () => { top = Math.min(top, drawnTop(who)); return who.state !== state; }, 3);
+      assert.ok(top >= 0, `${what} draws up to y ${top.toFixed(1)}`);
+    };
+    for (const z of [0, 120]) {
+      // A double jump made at the apex of the highest normal jump
+      Object.assign(f, { x: 200, z, alt: 146, va: 560, vx: 0, state: 'air', cool: 99, dash: 0, hp: 1000 });
+      watch(f, 'air', `double jump at z ${z}`);
+      // The highest launch in the game, from a rising uppercut
+      Object.assign(f, { x: 200, z, alt: 0, va: 0, hp: 1000, state: 'idle' });
+      f.launch(160, 860);
+      watch(f, 'launched', `launch at z ${z}`);
+    }
+    // A shoulder throw
+    Object.assign(f, { x: 300, z: 0, alt: 0, facing: 1, state: 'attack', hp: 1000, rot: 0 });
+    Object.assign(g, { x: 320, z: 0, alt: 0, facing: -1, state: 'idle', hp: 1000, rot: 0 });
+    f.pose = { ...g.pose }; f.W = f.joints(); g.W = g.joints();
+    f.move = game.MOVES.find(m => m.id === 'seoinage');
+    f.applyGrab(g);
+    watch(g, 'thrown', 'throw');
+  });
+}
