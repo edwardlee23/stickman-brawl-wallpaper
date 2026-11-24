@@ -1015,7 +1015,9 @@ class Fighter {
       const side = this.x < 14 ? -1 : 1;
       this.x = clamp(this.x, 14, worldW - 14);
       if (Math.abs(this.vx) > 380) {
-        // Wall hit: the wall cracks and the fighter sticks to it briefly
+        // Wall hit: the wall cracks and the fighter sticks to it briefly.
+        // This step may also have crossed the floor, and the ground check below is skipped.
+        this.alt = Math.max(this.alt, 0);
         const wy = groundY(this.z) - this.alt - 14;
         crack(side < 0 ? 0 : worldW, wy, 'wall', 70);
         addFx({ type: 'ring', x: side < 0 ? 0 : worldW, y: wy, r0: 4, r1: 60, dur: 0.3, w: 3 });
