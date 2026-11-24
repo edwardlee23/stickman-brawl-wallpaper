@@ -70,6 +70,12 @@ Pick a seed where every style appears, and name it in the commit message.
   `check` passes; majors wait for a person.
 - There is no release process yet. Workshop uploads are done by hand from
   Wallpaper Engine's editor, with `wallpaper/project.json` opened.
+- The Workshop item is
+  https://steamcommunity.com/sharedfiles/filedetails/?id=3845187060, and
+  `workshopid` in `project.json` points the editor at it, so an upload
+  updates that item instead of making a new one. The editor works on a copy
+  under `wallpaper_engine\projects\myprojects\`, which it rewrites in its own
+  key order; copy changes there back by hand, keeping this file's layout.
 
 ## Repository layout
 
