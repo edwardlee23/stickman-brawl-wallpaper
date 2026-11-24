@@ -35,14 +35,13 @@ function load(query) {
 }
 
 test('a blast cannot pass through a fighter at 300% speed and 20 fps', () => {
-  let hits = 0;
-  const tries = 20;
-  for (let k = 0; k < tries; k++) {
+  let hits = 0, tries = 0;
+  for (let k = 0; k < 40 && tries < 20; k++) {
     const { game, frame } = load('?count=2&speed=3');
     frame(50);   // One 50 ms frame first, so every fighter has world joints
     const [owner, target] = game.fighters;
-    owner.state = 'idle';
-    target.state = 'idle';
+    if (!target.hittable || target.alt > 0) continue;   // Only aim at a fighter standing on the floor
+    tries++;
     const W = target.W;
     // Aim at the middle of the torso from 40 units away. One unsplit 0.15 s
     // step moves the blast 81 units, from in front of the body to behind it.
@@ -53,6 +52,7 @@ test('a blast cannot pass through a fighter at 300% speed and 20 fps', () => {
     frame(100);
     if (target.hp < hp) hits++;
   }
+  assert.equal(tries, 20, 'too few rounds started with a standing target');
   // The target moves a little within the frame, so allow a rare miss.
   assert.ok(hits >= tries - 2, `only ${hits} of ${tries} blasts hit`);
 });

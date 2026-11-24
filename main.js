@@ -1372,7 +1372,9 @@ function frame(now) {
   const n = clamp(Math.ceil(sim / SUBSTEP - 0.1), 1, MAX_SUBSTEPS);
   for (let i = 0; i < n; i++) {
     update(sim / n);
-    if (freeze > 0) break;   // A hit started a hit stop: drop the rest of this frame, as before
+    // A hit started a hit stop: drop the rest of this frame's time, so the fight pauses
+    // at the hit instead of running on past it. At 100% speed a frame is one step anyway.
+    if (freeze > 0) break;
   }
   render();
 }
