@@ -247,7 +247,12 @@ function soundContext() {
   try { snd.ac = new AC(); } catch (e) { return null; }
   snd.master = snd.ac.createGain();
   snd.master.gain.value = cfg.volume;
-  snd.master.connect(snd.ac.destination);
+  // A limiter after the master, so several loud sounds at once do not clip
+  const lim = snd.ac.createDynamicsCompressor();
+  lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12;
+  lim.attack.value = 0.002; lim.release.value = 0.2;
+  snd.master.connect(lim);
+  lim.connect(snd.ac.destination);
   const n = Math.floor(snd.ac.sampleRate * 0.5);
   snd.noise = snd.ac.createBuffer(1, n, snd.ac.sampleRate);
   const d = snd.noise.getChannelData(0);
@@ -319,9 +324,11 @@ function sfx(kind, x, strength = 1) {
   return true;
 }
 function soundSetVolume() { if (snd.master) snd.master.gain.value = cfg.volume; }
+// Suspends the context while the wallpaper is paused or sound is off, so it does not
+// keep processing silence for hours; resumes it otherwise.
 function soundSetPaused(v) {
   if (!snd.ac) return;
-  const p = v ? snd.ac.suspend() : snd.ac.resume();
+  const p = v || !cfg.sound ? snd.ac.suspend() : snd.ac.resume();
   if (p && p.catch) p.catch(() => {});
 }
 
@@ -1518,7 +1525,7 @@ window.wallpaperPropertyListener = {
     if (p.backgroundcolor) { cfg.bg = weColor(p.backgroundcolor.value); document.body.style.background = cfg.bg; }
     if (p.linecolor) cfg.line = weColor(p.linecolor.value);
     if (p.reducemotion) cfg.reduceMotion = p.reducemotion.value;
-    if (p.soundeffects) cfg.sound = p.soundeffects.value;
+    if (p.soundeffects) { cfg.sound = p.soundeffects.value; soundSetPaused(paused); }
     if (p.soundvolume) { cfg.volume = p.soundvolume.value / 100; soundSetVolume(); }
     let styles = false;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
@@ -1532,7 +1539,7 @@ window.wallpaperPropertyListener = {
 
 window.addEventListener('resize', resize);
 // A plain browser keeps audio suspended until the page is clicked; Wallpaper Engine does not.
-window.addEventListener('pointerdown', () => { if (!paused && snd.ac && snd.ac.state === 'suspended') soundSetPaused(false); });
+window.addEventListener('pointerdown', () => { if (!paused && cfg.sound && snd.ac && snd.ac.state === 'suspended') soundSetPaused(false); });
 resize();
 newRound();
 requestAnimationFrame(frame);

@@ -17,7 +17,7 @@ const param = v => ({
 
 // An audio node whose properties are AudioParams, plus connect, start and stop.
 function node(extra = {}) {
-  const base = { connect: n => n, disconnect() {}, start() {}, stop() {}, ...extra };
+  const base = { connect(n) { base.to = n; return n; }, disconnect() {}, start() {}, stop() {}, ...extra };
   return new Proxy(base, {
     get: (o, k) => (k in o ? o[k] : typeof k === 'string' ? (o[k] = param(0)) : undefined),
     set: (o, k, v) => { o[k] = v; return true; },
@@ -33,7 +33,13 @@ class FakeAudioContext {
     this.destination = node();
     this.calls = [];
     this.gains = [];
+    this.compressors = [];
     FakeAudioContext.instances.push(this);
+  }
+  createDynamicsCompressor() {
+    const c = node({ threshold: param(-24), knee: param(30), ratio: param(12), attack: param(0.003), release: param(0.25) });
+    this.compressors.push(c);
+    return c;
   }
   suspend() { this.calls.push('suspend'); this.state = 'suspended'; return Promise.resolve(); }
   resume() { this.calls.push('resume'); this.state = 'running'; return Promise.resolve(); }
@@ -138,6 +144,28 @@ test('pausing suspends and resumes the context, and is safe before any sound', (
   window.wallpaperPropertyListener.setPaused(true);
   window.wallpaperPropertyListener.setPaused(false);
   assert.deepEqual(AC.instances[0].calls, ['suspend', 'resume']);
+});
+
+test('turning sound off suspends the context, and unpausing does not resume it', () => {
+  const { game, window, AC } = load('?count=2&sound=1');
+  game.sfx('hit', 100);
+  const ac = AC.instances[0];
+  window.wallpaperPropertyListener.applyUserProperties({ soundeffects: { value: false } });
+  assert.equal(ac.state, 'suspended');
+  window.wallpaperPropertyListener.setPaused(true);
+  window.wallpaperPropertyListener.setPaused(false);
+  assert.equal(ac.state, 'suspended');
+  window.wallpaperPropertyListener.applyUserProperties({ soundeffects: { value: true } });
+  assert.equal(ac.state, 'running');
+});
+
+test('the mix goes through a limiter before the speakers, so overlapping sounds do not clip', () => {
+  const { game, AC } = load('?count=2&sound=1');
+  game.sfx('hit', 100);
+  const ac = AC.instances[0];
+  assert.equal(ac.compressors.length, 1);
+  assert.equal(ac.gains[0].to, ac.compressors[0]);
+  assert.equal(ac.compressors[0].to, ac.destination);
 });
 
 test('a hit, a block, a whiff and a knockout each play their sound', () => {
