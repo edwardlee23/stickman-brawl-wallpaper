@@ -17,7 +17,7 @@ const cfg = {
   reduceMotion: true,   // skip full-screen flashes and speed lines, no screen shake
   sound: false,         // sound effects, off unless turned on
   volume: 0.5,          // 0 to 1
-  styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true },
+  styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true, ninjutsu: true },
 };
 // ---------- Helpers ----------
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -72,6 +72,7 @@ const FLYKICK = P({ t: -0.9, lF: 1.65, kF: 0.05, lB: 0.3, kB: -1.8, aF: 0.6, eF:
 const RUN = P({ t: 0.35, lF: 0.6, kF: -0.8, lB: -0.5, kB: -0.6, aF: 0.9, eF: 1.3, aB: -0.6, eB: 1.0 });
 const CALL = P({ t: -0.1, aF: 2.95, eF: 0.1, aB: 0.9, eB: 1.6 });              // Front arm raised to call down lightning
 const FLING = P({ t: -0.15, aF: -0.3, eF: 1.2, aB: 0.6, eB: 1.8, lF: 0.6, kF: -0.4 });  // Front hand drawn back to throw
+const SEAL = P({ t: 0.05, aF: 1.0, eF: 2.4, aB: 1.1, eB: 2.3 });              // Hands together in a seal
 const WARD = P({ t: 0.05, aF: 1.6, eF: 0.25, aB: 1.3, eB: 2.4, lF: 0.5, kF: -0.4 });  // Open palm held out for a shield
 
 function limb(J, n1, n2, o, a, b, l1, l2) {
@@ -153,7 +154,14 @@ const MAGIC = [
   { id: 'ice', type: 'ice', range: [80, 9999], w: 2.5, air: true, dmg: 5 },
   { id: 'shield', type: 'shield', range: [0, 9999], w: 0, reactive: true },
 ];
-const SPECIALS = [...SUPER, ...MAGIC];
+// Ninja techniques. Smoke escape and substitution are reactions to a warned attack, never picked as attacks.
+const NINJA = [
+  { id: 'shuriken', type: 'shuriken', range: [80, 9999], w: 2.5, air: true, dmg: 3 },
+  { id: 'clones', type: 'clones', range: [40, 220], w: 2, dmg: 5 },
+  { id: 'smoke', type: 'smoke', range: [0, 9999], w: 0, reactive: true },
+  { id: 'substitute', type: 'substitute', range: [0, 9999], w: 0, reactive: true },
+];
+const SPECIALS = [...SUPER, ...MAGIC, ...NINJA];
 const MOVE_BY = {};
 for (const m of MOVES) {
   MOVE_BY[m.id] = m;
@@ -170,7 +178,9 @@ for (const m of MOVES) {
 }
 for (const m of SUPER) { m.style = 'super'; MOVE_BY[m.id] = m; }
 for (const m of MAGIC) { m.style = 'magic'; MOVE_BY[m.id] = m; }
-const ELEMENT = { fire: '#ff8a3d', ice: '#9fe8ff', bolt: '#fff3a0' };
+for (const m of NINJA) { m.style = 'ninjutsu'; MOVE_BY[m.id] = m; }
+const ELEMENT = { fire: '#ff8a3d', ice: '#9fe8ff', bolt: '#fff3a0', star: '#d8dde6' };
+const SMOKE = 'rgba(190,190,200,0.55)', WOOD = '#a0703f';
 
 // ---------- Canvas and world ----------
 const canvas = document.getElementById('c');
@@ -195,14 +205,15 @@ const TEAM_COLOR = ['#ff6b6b', '#4dabf7'];
 const TEAM_NAME = ['RED', 'BLUE'];
 const HIT_STATES = new Set(['idle', 'air', 'attack', 'hit', 'block', 'launched', 'splat', 'frozen']);
 const SOLID = new Set(['idle', 'attack', 'hit', 'block', 'frozen']);
+const SUB_STATES = new Set(['idle', 'air', 'attack', 'hit', 'block']);   // States a substitution can be made from
 const isEnemy = (a, b) => a !== b && (cfg.mode === 'teams' ? a.team !== b.team : true);
 
 let fighters = [];
 const sparks = [], fx = [], shots = [];
 let shake = 0, freeze = 0;
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
-const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
-window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, shots, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove,
+const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
+window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove,
   get fighters() { return fighters; } };
 
 // ---------- Effects ----------
@@ -240,6 +251,12 @@ function impact(x, y, big) {
   shake = Math.max(shake, big ? 9 : 4);
   freeze = Math.max(freeze, big ? 0.09 : 0.035);
   if (big) addFx({ type: 'focus', x, y, dur: 0.28 });
+}
+// A cloud of smoke: a few grey balls that swell and fade
+function puff(x, y, size) {
+  const balls = [];
+  for (let i = 0; i < 7; i++) balls.push({ dx: rand(-14, 14) * size, dy: rand(-20, 20) * size, r: rand(8, 15) * size });
+  addFx({ type: 'puff', x, y, balls, dur: 0.5 });
 }
 function quake(x, y, r) {
   addFx({ type: 'ring', x, y, r0: 6, r1: r, dur: 0.4, w: 3, flat: true });
@@ -317,6 +334,8 @@ const SFX = {
   step: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 900 * v, 900 * v, 0.025, 0.1 * s, 1.5); return 0.03; },
   zap: (ac, o, t, s, v) => { noise(ac, o, t, 'highpass', 5000 * v, 1200 * v, 0.35, 0.5 * s); tone(ac, o, t, 'square', 1400 * v, 90 * v, 0.2, 0.12 * s); return 0.35; },
   freeze: (ac, o, t, s, v) => { tone(ac, o, t, 'triangle', 2600 * v, 1700 * v, 0.14, 0.18 * s); noise(ac, o, t, 'highpass', 6000 * v, 4000 * v, 0.12, 0.2 * s); return 0.14; },
+  toss: (ac, o, t, s, v) => { noise(ac, o, t, 'bandpass', 4500 * v, 2500 * v, 0.09, 0.2 * s, 3); return 0.1; },
+  poof: (ac, o, t, s, v) => { noise(ac, o, t, 'lowpass', 1400 * v, 250 * v, 0.3, 0.45 * s); return 0.3; },
   shield: (ac, o, t, s, v) => { tone(ac, o, t, 'sine', 520 * v, 880 * v, 0.22, 0.25 * s); tone(ac, o, t, 'triangle', 1040 * v, 1760 * v, 0.18, 0.08 * s); return 0.22; },
   win: (ac, o, t, s) => { [523, 659, 784].forEach((f, i) => tone(ac, o, t + i * 0.13, 'triangle', f, f, 0.12, 0.2 * s)); return 0.4; },
 };
@@ -447,9 +466,11 @@ function pickMove(me, t) {
 
 // ---------- Stickman ----------
 const TMP = clonePose(GUARD);
-const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 'rising', 'barrage'];
+// Attacks made right after appearing next to a target (teleport, substitution)
+const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 'rising', 'barrage', 'clones'];
 const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run',
-  fireball: 'charge', lightning: 'cast', ice: 'cast', shield: 'up' };
+  fireball: 'charge', lightning: 'cast', ice: 'cast', shield: 'up',
+  shuriken: 'cast', clones: 'split', smoke: 'out', substitute: 'in' };
 class Fighter {
   constructor(id, x, z, team, hue) {
     Object.assign(this, { id, x, z, team, hue });
@@ -462,6 +483,7 @@ class Fighter {
     this.th = null; this.rag = null; this.hipH = 44; this.W = null; this.downDur = 1; this.koPending = false;
     this.aura = 0; this.alpha = 1; this.invis = false; this.ghost = false;
     this.trail = []; this.trailOn = false; this.trailT = 0;
+    this.subFrom = null; this.subT = 0;   // A substitution readied against this attacker, for subT seconds
   }
   get alive() { return this.state !== 'ko'; }
   get hittable() {
@@ -491,6 +513,7 @@ class Fighter {
     this.st += dt; this.time += dt;
     if (this.flash > 0) this.flash -= dt;
     this.aura = Math.max(0, this.aura - dt * 2);
+    if (this.subFrom && (this.subT -= dt) <= 0) this.subFrom = null;
     switch (this.state) {
       case 'idle': this.updIdle(dt); break;
       case 'air': this.updAir(dt); break;
@@ -679,8 +702,9 @@ class Fighter {
     if (!m.type && !surprise) this.warn(m.range[1] + 15, !!m.grab);
   }
 
-  // Nearby opponents may block, back off to dodge, or (with magic on) raise a shield.
-  // Throws cannot be blocked or shielded.
+  // Nearby opponents may block, back off to dodge, raise a shield (magic), vanish in smoke or
+  // ready a substitution for this attacker's hit (ninjutsu). Throws cannot be blocked,
+  // shielded or substituted, but smoke escapes them.
   warn(reach, grab) {
     for (const e of fighters) {
       if (!isEnemy(this, e) || e.state !== 'idle') continue;
@@ -695,6 +719,11 @@ class Fighter {
       } else if (!grab && r < 0.47 && cfg.styles.magic) {
         e.facing = sgn(this.x - e.x);
         e.startMove(MOVE_BY.shield, true);
+      } else if (r >= 0.47 && r < 0.55 && cfg.styles.ninjutsu) {
+        e.startMove(MOVE_BY.smoke, true);
+        e.md.from = this.x;
+      } else if (!grab && r >= 0.55 && r < 0.63 && cfg.styles.ninjutsu) {
+        e.subFrom = this; e.subT = (this.move.wind || 0.3) + (this.move.act || 0.4) + 0.3;
       }
     }
   }
@@ -997,17 +1026,150 @@ class Fighter {
       }
     } else if (this.st >= 0.24) {
       this.invis = false; this.alpha = 1; this.trailOn = false; this.trail.length = 0;
-      // Appear behind the target; with its back to a wall there is no room behind, so appear in front
-      let x = t.x - t.facing * 28;
-      if (x < 14 || x > worldW - 14) x = t.x + t.facing * 28;
-      this.x = clamp(x, 14, worldW - 14);
-      this.z = t.z; this.alt = t.alt; this.va = 0;
-      this.facing = this.x !== t.x ? sgn(t.x - this.x) : -t.facing;
+      this.appearBehind(t);
       addFx({ type: 'ring', x: this.x, y: groundY(this.z) - this.alt - 45, r0: 2, r1: 40, dur: 0.2, w: 2 });
-      // Follow up with an attack right after appearing, from the styles that are turned on
-      const ids = TELEPORT_FOLLOW.filter(id => cfg.styles[MOVE_BY[id].style]);
-      this.startMove(MOVE_BY[pick(ids.length ? ids : TELEPORT_FOLLOW)], true);
+      this.followUp();
     }
+  }
+  // Moves right behind t, facing it; with its back to a wall there is no room behind, so in front
+  appearBehind(t) {
+    let x = t.x - t.facing * 28;
+    if (x < 14 || x > worldW - 14) x = t.x + t.facing * 28;
+    this.x = clamp(x, 14, worldW - 14);
+    this.z = t.z; this.alt = t.alt; this.va = 0;
+    this.facing = this.x !== t.x ? sgn(t.x - this.x) : -t.facing;
+  }
+  // Attacks right after appearing, with a move from the styles that are turned on
+  followUp() {
+    const ids = TELEPORT_FOLLOW.filter(id => cfg.styles[MOVE_BY[id].style]);
+    this.startMove(MOVE_BY[pick(ids.length ? ids : TELEPORT_FOLLOW)], true);
+  }
+
+  // ---- Ninjutsu ----
+  u_shuriken(dt) {
+    const md = this.md, t = this.target;
+    if (this.alt > 0) { this.hover = true; this.va = 0; }
+    if (t && t.alive) this.facing = sgn(t.x - this.x);
+    this.vx = approach(this.vx, 0, 700 * dt);
+    if (md.ph === 'cast') {
+      lerpPose(this.pose, FLING, Math.min(1, dt * 20), this.pose);
+      if (this.st >= 0.16 && this.W) {
+        // A fan of three stars, spread a little above and below the aim
+        md.ph = 'throw'; md.t0 = this.st;
+        for (const off of [-0.16, 0, 0.16]) this.castShot(this.W.hF, 'star', 620, 0.02, off);
+        sfx('toss', this.x);
+        this.warn(9999, false);
+      }
+    } else {
+      lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
+      if (this.st - md.t0 > 0.3) this.endMove();
+    }
+  }
+
+  u_clones(dt) {
+    const md = this.md, m = this.move, t = this.target;
+    if (!t || !t.alive) { this.endMove(); return; }
+    if (md.ph === 'split') {
+      if (!md.clones) {
+        // Two faded copies step out to either side
+        md.clones = [{ x: this.x, off: -40, alt: 0, fac: 1, a: 0 }, { x: this.x, off: 40, alt: 0, fac: 1, a: 0 }];
+        for (const c of md.clones) puff(this.x + c.off, groundY(this.z) - 40, 0.8);
+        sfx('poof', this.x);
+      }
+      lerpPose(this.pose, SEAL, Math.min(1, dt * 20), this.pose);
+      for (const c of md.clones) { c.x = this.x + c.off; c.a = Math.min(1, this.st / 0.15); }
+      this.vx = approach(this.vx, 0, 700 * dt);
+      if (this.st >= 0.25) {
+        md.ph = 'rush'; md.t0 = this.st;
+        for (const c of md.clones) c.x0 = c.x;
+        this.warn(Math.abs(t.x - this.x) + 30, false);
+      }
+    } else if (md.ph === 'rush') {
+      // The real fighter runs in from the front; one clone circles behind the target, one leaps over it
+      this.facing = sgn(t.x - this.x) || this.facing;
+      const gap = t.x - this.x - this.facing * 26;
+      this.vx = clamp(gap * 12, -420, 420);
+      this.runStep(dt);
+      const p = Object.assign(TMP, RUN);
+      p.lF += Math.sin(this.walk) * 0.7; p.lB -= Math.sin(this.walk) * 0.7;
+      lerpPose(this.pose, p, Math.min(1, dt * 20), this.pose);
+      const u = ease(Math.min(1, (this.st - md.t0) / 0.3));
+      const goals = [[t.x + this.facing * 26, 0, -1], [t.x - this.facing * 6, 34, 1]];
+      md.clones.forEach((c, i) => {
+        const [gx, ga, gf] = goals[i];
+        c.x = c.x0 + (clamp(gx, 14, worldW - 14) - c.x0) * u; c.alt = ga * Math.sin(Math.PI / 2 * u);
+        c.fac = u > 0.5 ? gf : 1;
+      });
+      if (this.st - md.t0 >= 0.35) { md.ph = 'strike'; md.t0 = this.st; this.vx = 0; }
+    } else if (md.ph === 'strike') {
+      lerpPose(this.pose, MOVE_BY.cross.A, Math.min(1, dt * 30), this.pose);
+      if (!md.hit) {
+        md.hit = true;
+        const near = t.hittable && Math.abs(t.x - this.x) < 60 && Math.abs(t.z - this.z) < 16 && Math.abs(t.alt - this.alt) < 45;
+        if (near) {
+          // Both clones land a hit, then the real fighter's launches the target
+          for (const c of md.clones) {
+            if (!t.hittable) break;
+            const pt = t.bodyPoint();
+            t.takeHit({ facing: c.fac * this.facing }, m, 'body', pt, { dmg: m.dmg, hold: true });
+          }
+          if (t.hittable) t.takeHit(this, m, 'head', t.bodyPoint(), { dmg: m.dmg * 1.6, launch: { vx: this.facing * 520, va: 360 }, big: true });
+        } else sfx('whiff', this.x);
+      }
+      if (this.st - md.t0 > 0.2) {
+        md.ph = 'vanish'; md.t0 = this.st;
+        for (const c of md.clones) puff(c.x, groundY(this.z) - c.alt - 40, 0.8);
+        sfx('poof', this.x, 0.7);
+      }
+    } else {
+      lerpPose(this.pose, GUARD, Math.min(1, dt * 10), this.pose);
+      md.clones = null;
+      if (this.st - md.t0 > 0.15) this.endMove();
+    }
+  }
+
+  u_smoke(dt) {
+    const md = this.md;
+    if (md.ph === 'out') {
+      if (!md.puffed) {
+        md.puffed = true; this.invis = true;
+        puff(this.x, groundY(this.z) - this.alt - 40, 1);
+        sfx('poof', this.x);
+      }
+      this.vx = 0;
+      if (this.st >= 0.3) {
+        // Reappear a short way off, away from the attacker; at a wall, the other way
+        const away = md.from === undefined ? -this.facing : sgn(this.x - md.from);
+        let x = this.x + away * rand(70, 110);
+        if (x < 14 || x > worldW - 14) x = this.x - away * rand(70, 110);
+        this.x = clamp(x, 14, worldW - 14);
+        this.invis = false;
+        if (md.from !== undefined && Math.abs(md.from - this.x) > 1) this.facing = sgn(md.from - this.x);
+        puff(this.x, groundY(this.z) - this.alt - 40, 0.7);
+        this.endMove();
+      }
+    }
+  }
+
+  u_substitute(dt) {
+    // Fades in behind the attacker, then strikes
+    this.alpha = Math.min(1, this.st / 0.12);
+    lerpPose(this.pose, GUARD, Math.min(1, dt * 20), this.pose);
+    if (this.st >= 0.15) { this.alpha = 1; this.followUp(); }
+  }
+
+  // A readied substitution: a log takes the hit, and the fighter appears behind the attacker.
+  substitute(att) {
+    const gy = groundY(this.z);
+    addFx({ type: 'log', x: this.x, y: gy, dir: -this.facing, dur: 1.2 });
+    puff(this.x, gy - 40, 1);
+    sfx('poof', this.x);
+    this.subFrom = null; stats.subs++;
+    this.clearMove();
+    this.state = 'idle'; this.vx = 0; this.vz = 0;
+    this.appearBehind(att);
+    puff(this.x, groundY(this.z) - this.alt - 40, 0.6);
+    this.startMove(MOVE_BY.substitute, true);
   }
 
   u_wallrun(dt) {
@@ -1065,12 +1227,13 @@ class Fighter {
   }
 
   // ---- Spells ----
-  // Throws a projectile of the given element from point H, aimed at the target's body.
-  castShot(H, kind, speed, spread) {
+  // Throws a projectile of the given kind from point H, aimed at the target's body,
+  // turned by offset radians plus a random spread.
+  castShot(H, kind, speed, spread, offset = 0) {
     const t = this.target;
     let a = 0;
     if (t && t.W) { const c = mid(t.W.sh, t.W.hip); a = Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1); }
-    a = clamp(a + rand(-spread, spread), -1, 1.1);
+    a = clamp(a + offset + rand(-spread, spread), -1, 1.1);
     shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * speed, vy: Math.sin(a) * speed, z: this.z,
       owner: this, m: this.move, life: 3, col: ELEMENT[kind], kind, dmg: this.move.dmg });
   }
@@ -1211,6 +1374,11 @@ class Fighter {
 
   takeHit(att, m, zone, H, o = {}) {
     const dir = att.facing;
+    if (this.subFrom === att && att.alive && !this.invis && SUB_STATES.has(this.state)) {
+      spawnSparks(H.x, H.y, '#ffe28a', 6); sfx('hit', H.x);
+      this.substitute(att);
+      return;
+    }
     if (!o.unblockable && this.shieldUp() && this.facing === -dir) {
       // The shield takes the hit in full and breaks
       this.md.ph = 'rec'; this.md.t0 = this.st;
@@ -1500,6 +1668,14 @@ function drawFighter(f) {
   const col = colorOf(f);
   for (const tr of f.trail) drawSkeleton(tr.p, col, tr.life * 0.3 * f.alpha, 2, false);
   if (f.aura > 0 && f.alive) drawAura(f, col);
+  if (f.move && f.move.type === 'clones' && f.md && f.md.clones) {
+    // Shadow clones: faded copies in the fighter's pose; fac -1 mirrors one to face the other way
+    for (const c of f.md.clones) {
+      const C = {};
+      for (const k of JOINTS) C[k] = { x: c.x + (J[k].x - f.x) * c.fac, y: J[k].y - c.alt };
+      drawSkeleton(C, col, 0.5 * c.a, 3, true);
+    }
+  }
   const base = (f.alive ? 1 : 0.5) * f.alpha;
   const frozen = f.state === 'frozen';
   drawSkeleton(J, f.flash > 0 ? '#ffffff' : frozen ? ELEMENT.ice : col, base, 3.2, true);
@@ -1583,6 +1759,24 @@ function drawFx(o, layer) {
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       ctx.stroke();
     }
+  } else if (o.type === 'puff' && layer === 1) {
+    ctx.fillStyle = SMOKE;
+    for (const b of o.balls) {
+      ctx.globalAlpha = 1 - u;
+      ctx.beginPath(); ctx.arc(o.x + b.dx * (1 + u), o.y + b.dy * (1 + u) - u * 10, b.r * (0.6 + u * 0.8), 0, Math.PI * 2); ctx.fill();
+    }
+  } else if (o.type === 'log' && layer === 0) {
+    // The log left in the fighter's place topples over, then fades
+    const fall = Math.min(1, o.t / 0.35), a = o.dir * Math.PI / 2 * ease(fall);
+    const H = 46, R = 6;
+    ctx.save();
+    ctx.translate(o.x, o.y); ctx.rotate(a);
+    ctx.globalAlpha = u < 0.75 ? 1 : 1 - (u - 0.75) / 0.25;
+    ctx.fillStyle = WOOD; ctx.strokeStyle = '#5a3d22'; ctx.lineWidth = 1.2;
+    ctx.fillRect(-R, -H, R * 2, H); ctx.strokeRect(-R, -H, R * 2, H);
+    ctx.beginPath(); ctx.moveTo(-R, -H * 0.6); ctx.lineTo(0, -H * 0.55); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, -H, R, 2.5, 0, 0, Math.PI * 2); ctx.fillStyle = '#c99a63'; ctx.fill(); ctx.stroke();
+    ctx.restore();
   } else if (o.type === 'mark' && layer === 0) {
     // Where lightning will strike: a pulsing ring on the floor
     const p = 0.6 + Math.sin(o.t * 30) * 0.4;
@@ -1670,6 +1864,18 @@ function render() {
       ctx.closePath(); ctx.fill();
       continue;
     }
+    if (s.kind === 'star') {
+      // A spinning four-pointed star
+      const a0 = s.life * 25;
+      ctx.fillStyle = s.col; ctx.globalAlpha = 0.95; ctx.shadowBlur = 6;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = a0 + i * Math.PI / 4, r = i % 2 ? 2 : 6.5;
+        ctx.lineTo(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r);
+      }
+      ctx.closePath(); ctx.fill();
+      continue;
+    }
     const r = s.kind === 'fire' ? 11 + Math.sin(s.life * 40) * 1.5 : 7;
     ctx.fillStyle = s.col; ctx.globalAlpha = 0.6;
     ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
@@ -1752,6 +1958,8 @@ window.wallpaperPropertyListener = {
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
     // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes
     if (styles) for (const f of fighters) if (f.nextMove && !cfg.styles[f.nextMove.style]) f.nextMove = null;
+    // A readied substitution is unseen until the hit, so it goes too
+    if (styles && !cfg.styles.ninjutsu) for (const f of fighters) f.subFrom = null;
     if (reset) newRound();
   },
   applyGeneralProperties(p) { if (p.fps !== undefined) cfg.fps = p.fps; },

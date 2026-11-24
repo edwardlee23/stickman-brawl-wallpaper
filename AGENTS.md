@@ -5,7 +5,8 @@
 Stickman Brawl is a web wallpaper for Wallpaper Engine. A single canvas shows
 comic-style stick figures fighting: keyframed poses for martial-arts moves,
 comic specials (energy blasts, wall running, wall slams), elemental
-magic (fireballs, lightning, ice, shields), and a verlet ragdoll
+magic (fireballs, lightning, ice, shields), ninjutsu (shuriken, shadow clones,
+smoke escapes, substitution), and a verlet ragdoll
 on knockout. It is plain browser JavaScript with no dependencies and no build
 step; Wallpaper Engine loads `wallpaper/index.html`, which loads
 `wallpaper/main.js`.
