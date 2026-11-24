@@ -69,8 +69,7 @@ Pick a seed where every style appears, and name it in the commit message.
   after a 7-day cooldown. Minor and patch updates merge themselves once
   `check` passes; majors wait for a person.
 - There is no release process yet. Workshop uploads are done by hand from
-  Wallpaper Engine's editor, with `wallpaper/project.json` opened.
-- The Workshop item is
+  Wallpaper Engine's editor. The Workshop item is
   https://steamcommunity.com/sharedfiles/filedetails/?id=3845187060, and
   `workshopid` in `project.json` points the editor at it, so an upload
   updates that item instead of making a new one. The editor uploads from its
