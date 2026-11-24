@@ -15,6 +15,12 @@ ragdoll, and a new round starts when one side is left.
 
 ## Install
 
+Subscribe to it on the
+[Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3845187060),
+and Wallpaper Engine downloads it.
+
+To run it from this repository instead:
+
 1. Download or clone this repository.
 2. In Wallpaper Engine, choose **Open Wallpaper → Open from File** and pick
    `wallpaper/project.json`. The `wallpaper/` folder holds only the files the
