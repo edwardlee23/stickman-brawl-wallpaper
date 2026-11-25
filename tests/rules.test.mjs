@@ -26,7 +26,7 @@ function load(search = '?count=6&mode=ffa') {
 function withRules(rules, search) {
   const window = load(search);
   window.wallpaperPropertyListener.applyUserProperties({ roundrules: { value: rules } });
-  return window.__stickmanBrawl;
+  return Object.assign(window.__stickmanBrawl, { window });
 }
 
 // Knocks f out without a ragdoll, which checkRound does not need
@@ -157,6 +157,33 @@ test('Survival: a round that times out or is reset restores everyone', () => {
   game.fighters[1].hp = 60;
   game.checkRound(151);
   for (const f of game.fighters) assert.equal(f.hp, 100);
+  // A reset from the settings panel, here a new figure size
+  game.fighters[0].hp = 40;
+  game.fighters[1].hp = 60;
+  game.window.wallpaperPropertyListener.applyUserProperties({ figurescale: { value: 150 } });
+  for (const f of game.fighters) assert.equal(f.hp, 100);
+});
+
+test('Survival: a settings change during the win banner restores everyone (#123)', () => {
+  const window = load();
+  const we = window.wallpaperPropertyListener;
+  we.applyUserProperties({ roundrules: { value: 'survival' } });
+  const game = window.__stickmanBrawl;
+  const w = game.fighters[2];
+  w.hp = 40;
+  for (const f of game.fighters) if (f !== w) knockOut(f);
+  game.checkRound(0);                     // #3 WINS! is on screen
+  we.applyUserProperties({ figurescale: { value: 150 } });
+  for (const f of game.fighters) assert.equal(f.hp, 100, '#' + (f.id + 1) + ' starts at ' + f.hp);
+
+  // A Normal round won at 30, then the rules switched to Survival during the banner
+  we.applyUserProperties({ roundrules: { value: 'normal' } });
+  const v = game.fighters[1];
+  v.hp = 30;
+  for (const f of game.fighters) if (f !== v) knockOut(f);
+  game.checkRound(0);
+  we.applyUserProperties({ roundrules: { value: 'survival' } });
+  for (const f of game.fighters) assert.equal(f.hp, 100, '#' + (f.id + 1) + ' starts at ' + f.hp);
 });
 
 test('Ladder: a click with Click to blast on leaves the waiting fighters where they are', () => {

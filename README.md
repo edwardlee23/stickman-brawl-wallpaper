@@ -65,7 +65,8 @@ King gives one fighter a round double health and a crown, and everyone else
 goes after it first. Ladder turns a free-for-all into one-on-one fights: the
 rest wait at the sides cheering, the winner stays and the next steps in.
 Survival lets a round's winners keep their health into the next round, unless
-it is below 15%. King and Ladder apply to free-for-all only.
+it is below 15%; a round that times out, or that a settings change starts over,
+restores everyone. King and Ladder apply to free-for-all only.
 
 "Items" (off by default) drops a staff, a boomerang or a heart from the top of
 the screen every 8 to 15 seconds, at most two at a time, and fighters with no
