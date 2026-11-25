@@ -74,6 +74,10 @@ strikes reach farther and hit harder, a boomerang is thrown once and flies out
 and back (a block or shield stops it), and a heart restores 30% health. Items
 vanish when a round ends.
 
+"Floating platforms" adds two or three thin ledges above the floor. Fighters
+land on them, walk off their edges, and jump up or drop down to reach an
+opponent on another level. It is off by default.
+
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.
 The sounds are made in code when they play, so the wallpaper loads no audio
