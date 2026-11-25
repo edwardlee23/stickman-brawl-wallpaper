@@ -105,3 +105,47 @@ test('Click to blast is in the settings panel at order 28 and off by default', (
   assert.ok(p, 'clickblast setting exists');
   assert.deepEqual([p.order, p.type, p.value, p.text], [28, 'bool', false, 'ui_clickblast']);
 });
+
+test('during the slow-motion finish zoom, a click on a fighter as drawn launches it (#121)', () => {
+  // A context that keeps the most zoomed world transform of a frame (the HUD is drawn after it)
+  let view = null;
+  const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
+  const ctx = new Proxy({}, {
+    get: (_, k) => k === 'setTransform' ? (a, b, c, d, e, f) => { if (a !== 1 && (!view || a >= view.k)) view = { k: a, x: e, y: f }; }
+      : k === 'measureText' ? t => ({ width: String(t).length * 8 }) : stub,
+    set: () => true,
+  });
+  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
+  const listeners = {};
+  let next = null;
+  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
+    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } };
+  Object.assign(window, {
+    window,
+    document: { getElementById: () => canvas, body: { style: {} } },
+    location: { search: '?count=2&mode=ffa&reducemotion=0' },
+    URLSearchParams,
+    performance: { now: () => 0 },
+    requestAnimationFrame: cb => { next = cb; },
+    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  });
+  vm.runInNewContext(readFileSync('wallpaper/main.js', 'utf8'), window);
+  const game = window.__stickmanBrawl;
+  window.wallpaperPropertyListener.applyUserProperties({ slowmofinish: { value: true }, clickblast: { value: true } });
+  const [a, b] = game.fighters;
+  const hold = () => { if (b.state !== 'launched') Object.assign(b, { state: 'hit', st: 0, dur: 999, alt: 0, va: 0, vx: 0 }); };
+  Object.assign(a, { x: 100, z: 50, alt: 0, state: 'hit', st: 0, dur: 999 });
+  Object.assign(b, { x: 640, z: 50 });   // Far enough from a that the zoom moves it about 200 units on screen
+  hold();
+  let t = 1000 / 60;
+  next(t);
+  a.hp = 0; a.ko(0, -40);
+  // 0.3 s on: the view is zoomed all the way in
+  for (let i = 0; i < 18; i++) { hold(); view = null; next(t += 1000 / 60); }
+  assert.ok(view.k > S * 1.3, 'the view is not zoomed: ' + view.k);
+  // Click where b's body is drawn on the screen
+  const c = b.bodyPoint();
+  assert.ok(c.x * view.k + view.x < 1280, 'the fighter is drawn off screen');
+  for (const fn of listeners.pointerdown) fn({ clientX: c.x * view.k + view.x, clientY: c.y * view.k + view.y, button: 0, timeStamp: 1e6 });
+  assert.equal(b.state, 'launched', 'the fighter clicked on was not launched');
+});
