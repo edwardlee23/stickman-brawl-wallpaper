@@ -47,7 +47,7 @@ class FakeAudioContext {
   createOscillator() { return node({ frequency: param(440), detune: param(0) }); }
   createBufferSource() { return node({ playbackRate: param(1) }); }
   createBiquadFilter() { return node({ frequency: param(350), Q: param(1) }); }
-  createStereoPanner() { return node({ pan: param(0) }); }
+  createStereoPanner() { const p = node({ pan: param(0) }); (this.panners ??= []).push(p); return p; }
   createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; }
 }
 
@@ -204,4 +204,15 @@ test('nothing is queued while the browser keeps audio suspended before a click (
   window.wallpaperPropertyListener.setPaused(false);   // What the click handler does
   assert.equal(ac.state, 'running');
   assert.equal(game.sfx('hit', 100), true, 'no sound after the click');
+});
+
+test('a sound at the left edge pans left and one at the right edge pans right', () => {
+  const { game, AC } = load('?count=2', { sound: true });
+  const worldW = 1280 / (720 / 540);
+  assert.equal(game.sfx('hit', 0), true);
+  AC.instances[0].currentTime += 10;
+  assert.equal(game.sfx('hit', worldW), true);
+  const [left, right] = AC.instances[0].panners.map(p => p.pan.value);
+  assert.ok(left < 0, `left edge pans ${left}`);
+  assert.ok(right > 0, `right edge pans ${right}`);
 });
