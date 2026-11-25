@@ -215,3 +215,74 @@ test('a fighter lying on a platform is drawn on its top, not through it', () => 
   const floor = lowest(false), ledge = lowest(true);
   assert.ok(Math.abs(ledge - floor) < 1e-6, `lowest joint ${ledge} below a platform top, ${floor} below the floor`);
 });
+
+// Issue #108: slams, dives and wall-run leaps land on ledges
+const special = (game, type) => [...game.SUPER, ...game.MAGIC, ...game.NINJA].find(m => m.type === type);
+const onTop = (game, f, p) => Math.abs(feetY(game, f) - p.y) < 1e-6;
+
+test('a slam started on a platform lands on it and hits a target beside it there', () => {
+  const { game, a, e } = load();
+  const p = game.platforms[0];
+  dropAbove(game, a, p.x0 + 40, p, 0);
+  dropAbove(game, e, p.x0 + 90, p, 0);
+  e.hp = 1000;
+  run(game, 0.1);
+  Object.assign(a, { state: 'idle', target: e, retarget: 999 });
+  a.startMove(special(game, 'slam'));
+  let landed = false;
+  for (let t = 0; t < 2 && a.state === 'attack' && !landed; t += 1 / 60) {
+    game.update(1 / 60);
+    landed = a.md && a.md.ph === 'rec';
+  }
+  assert.ok(landed, 'the slam never landed');
+  assert.ok(onTop(game, a, p), `landed with its feet at ${feetY(game, a)}, platform top at ${p.y}`);
+  assert.ok(e.hp < 1000, 'the shockwave missed the target on the platform');
+});
+
+test('a slam on a platform does not hit a target on the floor below it', () => {
+  const { game, a, e } = load();
+  const p = game.platforms[0];
+  dropAbove(game, a, p.x0 + 40, p, 0);
+  Object.assign(e, { x: p.x0 + 90, z: 60, alt: 0 });
+  e.hp = 1000;
+  run(game, 0.1);
+  Object.assign(a, { state: 'idle', target: e, retarget: 999 });
+  a.startMove(special(game, 'slam'));
+  for (let t = 0; t < 2 && a.state === 'attack'; t += 1 / 60) game.update(1 / 60);
+  assert.equal(e.hp, 1000);
+});
+
+test('a missed dive over a platform stops on its top', () => {
+  const { game, a, e } = load();
+  const p = game.platforms[0];
+  // The target is unseen on the floor under the platform, so the dive steers down at it and misses
+  Object.assign(e, { x: (p.x0 + p.x1) / 2 + 20, z: 60, alt: 0, invis: true });
+  dropAbove(game, a, (p.x0 + p.x1) / 2, p, 100);
+  game.update(1 / 60);
+  Object.assign(a, { state: 'idle', target: e, retarget: 999 });
+  a.startMove(special(game, 'dive'));
+  Object.assign(a.md, { ph: 'dive', a: 1.2, prev: null });
+  Object.assign(a, { hover: true, va: -600, vx: 0 });
+  let landed = false;
+  for (let t = 0; t < 3 && a.state === 'attack' && !landed; t += 1 / 60) {
+    game.update(1 / 60);
+    landed = a.md && a.md.ph === 'rec';
+  }
+  assert.ok(landed, 'the dive never landed');
+  assert.ok(onTop(game, a, p), `landed with its feet at ${feetY(game, a)}, platform top at ${p.y}`);
+});
+
+test('a wall-run leap that ends over a platform lands on it', () => {
+  const { game, a, e } = load();
+  const p = game.platforms[0];
+  Object.assign(e, { x: (p.x0 + p.x1) / 2 + 30, z: 60, alt: 0, invis: true });
+  dropAbove(game, a, (p.x0 + p.x1) / 2 - 30, p, 60);
+  game.update(1 / 60);
+  Object.assign(a, { state: 'idle', target: e, retarget: 999, facing: 1 });
+  a.startMove(special(game, 'wallrun'));
+  Object.assign(a.md, { ph: 'leap', t0: a.st, prev: null, dir: -1 });
+  Object.assign(a, { hover: true, va: -300, vx: 200 });
+  for (let t = 0; t < 3 && a.state === 'attack'; t += 1 / 60) game.update(1 / 60);
+  assert.equal(a.state, 'idle', 'the leap did not end standing');
+  assert.ok(onTop(game, a, p), `feet at ${feetY(game, a)}, platform top at ${p.y}`);
+});
