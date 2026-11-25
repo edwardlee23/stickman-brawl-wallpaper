@@ -999,6 +999,8 @@ class Fighter {
       if (!isEnemy(this, e) || e.state !== 'idle') continue;
       if (Math.abs(e.x - this.x) > reach || Math.abs(e.z - this.z) > 14) continue;
       if (sgn(e.x - this.x) !== this.facing) continue;
+      // A strike cannot reach an enemy as far above or below as it cannot hit (on another platform, say)
+      if (!this.move.type && Math.abs(e.alt - this.alt) >= 35) continue;
       // A projectile is thrown as it warns and needs time to fly; a block, shield, smoke
       // escape or substitution lasts that much longer, so it is still up when the shot arrives
       const fly = this.move.speed ? Math.abs(e.x - this.x) / this.move.speed : 0;

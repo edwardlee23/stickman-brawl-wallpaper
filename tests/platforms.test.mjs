@@ -286,3 +286,27 @@ test('a wall-run leap that ends over a platform lands on it', () => {
   assert.equal(a.state, 'idle', 'the leap did not end standing');
   assert.ok(onTop(game, a, p), `feet at ${feetY(game, a)}, platform top at ${p.y}`);
 });
+
+// Issue #110: a melee strike warns no one it cannot reach in height
+test('a melee strike gets no reaction from an enemy far above or below it', () => {
+  const reactions = (aUp, eUp) => {
+    let n = 0;
+    for (let i = 0; i < 100; i++) {
+      const { game, a, e, context } = load();
+      const p = game.platforms[0];
+      const x = p.x0 + 60;
+      if (aUp) dropAbove(game, a, x, p, 0); else Object.assign(a, { x, z: 60, alt: 0 });
+      if (eUp) dropAbove(game, e, x + 20, p, 0); else Object.assign(e, { x: x + 20, z: 60, alt: 0 });
+      game.update(1 / 60);
+      Object.assign(a, { state: 'idle', facing: 1 });
+      Object.assign(e, { state: 'idle', st: 0, evade: 0, subFrom: null, cool: 999 });
+      vm.runInContext(`Math.random = () => ${i / 100}`, context);
+      a.startMove(game.MOVES[0]);
+      if (e.state !== 'idle' || e.evade > 0 || e.subFrom) n++;
+    }
+    return n;
+  };
+  assert.ok(reactions(true, true) > 0, 'an enemy beside it on the same platform never reacts');
+  assert.equal(reactions(false, true), 0, 'an enemy on a platform above reacted');
+  assert.equal(reactions(true, false), 0, 'an enemy on the floor below reacted');
+});
