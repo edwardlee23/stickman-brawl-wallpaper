@@ -2720,9 +2720,11 @@ function render() {
   for (const f of list) {
     if (f.invis) continue;
     const x = f.rag ? f.rag.pts.hip.x : f.state === 'thrown' ? f.th.hx : f.x;
-    const k = 1 - Math.min(0.7, f.alt / 300);
+    // On the surface under it, the floor or a platform top, as an item's shadow is (issue #173)
+    const s = platforms.length ? platformAlt(x, f.z, f.rag ? f.rag.pts.hip.y : groundY(f.z) - f.alt) : 0;
+    const k = 1 - Math.min(0.7, Math.max(0, f.alt - s) / 300);
     ctx.globalAlpha = 0.12 * k; ctx.fillStyle = cfg.line;
-    ctx.beginPath(); ctx.ellipse(x, groundY(f.z), 14 * k, 2.5 * k, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x, groundY(f.z) - s, 14 * k, 2.5 * k, 0, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
   for (const f of list) drawFighter(f);
