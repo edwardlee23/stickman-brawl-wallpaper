@@ -168,3 +168,14 @@ test('Plain draws exactly as before: one fill in the background color, no cache'
     assert.deepEqual(style, ['=fillStyle', '#111318']);
   }
 });
+
+test('the comic halftone staggers alternate rows of dots (#119)', () => {
+  const w = load();
+  w.we.applyUserProperties({ backgroundtheme: { value: 'comic' } });
+  w.frame();
+  const log = w.made.find(c => c.log.length).log;
+  const firstX = y => Math.min(...log.filter(([k, , ay]) => k === 'arc' && ay === y).map(([, x]) => x));
+  assert.ok(Number.isFinite(firstX(7)) && Number.isFinite(firstX(21)), 'no dots in the top rows');
+  assert.notEqual(firstX(7), firstX(21), 'rows y=7 and y=21 start at the same x');
+  assert.equal(firstX(7), firstX(35), 'every other row lines up');
+});

@@ -2551,7 +2551,7 @@ function bgPaint(c, theme, date) {
       c.fill();
     }
     c.fillStyle = '#24212f';
-    for (let y = 7; y < SH; y += 14) for (let x = 7 + (y % 28 ? 7 : 0); x < SW; x += 14) {
+    for (let y = 7; y < SH; y += 14) for (let x = 7 + ((y - 7) / 14) % 2 * 7; x < SW; x += 14) {
       const d = Math.hypot(x - cx, y - cy) / (r / 2);
       if (d > 0.35) { c.beginPath(); c.arc(x, y, Math.min(4, d * 3.2), 0, Math.PI * 2); c.fill(); }
     }
