@@ -869,6 +869,7 @@ class Fighter {
       case 'launched': this.updLaunched(dt); return;
       case 'splat':
         lerpPose(this.pose, SPLAT, Math.min(1, dt * 20), this.pose);
+        this.offWall();
         if (this.st > 0.4) this.launch(-this.splatSide * 90, 0, true);
         return;
       case 'ko': {
@@ -1884,6 +1885,18 @@ class Fighter {
     this.trailOn = !quiet;
   }
 
+  // Moves a splatted fighter out from its wall until no joint of the given pose is closer than
+  // 4 to it, where a ragdoll's points stop, so a knockout during the splat leaves the body where it was
+  offWall(pose = this.pose) {
+    const now = this.pose;
+    this.pose = pose;
+    const J = this.joints(), side = this.splatSide;
+    this.pose = now;
+    let d = 0;
+    for (const k in J) d = Math.max(d, side < 0 ? 4 - J[k].x : J[k].x - (worldW - 4));
+    if (d > 0) this.x -= side * d;
+  }
+
   updLaunched(dt) {
     const feet = groundY(this.z) - this.alt;
     this.va -= G * dt;
@@ -1903,7 +1916,10 @@ class Fighter {
         addFx({ type: 'ring', x: side < 0 ? 0 : worldW, y: wy, r0: 4, r1: 60, dur: 0.3, w: 3 });
         shake = Math.max(shake, 10); hitStop(0.07);
         this.state = 'splat'; this.st = 0; this.vx = 0; this.va = 0; this.splatSide = side;
-        this.rot = side * this.facing * Math.PI / 2; this.trailOn = false; stats.splats++;
+        // Back first and upright, facing away from the wall, so the whole body stays on screen
+        // and a knockout here leaves a ragdoll already inside the walls (issue #223)
+        this.facing = -side; this.rot = 0; this.trailOn = false; stats.splats++;
+        this.offWall(SPLAT); this.offWall();
         if (this.hp <= 0) this.koPending = true;
         return;
       }
