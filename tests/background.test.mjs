@@ -193,3 +193,33 @@ test('at a 0 x 0 window a theme draws no empty cache and no frame throws (#127)'
     for (let i = 0; i < 5; i++) assert.doesNotThrow(() => w.frame(), theme);
   }
 });
+
+// The fill styles heads were drawn with in the last frame: an arc, then a fill style, then a fill
+function headFills(w) {
+  const out = [];
+  for (let i = 0; i + 2 < w.screen.length; i++) {
+    const [a, b, c] = w.screen.slice(i, i + 3);
+    if (a[0] === 'arc' && b[0] === '=fillStyle' && c[0] === 'fill') out.push(b[1]);
+  }
+  return out;
+}
+
+test('heads are filled with a color close to each theme\'s backdrop (#128)', () => {
+  const want = { plain: '#111318', dojo: '#1a1510', rooftop: '#0b1020', comic: '#16141d' };
+  for (const [theme, col] of Object.entries(want)) {
+    const w = load();
+    w.we.applyUserProperties({ backgroundtheme: { value: theme } });
+    w.frame(); w.frame();
+    const fills = headFills(w);
+    assert.ok(fills.length >= 2, theme + ': no head was filled');
+    for (const f of fills) assert.equal(f, col, theme);
+  }
+  // Day and night follows the sky of the hour
+  for (const [hour, phase] of [[12, 'day'], [23, 'night']]) {
+    const w = load();
+    w.game.bg.now = () => new Date(2026, 0, 1, hour, 0);
+    w.we.applyUserProperties({ backgroundtheme: { value: 'daynight' } });
+    w.frame(); w.frame();
+    for (const f of headFills(w)) assert.equal(f, w.game.bg.SKY[phase][1], phase);
+  }
+});
