@@ -91,6 +91,7 @@ const EXPECT = {
   soundvolume: [0, (g, v) => assert.equal(g.cfg.volume, v / 100)],
   backgroundcolor: ['1 0 0.5', (g, v, l) => { assert.equal(g.cfg.bg, weColor(v)); assert.equal(l.body.style.background, weColor(v)); }],
   linecolor: ['0.2 0.4 0.6', (g, v) => assert.equal(g.cfg.line, weColor(v))],
+  slowmofinish: [true, (g, v) => assert.equal(g.cfg.slowmo, v)],
   backgroundtheme: ['dojo', (g, v) => assert.equal(g.cfg.bgTheme, v)],
   ...Object.fromEntries(STYLES.map(s => ['style' + s, [false, (g, v) => assert.equal(g.cfg.styles[s], v)]])),
 };

@@ -21,7 +21,6 @@ const cfg = {
   volume: 0.5,          // 0 to 1
   names: [],            // fighter names from the settings panel; '' keeps #n
   headgear: false,      // headband, ninja mask, cap or topknot per fighter
-
   slowmo: false,        // slow-motion finish on the knockout that ends a round
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true, ninjutsu: true },
 };
@@ -2244,6 +2243,8 @@ function render() {
   drawNameTags(list);
   for (const o of fx) drawFx(o, 2);
   for (const o of fx) drawFx(o, 3);
+  // The score and the win text stay where they are while the slow-motion finish zooms the fight
+  ctx.setTransform(dpr * S, 0, 0, dpr * S, ox * dpr, oy * dpr);
   if (cfg.showScore) drawScore();
   if (roundOver) {
     ctx.globalAlpha = clamp(roundTimer, 0, 1);

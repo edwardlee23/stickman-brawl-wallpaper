@@ -19,10 +19,12 @@ const counted = source.replace(SIM_ANCHOR, 'window.__sim += sim; ' + SIM_ANCHOR)
 // simulated so far, and the scale of the last world transform drawn
 function load(search) {
   const noop = () => {};
-  let scale = 0;
+  let scale = 0, most = 0, textScale = 0;
   const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
   const ctx = new Proxy({}, {
-    get: (_, k) => k === 'setTransform' ? (a, b, c, d) => { if (a !== 1) scale = a; } : stub,
+    get: (_, k) => k === 'setTransform' ? (a, b, c, d) => { if (a !== 1) { scale = a; most = Math.max(most, a); } }
+      : k === 'fillText' ? () => { textScale = scale; }
+      : k === 'measureText' ? t => ({ width: String(t).length * 8 }) : stub,
     set: () => true,
   });
   const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
@@ -41,9 +43,11 @@ function load(search) {
   return {
     game: window.__stickmanBrawl,
     we: window.wallpaperPropertyListener,
-    frame: now => next(now),
+    frame: now => { most = 0; next(now); },
     sim: () => window.__sim,
-    scale: () => scale,
+    // the largest world transform of the last frame, and the one text was last drawn with
+    scale: () => most,
+    textScale: () => textScale,
   };
 }
 
@@ -109,6 +113,18 @@ test('the slow-motion finish zooms in up to 1.4x toward the knocked-out fighter,
   for (let i = 0; i < 90; i++) { step(w, t += 1000 / 60); most = Math.max(most, w.scale() / base); }
   assert.ok(most > 1.3 && most <= 1.4 + 1e-9, `zoomed to ${most.toFixed(3)}x`);
   assert.equal(w.scale(), base, 'the view is back to normal after 1.5 s');
+});
+
+test('the win text and the score are drawn unzoomed while the finish zooms the fight', () => {
+  const w = knockout();
+  w.we.applyUserProperties({ showscore: { value: true } });
+  const base = w.scale();
+  let t = w.t, zoomed = false;
+  for (let i = 0; i < 20; i++) {
+    step(w, t += 1000 / 60);
+    if (w.scale() > base * 1.1) { zoomed = true; assert.equal(w.textScale(), base); }
+  }
+  assert.ok(zoomed, 'the fight zoomed in');
 });
 
 test('with "Reduce flashing and screen shake" on, time slows but the view has no zoom', () => {
