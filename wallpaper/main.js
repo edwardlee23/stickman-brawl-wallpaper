@@ -1437,11 +1437,11 @@ class Fighter {
       if (!md.clones) {
         // Two faded copies step out to either side
         md.clones = [{ x: this.x, off: -40, alt: 0, fac: 1, a: 0 }, { x: this.x, off: 40, alt: 0, fac: 1, a: 0 }];
-        for (const c of md.clones) puff(this.x + c.off, groundY(this.z) - this.alt - 40, 0.8);
+        for (const c of md.clones) puff(clamp(this.x + c.off, 14, worldW - 14), groundY(this.z) - this.alt - 40, 0.8);
         sfx('poof', this.x);
       }
       lerpPose(this.pose, SEAL, Math.min(1, dt * 20), this.pose);
-      for (const c of md.clones) { c.x = this.x + c.off; c.a = Math.min(1, this.st / 0.15); }
+      for (const c of md.clones) { c.x = clamp(this.x + c.off, 14, worldW - 14); c.a = Math.min(1, this.st / 0.15); }
       this.vx = approach(this.vx, 0, 700 * dt);
       if (this.st >= 0.25) {
         md.ph = 'rush'; md.t0 = this.st;
