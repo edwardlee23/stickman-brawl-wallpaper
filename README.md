@@ -67,6 +67,13 @@ rest wait at the sides cheering, the winner stays and the next steps in.
 Survival lets a round's winners keep their health into the next round, unless
 it is below 15%. King and Ladder apply to free-for-all only.
 
+"Items" (off by default) drops a staff, a boomerang or a heart from the top of
+the screen every 8 to 15 seconds, at most two at a time, and fighters with no
+enemy close walk over to pick them up. A staff makes its holder's next three
+strikes reach farther and hit harder, a boomerang is thrown once and flies out
+and back (a block or shield stops it), and a heart restores 30% health. Items
+vanish when a round ends.
+
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.
 The sounds are made in code when they play, so the wallpaper loads no audio

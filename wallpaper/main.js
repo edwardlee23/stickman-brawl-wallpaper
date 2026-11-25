@@ -800,6 +800,7 @@ class Fighter {
       }
     } else {
       if (!this.nextMove) this.nextMove = pickMove(this, t);
+      this.nextMove = withStaff(this, this.nextMove);
       const m = this.nextMove, dx = t.x - this.x, dist = Math.abs(dx), dz = t.z - this.z;
       if (dist > 1) this.facing = sgn(dx);
       let dir;
@@ -820,6 +821,7 @@ class Fighter {
         if (dir > 0 && dist > 200 && Math.random() < dt * 0.9) {
           this.vx = this.facing * 520; this.dash = 0.22; this.trailOn = true;
         }
+        seekItem(this, dt);
       }
       // Jump at random; jump more often when the opponent is airborne
       if (Math.random() < dt * (t.alt > 60 ? 1.2 : 0.22)) {
@@ -876,6 +878,7 @@ class Fighter {
     this.hitDone = false; this.prevHP = null; this.from = clonePose(this.pose);
     this.md = { ph: INIT_PHASE[m.type], next: 0.05, fired: 0 };
     stats.att[m.id] = (stats.att[m.id] || 0) + 1;
+    if (m.staff && this.held) this.held.n--;
     if (!m.type && !surprise) this.warn(m.range[1] + 15, !!m.grab);
   }
 
@@ -1540,7 +1543,7 @@ class Fighter {
       if (best) { this.hitDone = true; this.applyGrab(best); }
       return;
     }
-    const H = this.W[m.hit], P0 = this.prevHP || H;
+    const H = m.staff ? staffTip(this.W, m.hit) : this.W[m.hit], P0 = this.prevHP || H;
     this.prevHP = { x: H.x, y: H.y };
     const r = this.sweepHit(P0, H);
     if (r) { this.hitDone = true; r[0].takeHit(this, m, r[1], H); }
@@ -1710,6 +1713,7 @@ class Fighter {
 function newRound() {
   const prev = fighters, decided = roundOver;
   fighters = []; sparks.length = 0; fx.length = 0; shots.length = 0;
+  clearItems();
   roundOver = false; roundTime = 0; shake = 0; freeze = 0; freezeGap = 0;
   slowmoT = -1; slowmoOn = null; lastKO = null;
   const n = clamp(Math.round(cfg.count), 2, 16);
@@ -1820,6 +1824,7 @@ Object.assign(window.__stickmanBrawl, { newRound, pickTarget });
 function updateShots(dt) {
   for (let i = shots.length - 1; i >= 0; i--) {
     const s = shots[i];
+    if (s.kind === 'boomerang') steerBoomerang(s, dt);
     const P0 = { x: s.x, y: s.y };   // Sweep from the last position so a fast blast can't skip a body
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
     let boom = s.life <= 0 || s.x < -20 || s.x > worldW + 20 || s.y < -20;
@@ -1854,6 +1859,186 @@ function burst(s) {
   addFx({ type: 'ring', x: s.x, y: s.y, r0: 3, r1: 22, dur: 0.2, w: 2, col: s.col });
   spawnSparks(s.x, s.y, s.col, 6);
 }
+
+// ---------- Items ----------
+// Optional pick-ups (the Items setting): every 8 to 15 s a staff, a boomerang or a heart
+// drops from the top of the screen, at most two at a time. Everything is drawn with lines.
+cfg.items = false;
+const items = [];
+let itemTimer = null;        // Seconds to the next drop; null until the setting is first on in a round
+const ITEM_KINDS = ['staff', 'boomerang', 'heart'];
+const ITEM_HOLD = new Set(['idle', 'air', 'attack', 'hit', 'block']);   // States an item can be picked up in
+const STAFF_LEN = 26, STAFF_USES = 3, HEART_HP = 30, BOOMERANG_COL = '#d9a066';
+const BOOMERANG = { id: 'boomerang', type: 'boomerang', style: 'items', range: [70, 300], dmg: 6, speed: 560 };
+MOVE_BY.boomerang = BOOMERANG;
+// A drop at world x and depth z, alt above the floor (from just above the top of the screen by default)
+function spawnItem(kind, x, z = rand(0, DEPTH), alt = groundY(z) + 20) {
+  const it = { kind, x: clamp(x, 40, worldW - 40), z, alt, va: 0, t: Math.random() * 10 };
+  items.push(it);
+  return it;
+}
+// Clears the field; with drop, fighters let go of what they hold too
+function clearItems(drop) {
+  items.length = 0; itemTimer = null;
+  if (drop) for (const f of fighters) f.held = null;
+}
+// Staff strikes: the punches, reaching farther with the staff tip and hitting harder.
+// A kick, knee or elbow queued while holding a staff becomes one of them.
+const STAFF_STRIKES = ['jab', 'cross', 'hook', 'uppercut'];
+const STAFF_MOVE = {};
+const staffTip = (J, hit) => {
+  const H = J[hit], E = J[hit === 'hF' ? 'eF' : 'eB'], d = Math.hypot(H.x - E.x, H.y - E.y) || 1;
+  return { x: H.x + (H.x - E.x) / d * STAFF_LEN, y: H.y + (H.y - E.y) / d * STAFF_LEN };
+};
+for (const id of STAFF_STRIKES) {
+  const b = MOVE_BY[id], s = Object.create(b);
+  const ra = staffTip(fk(b.A), b.hit).x, rw = staffTip(fk(b.W), b.hit).x, go = b.lunge * 0.7;
+  Object.assign(s, { staff: true, dmg: b.dmg * 1.5, push: b.push * 1.4,
+    range: [Math.max(4, Math.min(ra, rw) + go - 4), Math.max(ra, rw) + go + 8] });
+  STAFF_MOVE[id] = s;
+}
+// The move a fighter makes of a queued one: a strike becomes a staff strike while it holds
+// a staff, and a staff strike queued before the staff was used up becomes the bare move again
+function withStaff(f, m) {
+  const staff = f.held && f.held.kind === 'staff';
+  if (staff && m && !m.type && !m.grab && !m.staff) return STAFF_MOVE[m.id] || STAFF_MOVE[pick(STAFF_STRIKES)];
+  if (!staff && m && m.staff) return Object.getPrototypeOf(m);
+  return m;
+}
+// With no enemy close, an idle fighter walks to the nearest item it can use
+function seekItem(f, dt) {
+  if (!cfg.items || !items.length || f.alt > 0) return;
+  for (const e of fighters) if (e.alive && isEnemy(f, e) && Math.abs(e.x - f.x) < 130 && Math.abs(e.z - f.z) < 30) return;
+  let best = null, bd = 320;
+  for (const it of items) {
+    if (it.kind === 'heart' ? f.hp >= 100 : f.held) continue;
+    const d = Math.abs(it.x - f.x) + Math.abs(it.z - f.z);
+    if (d < bd) { bd = d; best = it; }
+  }
+  if (!best) return;
+  const dx = best.x - f.x;
+  if (Math.abs(dx) > 1) f.facing = sgn(dx);
+  f.vx = approach(f.vx, Math.abs(dx) > 4 ? f.facing * 110 : 0, 1200 * dt);
+  f.vz = approach(f.vz, clamp((best.z - f.z) * 4, -45, 45), 600 * dt);
+}
+Fighter.prototype.u_boomerang = function (dt) {
+  const md = this.md, t = this.target;
+  if (t && t.alive) this.facing = sgn(t.x - this.x);
+  this.vx = approach(this.vx, 0, 700 * dt);
+  if (!md.t0) {
+    lerpPose(this.pose, FLING, Math.min(1, dt * 20), this.pose);
+    if (this.st >= 0.16 && this.W) {
+      md.t0 = this.st; this.held = null;
+      const s = this.castShot(this.W.hF, 'boomerang', BOOMERANG.speed, 0.02);
+      Object.assign(s, { col: BOOMERANG_COL, life: 2.6, age: 0, v0x: s.vx, v0y: s.vy });
+      sfx('toss', this.x);
+      this.warn(9999, false);
+    }
+  } else {
+    lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
+    if (this.st - md.t0 > 0.3) this.endMove();
+  }
+};
+// A boomerang slows, turns at about 1 s and flies back; its thrower catches it
+function steerBoomerang(s, dt) {
+  s.age += dt;
+  s.vx -= s.v0x * dt; s.vy -= s.v0y * dt;
+  const o = s.owner;
+  if (s.age > 1 && (!o.alive || !o.W || Math.hypot(o.W.hF.x - s.x, o.W.hF.y - s.y) < 24)) s.life = 0;
+}
+function updateItems(dt) {
+  if (!cfg.items) { if (items.length || itemTimer !== null) clearItems(true); return; }
+  for (const f of fighters) {
+    if (!f.held) continue;
+    // A knockout drops it; a staff goes once its last strike ends
+    if (!f.alive || (f.held.kind === 'staff' && f.held.n <= 0 && !(f.move && f.move.staff))) { f.held = null; continue; }
+    // A boomerang is thrown once at a target in range on the same line
+    const t = f.target;
+    if (f.held.kind === 'boomerang' && f.state === 'idle' && f.alt <= 0 && f.cool <= 0 && t && t.alive && t.hittable &&
+        Math.abs(t.z - f.z) < 9 && Math.abs(t.x - f.x) >= BOOMERANG.range[0] && Math.abs(t.x - f.x) <= BOOMERANG.range[1]) {
+      f.facing = sgn(t.x - f.x);
+      f.startMove(BOOMERANG, true);
+    }
+  }
+  if (itemTimer === null) itemTimer = rand(8, 15);
+  if (!roundOver && (itemTimer -= dt) <= 0) {
+    itemTimer = rand(8, 15);
+    if (items.length < 2) spawnItem(pick(ITEM_KINDS), rand(40, worldW - 40));
+  }
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    it.t += dt;
+    if (it.alt > 0) {
+      it.va -= 700 * dt; it.alt += it.va * dt;
+      if (it.alt <= 0) { it.alt = 0; it.va = 0; spawnSparks(it.x, groundY(it.z), 'rgba(200,200,200,0.6)', 4, true); }
+    }
+    const y = groundY(it.z) - it.alt - 6;
+    for (const f of fighters) {
+      if (!f.alive || f.invis || !f.W || !ITEM_HOLD.has(f.state) || Math.abs(f.z - it.z) > 16) continue;
+      if (Math.abs(f.W.hip.x - it.x) > 16 || y < f.W.head.y - 10 || y > groundY(f.z) - f.alt + 6) continue;
+      if (it.kind === 'heart') {
+        if (f.hp >= 100) continue;
+        f.hp = Math.min(100, f.hp + HEART_HP);
+        spawnSparks(it.x, y, '#ff6b8a', 10, true);
+      } else {
+        if (f.held) continue;
+        f.held = it.kind === 'staff' ? { kind: 'staff', n: STAFF_USES } : { kind: 'boomerang' };
+        spawnSparks(it.x, y, '#ffe28a', 6, true);
+      }
+      sfx('shield', it.x, 0.4);
+      items.splice(i, 1);
+      break;
+    }
+  }
+}
+// A boomerang shape: two arms meeting at an angle, centred on x, y and turned by a
+function boomerangPath(x, y, a, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + Math.cos(a - 1) * r, y + Math.sin(a - 1) * r);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + Math.cos(a + 1) * r, y + Math.sin(a + 1) * r);
+  ctx.stroke();
+}
+function drawItems() {
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const it of items) {
+    const x = it.x, y = groundY(it.z) - it.alt - 6 - (it.alt <= 0 ? Math.abs(Math.sin(it.t * 3)) * 3 : 0);
+    ctx.globalAlpha = 0.12; ctx.fillStyle = cfg.line;
+    ctx.beginPath(); ctx.ellipse(x, groundY(it.z), 8, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    if (it.kind === 'heart') {
+      ctx.fillStyle = '#ff6b8a'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 6);
+      ctx.bezierCurveTo(x - 9, y - 1, x - 5, y - 8, x, y - 3);
+      ctx.bezierCurveTo(x + 5, y - 8, x + 9, y - 1, x, y + 6);
+      ctx.fill(); ctx.stroke();
+    } else if (it.kind === 'staff') {
+      ctx.strokeStyle = WOOD; ctx.lineWidth = 2.5;
+      path({ x: x - 18, y: y + 3 }, { x: x + 18, y: y - 3 });
+    } else {
+      ctx.strokeStyle = BOOMERANG_COL; ctx.lineWidth = 3;
+      boomerangPath(x, y, -Math.PI / 2, 9);
+    }
+  }
+  ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+}
+// What a fighter holds: a staff along the forearm of the striking (or front) hand, or a boomerang
+function drawHeld(f) {
+  const J = f.W;
+  if (!f.held || !J || !f.alive || f.invis) return;
+  ctx.globalAlpha = f.alpha; ctx.lineCap = 'round';
+  if (f.held.kind === 'staff') {
+    const hit = f.move && f.move.staff ? f.move.hit : 'hF', H = J[hit], T = staffTip(J, hit);
+    ctx.strokeStyle = WOOD; ctx.lineWidth = 2.5;
+    path({ x: H.x - (T.x - H.x) * 0.35, y: H.y - (T.y - H.y) * 0.35 }, T);
+  } else {
+    ctx.strokeStyle = BOOMERANG_COL; ctx.lineWidth = 2.5;
+    boomerangPath(J.hF.x, J.hF.y, -Math.PI / 2, 7);
+  }
+  ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+}
+Object.assign(window.__stickmanBrawl, { items, spawnItem, withStaff, newRound });
 
 function update(dt) {
   roundRulesStep();
@@ -1899,6 +2084,7 @@ function update(dt) {
   }
   for (const f of fighters) f.checkHit();
   updateShots(dt);
+  updateItems(dt);
   for (let i = sparks.length - 1; i >= 0; i--) {
     const s = sparks[i];
     s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 300 * dt; s.life -= dt * 2.5;
@@ -2290,6 +2476,7 @@ function render() {
   ctx.globalAlpha = 0.12; ctx.fillRect(-20, floorTop + DEPTH + 6, worldW + 40, 0.7);
   ctx.globalAlpha = 1;
   for (const o of fx) drawFx(o, 0);
+  drawItems();
 
   const list = fighters.slice().sort((a, b) => (a.alive - b.alive) || (a.z - b.z));
   for (const f of list) {
@@ -2301,6 +2488,7 @@ function render() {
   }
   ctx.globalAlpha = 1;
   for (const f of list) drawFighter(f);
+  for (const f of list) drawHeld(f);
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -2316,6 +2504,7 @@ function render() {
       ctx.closePath(); ctx.fill();
       continue;
     }
+    if (s.kind === 'boomerang') { ctx.strokeStyle = s.col; ctx.lineWidth = 3; ctx.lineCap = 'round'; boomerangPath(s.x, s.y, s.age * 20, 8); continue; }
     if (s.kind === 'star') {
       // A spinning four-pointed star
       const a0 = s.life * 25;
@@ -2432,6 +2621,7 @@ window.wallpaperPropertyListener = {
     if (p.audioreactive) { cfg.audio = p.audioreactive.value; musicReset(); }
     if (p.audiostrength) cfg.audioStrength = p.audiostrength.value / 100;
     if (p.clickblast) cfg.clickBlast = p.clickblast.value;
+    if (p.items) { cfg.items = p.items.value; if (!cfg.items) clearItems(true); }
     let styles = false;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
     // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes
