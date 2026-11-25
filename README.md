@@ -86,7 +86,8 @@ the two side ledges, set lower at large figure sizes. Fighters land on them,
 walk off their edges, and jump up or drop down to reach an opponent on
 another level. Slams, dives and wall-run leaps land on a ledge too, and a
 slam's shockwave hits the fighters on the ledge it lands on, not those on the
-floor below. With Items
+floor below. Shots and energy beams coming down stop at a ledge, as lightning
+does, while those fired from below pass up through it. With Items
 on too, an item can land on a ledge, and fighters standing on that ledge pick
 it up. It is off by default.
 
