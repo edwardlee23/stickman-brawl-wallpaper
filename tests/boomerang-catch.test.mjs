@@ -44,9 +44,9 @@ function throwAndMiss(gap, walk = 0) {
     }
     if (a.state !== 'attack') { a.x = x0 + walk; a.vx = 0; a.cool = 99; }
     if (s.age > 1 && a.W) minD = Math.min(minD, Math.hypot(a.W.hF.x - s.x, a.W.hF.y - s.y));
-    if (!game.shots.includes(s)) return { thrown: true, age: s.age, minD, held: a.held };
+    if (!game.shots.includes(s)) return { thrown: true, age: s.age, minD };
   }
-  return { thrown: !!s, age: s ? s.age : 0, minD, held: a.held };
+  return { thrown: !!s, age: s ? s.age : 0, minD };
 }
 
 test('a thrower standing still catches its own boomerang that missed (#211)', () => {
@@ -58,8 +58,9 @@ test('a thrower standing still catches its own boomerang that missed (#211)', ()
   }
 });
 
-test('a thrower that stepped aside after the throw still catches its boomerang (#211)', () => {
-  for (const walk of [-60, 40]) {
+// 320 puts the thrower past the farthest point of a 560 px/s throw (about 280 px out)
+test('a thrower that stepped aside after the throw, even past the boomerang, still catches it (#211)', () => {
+  for (const walk of [-60, 40, 320]) {
     const r = throwAndMiss(250, walk);
     assert.ok(r.minD < 24 && r.age < 2.6, 'walked ' + walk + ': passed ' + r.minD.toFixed(1) + ' from the hand, gone at age ' + r.age.toFixed(2));
   }
