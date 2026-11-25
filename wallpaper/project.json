@@ -34,6 +34,20 @@
 					{ "label" : "ui_gamemode_teams", "value" : "teams" }
 				]
 			},
+			"roundrules" :
+			{
+				"order" : 6,
+				"text" : "ui_roundrules",
+				"type" : "combo",
+				"value" : "normal",
+				"options" :
+				[
+					{ "label" : "ui_roundrules_normal", "value" : "normal" },
+					{ "label" : "ui_roundrules_king", "value" : "king" },
+					{ "label" : "ui_roundrules_ladder", "value" : "ladder" },
+					{ "label" : "ui_roundrules_survival", "value" : "survival" }
+				]
+			},
 			"gamespeed" :
 			{
 				"order" : 3,
@@ -100,6 +114,11 @@
 				"ui_gamemode" : "Mode",
 				"ui_gamemode_ffa" : "Free-for-all",
 				"ui_gamemode_teams" : "Red vs Blue",
+				"ui_roundrules" : "Round rules",
+				"ui_roundrules_normal" : "Normal",
+				"ui_roundrules_king" : "King (one fighter, double health, is everyone's target)",
+				"ui_roundrules_ladder" : "Ladder (one-on-one, winner stays)",
+				"ui_roundrules_survival" : "Survival (winners keep their health)",
 				"ui_gamespeed" : "Speed (%)",
 				"ui_figurescale" : "Figure size (%)",
 				"ui_styleboxing" : "Moves: Boxing",
@@ -137,6 +156,11 @@
 				"ui_gamemode" : "模式",
 				"ui_gamemode_ffa" : "大亂鬥",
 				"ui_gamemode_teams" : "紅藍兩隊",
+				"ui_roundrules" : "回合規則",
+				"ui_roundrules_normal" : "一般",
+				"ui_roundrules_king" : "王者（一人雙倍血量，成為眾矢之的）",
+				"ui_roundrules_ladder" : "車輪戰（一對一，勝者留場）",
+				"ui_roundrules_survival" : "生存（勝者保留血量）",
 				"ui_gamespeed" : "速度 (%)",
 				"ui_figurescale" : "火柴人大小 (%)",
 				"ui_styleboxing" : "招式：拳擊",
@@ -174,6 +198,11 @@
 				"ui_gamemode" : "模式",
 				"ui_gamemode_ffa" : "大乱斗",
 				"ui_gamemode_teams" : "红蓝两队",
+				"ui_roundrules" : "回合规则",
+				"ui_roundrules_normal" : "普通",
+				"ui_roundrules_king" : "王者（一人双倍血量，成为众矢之的）",
+				"ui_roundrules_ladder" : "车轮战（一对一，胜者留场）",
+				"ui_roundrules_survival" : "生存（胜者保留血量）",
 				"ui_gamespeed" : "速度 (%)",
 				"ui_figurescale" : "火柴人大小 (%)",
 				"ui_styleboxing" : "招式：拳击",

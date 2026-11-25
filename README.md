@@ -60,6 +60,13 @@ about a second when the knockout that ends a round lands, and zooms in on the
 fighter knocked out. With "Reduce flashing and screen shake" on, the fight
 still slows but the view does not move.
 
+"Round rules" varies the rounds; Normal, the default, plays them as before.
+King gives one fighter a round double health and a crown, and everyone else
+goes after it first. Ladder turns a free-for-all into one-on-one fights: the
+rest wait at the sides cheering, the winner stays and the next steps in.
+Survival lets a round's winners keep their health into the next round, unless
+it is below 15%. King and Ladder apply to free-for-all only.
+
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.
 The sounds are made in code when they play, so the wallpaper loads no audio

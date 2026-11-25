@@ -25,6 +25,7 @@ const cfg = {
   audio: false,         // React to music (Wallpaper Engine's audio listener)
   audioStrength: 0.5,   // 0 to 1
   clickBlast: false,    // a click on the wallpaper launches the fighters near it
+  rules: 'normal',      // Round rules: 'normal' | 'king' | 'ladder' | 'survival'
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true, ninjutsu: true },
 };
 // ---------- Helpers ----------
@@ -551,6 +552,7 @@ function hitTest(P0, P1, J, pad = 0) {
 }
 
 function pickTarget(me) {
+  const forced = ruleTarget(me); if (forced !== undefined) return forced;
   let best = null, bs = Infinity;
   for (const e of fighters) {
     if (!e.alive || !isEnemy(me, e)) continue;
@@ -632,6 +634,7 @@ const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jum
 class Fighter {
   constructor(id, x, z, team, hue) {
     Object.assign(this, { id, x, z, team, hue });
+    this.maxHp = 100;                     // Full health; a king has double
     this.hp = 100; this.facing = 1; this.vx = 0; this.vz = 0; this.alt = 0; this.va = 0;
     this.state = 'idle'; this.st = 0; this.dur = 0; this.time = Math.random() * 10;
     this.pose = clonePose(GUARD); this.from = null; this.move = null; this.md = null; this.nextMove = null;
@@ -1705,6 +1708,7 @@ class Fighter {
 
 // ---------- Rounds ----------
 function newRound() {
+  const prev = fighters, decided = roundOver;
   fighters = []; sparks.length = 0; fx.length = 0; shots.length = 0;
   roundOver = false; roundTime = 0; shake = 0; freeze = 0; freezeGap = 0;
   slowmoT = -1; slowmoOn = null; lastKO = null;
@@ -1725,6 +1729,7 @@ function newRound() {
     f.facing = cfg.mode === 'teams' ? (team ? -1 : 1) : x < worldW / 2 ? 1 : -1;
     fighters.push(f);
   }
+  applyRoundRules(prev, decided);
 }
 function checkRound(dt) {
   roundTime += dt;
@@ -1746,6 +1751,71 @@ function checkRound(dt) {
     newRound();
   }
 }
+
+// Round rules (issue #89). Normal changes nothing. King: one fighter a round has double
+// health and a crown, and everyone else targets it first. Ladder: two fighters fight at a time
+// while the rest wait at the sides cheering; the winner stays and the next steps in. Survival:
+// a round's winners keep their health into the next round, unless below 15%. King and Ladder
+// are free-for-all rules: in teams mode they behave like Normal.
+let ladderQueue = [], lastKing = -1;
+function applyRoundRules(prev, decided) {
+  ladderQueue = [];
+  if (cfg.rules === 'survival' && decided && prev.length === fighters.length) {
+    for (const o of prev) {
+      const r = o.hp / o.maxHp;
+      if (o.alive && r >= 0.15) fighters[o.id].hp = Math.min(1, r) * fighters[o.id].maxHp;
+    }
+  }
+  if (cfg.mode === 'teams') return;
+  if (cfg.rules === 'king') {
+    // A new king each round where there is a choice
+    const k = pick(fighters.filter(f => f.id !== lastKing));
+    k.king = true; k.maxHp = k.hp = 200; lastKing = k.id;
+  } else if (cfg.rules === 'ladder') {
+    const order = fighters.slice().sort(() => Math.random() - 0.5);
+    const [a, b] = order;
+    a.x = worldW * 0.4; b.x = worldW * 0.6; a.facing = 1; b.facing = -1;
+    // The rest wait at the sides, alternating left and right, facing the middle
+    order.slice(2).forEach((f, j) => {
+      const side = j % 2, k = Math.floor(j / 2);
+      f.x = side ? worldW - 30 - k * 24 : 30 + k * 24;
+      f.facing = side ? -1 : 1;
+      f.state = 'wait';
+      ladderQueue.push(f);
+    });
+  }
+}
+// Who a fighter must target under the round rules, or undefined to pick as usual
+function ruleTarget(me) {
+  if (cfg.mode === 'teams') return undefined;
+  if (cfg.rules === 'king') {
+    const k = fighters.find(f => f.king && f.alive);
+    return k && k !== me ? k : undefined;
+  }
+  if (cfg.rules === 'ladder') return fighters.find(f => f !== me && f.alive && f.state !== 'wait') ?? null;
+  return undefined;
+}
+// Ladder: waiting fighters cheer, and the next steps in whenever fewer than two are fighting
+function roundRulesStep() {
+  if (!ladderQueue.length) return;
+  for (const f of ladderQueue) lerpPose(GUARD, VICTORY, 0.5 + 0.5 * Math.sin(f.time * 5 + f.id), f.pose);
+  let active = fighters.filter(f => f.alive && f.state !== 'wait').length;
+  while (active < 2 && ladderQueue.length) {
+    const f = ladderQueue.shift();
+    if (!f.alive || f.state !== 'wait') continue;
+    f.state = 'idle'; f.st = 0; f.cool = rand(0.3, 0.8); f.target = null; f.retarget = 0;
+    active++;
+    roundTime = 0;   // Each bout gets the full time before the round times out
+  }
+}
+function drawCrown(J) {
+  const x = J.head.x, y = J.head.y - L.head - 1;
+  ctx.globalAlpha = 1; ctx.fillStyle = '#ffd43b'; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const [dx, dy] of [[-7, 0], [-7, -7], [-3.5, -3], [0, -8], [3.5, -3], [7, -7], [7, 0]]) ctx.lineTo(x + dx, y + dy);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+Object.assign(window.__stickmanBrawl, { newRound, pickTarget });
 
 function updateShots(dt) {
   for (let i = shots.length - 1; i >= 0; i--) {
@@ -1786,6 +1856,7 @@ function burst(s) {
 }
 
 function update(dt) {
+  roundRulesStep();
   for (const f of fighters) f.update(dt);
   // Avoid overlap
   for (let i = 0; i < fighters.length; i++) {
@@ -1948,6 +2019,7 @@ function drawFighter(f) {
   const frozen = f.state === 'frozen';
   drawSkeleton(J, f.flash > 0 ? '#ffffff' : frozen ? ELEMENT.ice : col, base, 3.2, true);
   if (cfg.headgear) drawHeadgear(f, J, col, base);
+  if (f.king && f.alive) drawCrown(J);
   if (frozen) {
     // A block of ice around the body
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -2277,7 +2349,7 @@ function render() {
       if (!f.alive || !f.W || f.invis) continue;
       const hx = f.W.head.x, hy = Math.min(f.W.head.y, f.W.hip.y - 30);
       ctx.globalAlpha = 0.25; ctx.fillStyle = cfg.line; ctx.fillRect(hx - 13, hy - 17, 26, 2.5);
-      ctx.globalAlpha = 0.9; ctx.fillStyle = colorOf(f); ctx.fillRect(hx - 13, hy - 17, 26 * clamp(f.hp / 100, 0, 1), 2.5);
+      ctx.globalAlpha = 0.9; ctx.fillStyle = colorOf(f); ctx.fillRect(hx - 13, hy - 17, 26 * clamp(f.hp / f.maxHp, 0, 1), 2.5);
     }
   }
   drawNameTags(list);
@@ -2342,6 +2414,7 @@ window.wallpaperPropertyListener = {
     let reset = false;
     if (p.fightercount) { cfg.count = p.fightercount.value; reset = true; }
     if (p.gamemode) { cfg.mode = p.gamemode.value; reset = true; }
+    if (p.roundrules) { cfg.rules = p.roundrules.value; reset = true; }
     if (p.gamespeed) cfg.speed = p.gamespeed.value / 100;
     if (p.figurescale) { cfg.scale = p.figurescale.value / 100; resize(); reset = true; }
     if (p.showhealth) cfg.showHP = p.showhealth.value;
@@ -2400,7 +2473,7 @@ function clickBlast(e) {
       f.rag.age = Math.min(f.rag.age, 3.5);   // A body at rest simulates again
       continue;
     }
-    if (!f.alive || f.invis || f.state === 'thrown') continue;
+    if (!f.alive || f.invis || f.state === 'thrown' || f.state === 'wait') continue;
     const c = f.bodyPoint(), dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
     if (d >= BLAST_R) continue;
     const k = 1 - d / BLAST_R, uy = d ? dy / d : 0;
