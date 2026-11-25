@@ -81,7 +81,9 @@ hold, and a staff strike keeps the style of the kick or punch it replaces.
 
 "Floating platforms" adds two or three thin ledges above the floor. Fighters
 land on them, walk off their edges, and jump up or drop down to reach an
-opponent on another level. It is off by default.
+opponent on another level. Slams, dives and wall-run leaps land on a ledge
+too, and a slam's shockwave hits the fighters on the ledge it lands on, not
+those on the floor below. It is off by default.
 
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.

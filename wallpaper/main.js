@@ -823,7 +823,7 @@ class Fighter {
     this.z = clamp(this.z + this.vz * dt, 0, DEPTH);
     const base = platforms.length ? this.platformBase(feet) : 0;
     if (this.hover) {
-      this.alt = clamp(this.alt + this.va * dt, 0, maxAlt(this.z));
+      this.alt = clamp(this.alt + this.va * dt, base, maxAlt(this.z));   // Stops on a platform top it comes down on
     } else if (this.alt > base || this.va > 0) {
       this.va -= G * dt;
       this.alt += this.va * dt;
@@ -1226,8 +1226,8 @@ class Fighter {
     if (md.ph === 'jump') {
       if (!md.jumped) {
         md.jumped = true;
-        if (this.alt <= 0) {
-          this.va = 660; this.alt = 1;
+        if (!this.aloft()) {
+          this.va = 660; this.alt += 1;
           this.vx = this.facing * Math.min(260, (t ? Math.abs(t.x - this.x) : 100) * 0.6);
         }
       }
@@ -1265,9 +1265,9 @@ class Fighter {
           return;
         }
       }
-      if (this.alt <= 0 || this.st > 2.5) {
-        this.alt = 0; this.va = 0; this.hover = false; this.vx = 0; this.vz = 0;
-        quake(this.x, groundY(this.z), 70);
+      if (!this.aloft() || this.st > 2.5) {
+        this.alt = this.surfaceAlt(); this.va = 0; this.hover = false; this.vx = 0; this.vz = 0;
+        quake(this.x, groundY(this.z) - this.alt, 70);
         md.ph = 'rec'; md.t0 = this.st;
       }
     } else {
@@ -1280,9 +1280,9 @@ class Fighter {
     const md = this.md, m = this.move, t = this.target;
     if (md.ph === 'up') {
       if (!md.jumped) {
-        md.jumped = true; md.wasAir = this.alt > 0;
+        md.jumped = true; md.wasAir = this.aloft();
         if (!md.wasAir) {
-          this.va = 720; this.alt = 1;
+          this.va = 720; this.alt += 1;
           this.vx = this.facing * clamp((t ? Math.abs(t.x - this.x) : 0) * 1.1, 0, 320);
         }
       }
@@ -1293,13 +1293,16 @@ class Fighter {
       }
     } else if (md.ph === 'down') {
       lerpPose(this.pose, SLAM_DN, Math.min(1, dt * 25), this.pose);
-      if (this.alt <= 0) {
-        this.alt = 0; this.va = 0; this.hover = false; this.vx = 0; this.trailOn = false;
-        const gx = this.x, gy = groundY(this.z);
+      if (!this.aloft()) {
+        this.alt = this.surfaceAlt(); this.va = 0; this.hover = false; this.vx = 0; this.trailOn = false;
+        const gx = this.x, gy = groundY(this.z) - this.alt;
+        // Landed on a platform: the shockwave runs along its top, and the floor below is out of reach
+        const ledge = this.alt > 0 ? platformAt(gx, gy) : null;
         quake(gx, gy, 160);
         shake = Math.max(shake, 13); hitStop(0.08);
         for (const e of fighters) {
-          if (!isEnemy(this, e) || !e.hittable || e.alt > 40 || Math.abs(e.z - this.z) > 50) continue;
+          const h = ledge ? ledge.y - (groundY(e.z) - e.alt) : e.alt;   // Height above the slammed surface
+          if (!isEnemy(this, e) || !e.hittable || h > 40 || h < -1 || Math.abs(e.z - this.z) > 50) continue;
           const d = Math.abs(e.x - gx);
           if (d > 150) continue;
           // The shockwave spreads both ways: each target is hit from the impact's side, not the slammer's front
@@ -1516,7 +1519,7 @@ class Fighter {
       this.homeTo(t, 700, 3, dt);
       if (Math.abs(this.vx) > 1) this.facing = sgn(this.vx);
       // End on landing, hitting the other wall, or flying too long
-      if (this.alt <= 0 || this.st - md.t0 > 1.6 ||
+      if (!this.aloft() || this.st - md.t0 > 1.6 ||
           (this.st - md.t0 > 0.2 && (this.x <= 14 || this.x >= worldW - 14))) {
         this.hover = false; this.vz = 0;
         this.endMove();
