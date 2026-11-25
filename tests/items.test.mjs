@@ -195,3 +195,45 @@ test('a fighter walking to an item behind it turns back to its target to start a
     }
   }
 });
+
+test('with boxing off, a staff strike keeps the style of the kick it replaces (#124)', () => {
+  const { game } = load();
+  game.cfg.items = true;
+  game.cfg.styles.boxing = false;
+  const [a] = duel(game, 400);
+  a.held = { kind: 'staff', n: 3 };
+  for (const m of game.MOVES.filter(m => !m.grab && game.cfg.styles[m.style])) {
+    const s = game.withStaff(a, m);
+    assert.ok(s.staff, m.id + ' became a staff strike');
+    assert.equal(s.style, m.style, m.id + ' turned into a ' + s.style + ' move');
+    a.held = null;
+    assert.equal(game.withStaff(a, s), m, 'with the staff gone, ' + m.id + ' is bare again');
+    a.held = { kind: 'staff', n: 3 };
+  }
+});
+
+test('with every striking style off, a fighter neither picks up nor keeps a staff (#124)', () => {
+  const { game } = load(0.99);
+  game.cfg.items = true;
+  for (const s of ['boxing', 'muaythai', 'taekwondo']) game.cfg.styles[s] = false;
+  const [a] = duel(game, 400);
+  // It does not walk to a staff nearby
+  a.cool = 99; a.state = 'idle';
+  game.spawnItem('staff', a.x - 100, a.z, 0);
+  run(game, 1);
+  assert.ok(a.x > 290, 'walked to the staff: x ' + a.x);
+  // Nor pick up one at its feet
+  game.items.length = 0;
+  a.W = a.joints();
+  handTo(game, a, 'staff');
+  assert.ok(!a.held, 'picked up a staff it cannot use');
+  assert.equal(game.items.length, 1, 'the staff stays on the floor');
+  // And one it already holds is dropped
+  a.held = { kind: 'staff', n: 3 };
+  game.update(1 / 60);
+  assert.ok(!a.held, 'kept a staff it cannot use');
+  // A grappling move stays bare
+  const throwMove = game.MOVES.find(m => m.grab);
+  a.held = { kind: 'staff', n: 3 };
+  assert.equal(game.withStaff(a, throwMove), throwMove);
+});

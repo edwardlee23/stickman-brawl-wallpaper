@@ -72,7 +72,9 @@ the screen every 8 to 15 seconds, at most two at a time, and fighters with no
 enemy close walk over to pick them up. A staff makes its holder's next three
 strikes reach farther and hit harder, a boomerang is thrown once and flies out
 and back (a block or shield stops it), and a heart restores 30% health. Items
-vanish when a round ends.
+vanish when a round ends. A staff follows the style switches: with boxing, Muay
+Thai and taekwondo all off, fighters leave it on the floor and drop one they
+hold, and a staff strike keeps the style of the kick or punch it replaces.
 
 "Floating platforms" adds two or three thin ledges above the floor. Fighters
 land on them, walk off their edges, and jump up or drop down to reach an
