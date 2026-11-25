@@ -283,7 +283,6 @@ test('a wall-run leap that ends over a platform lands on it', () => {
   Object.assign(a.md, { ph: 'leap', t0: a.st, prev: null, dir: -1 });
   Object.assign(a, { hover: true, va: -300, vx: 200 });
   for (let t = 0; t < 3 && a.state === 'attack'; t += 1 / 60) game.update(1 / 60);
-  assert.notEqual(a.state, 'attack', 'the leap never ended');
-  run(game, 0.3);
+  assert.equal(a.state, 'idle', 'the leap did not end standing');
   assert.ok(onTop(game, a, p), `feet at ${feetY(game, a)}, platform top at ${p.y}`);
 });
