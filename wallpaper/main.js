@@ -220,7 +220,9 @@ const maxAlt = z => groundY(z) - FIG_TOP;
 // a span x0..x1 at the screen height y; a fighter stands on it with its feet at y whatever its
 // depth, so its altitude there is groundY(z) - y. No top is higher on screen than FIG_TOP, so
 // heads stay on screen. At large figure sizes the two side ledges sit lower, down to 25 above the
-// back of the floor, so they always fit; the higher middle one is left out when it does not.
+// back of the floor, so they always fit; the higher middle one is left out when it does not. The
+// middle one also needs a world at least 700 wide, so a narrow world has only the two side ledges,
+// whether a large figure size or the screen's shape (5:4, portrait) makes it narrow.
 let platforms = [];
 function layoutPlatforms() {
   platforms = [];
