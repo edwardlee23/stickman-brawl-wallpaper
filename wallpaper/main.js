@@ -2473,7 +2473,7 @@ function clickBlast(e) {
       f.rag.age = Math.min(f.rag.age, 3.5);   // A body at rest simulates again
       continue;
     }
-    if (!f.alive || f.invis || f.state === 'thrown') continue;
+    if (!f.alive || f.invis || f.state === 'thrown' || f.state === 'wait') continue;
     const c = f.bodyPoint(), dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
     if (d >= BLAST_R) continue;
     const k = 1 - d / BLAST_R, uy = d ? dy / d : 0;

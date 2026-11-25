@@ -9,7 +9,9 @@ import vm from 'node:vm';
 function load(search = '?count=6&mode=ffa') {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
+  const listeners = {};
+  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, listeners,
+    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); } };
   const context = vm.createContext({
     window, console, performance, URLSearchParams,
     location: { search },
@@ -155,4 +157,17 @@ test('Survival: a round that times out or is reset restores everyone', () => {
   game.fighters[1].hp = 60;
   game.checkRound(151);
   for (const f of game.fighters) assert.equal(f.hp, 100);
+});
+
+test('Ladder: a click with Click to blast on leaves the waiting fighters where they are', () => {
+  const window = load();
+  window.wallpaperPropertyListener.applyUserProperties({ roundrules: { value: 'ladder' }, clickblast: { value: true } });
+  const game = window.__stickmanBrawl;
+  const waiting = game.fighters.filter(f => f.state === 'wait');
+  assert.ok(waiting.length >= 2);
+  for (const f of waiting) {
+    const c = f.bodyPoint();
+    for (const fn of window.listeners.pointerdown) fn({ button: 0, timeStamp: 1e6 + f.id * 1000, clientX: c.x * game.cfg.scale, clientY: c.y * game.cfg.scale });
+  }
+  assert.equal(game.fighters.filter(f => f.alive && f.state !== 'wait').length, 2, 'still two fighting');
 });
