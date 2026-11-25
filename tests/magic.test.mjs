@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-function load() {
+function load(random) {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
@@ -16,6 +16,8 @@ function load() {
     document: { getElementById: () => canvas, body: { style: {} } },
     requestAnimationFrame() {},
   });
+  // A fixed Math.random picks one reaction to a warning every time
+  if (random !== undefined) vm.runInContext('Math.random = () => ' + random + ';', context);
   vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   const game = window.__stickmanBrawl;
   const [a, e] = game.fighters;
@@ -206,5 +208,24 @@ test('a shield or block raised against a far fireball lasts until the fireball c
     // The fireball leaves the hand at the warning and needs gap / speed seconds to arrive
     for (let t = 0; t < gap / fireball.speed - 0.05; t += 1 / 60) e.update(1 / 60);
     assert.ok(up(e), `${name} was down before the fireball could arrive`);
+  }
+});
+
+test('ice shards and energy blasts warn their target, as fireballs do (#115)', () => {
+  // Math.random 0.1 answers a warning with a block, 0.4 with a shield
+  const reactions = { 0.1: e => e.state === 'block', 0.4: e => e.shieldUp() };
+  for (const [r, up] of Object.entries(reactions)) {
+    for (const id of ['fireball', 'ice', 'blast']) {
+      const { game, a, e } = load(Number(r));
+      a.cool = 99;
+      const m = [...game.MAGIC, ...game.SUPER].find(m => m.id === id);
+      a.startMove(m);
+      for (let i = 0; i < 60 && !game.shots.length; i++) a.update(1 / 60);
+      assert.ok(game.shots.length > 0, id + ' fired');
+      assert.ok(up(e), id + ': the target did not react with ' + (r === '0.1' ? 'a block' : 'a shield'));
+      // The guard stays up until the shot can arrive
+      for (let t = 0; t < (e.x - a.x) / m.speed - 0.05; t += 1 / 60) e.update(1 / 60);
+      assert.ok(up(e), id + ': the guard was down before the shot could arrive');
+    }
   }
 });

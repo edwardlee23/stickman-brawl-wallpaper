@@ -157,7 +157,7 @@ const MOVES = [
 // Comic specials (each has its own update function)
 const SUPER = [
   { id: 'beam', type: 'beam', range: [90, 9999], w: 3, air: true, dmg: 22, antiAir: true },
-  { id: 'blast', type: 'blast', range: [100, 9999], w: 2.5, air: true, dmg: 4, antiAir: true },
+  { id: 'blast', type: 'blast', range: [100, 9999], w: 2.5, air: true, dmg: 4, antiAir: true, speed: 540 },
   { id: 'barrage', type: 'barrage', range: [14, 40], w: 3, dmg: 1.4, sameAlt: true },
   { id: 'rising', type: 'rising', range: [8, 42], w: 3, dmg: 10, antiAir: true },
   { id: 'dive', type: 'dive', range: [60, 480], w: 3, air: true, dmg: 12, antiAir: true },
@@ -169,7 +169,7 @@ const SUPER = [
 const MAGIC = [
   { id: 'fireball', type: 'fireball', range: [90, 9999], w: 2.5, air: true, dmg: 10, speed: 430 },
   { id: 'lightning', type: 'lightning', range: [120, 9999], w: 2, dmg: 14 },
-  { id: 'ice', type: 'ice', range: [80, 9999], w: 2.5, air: true, dmg: 5 },
+  { id: 'ice', type: 'ice', range: [80, 9999], w: 2.5, air: true, dmg: 5, speed: 720 },
   { id: 'shield', type: 'shield', range: [0, 9999], w: 0, reactive: true },
 ];
 // Ninja techniques. Smoke escape and substitution are reactions to a warned attack, never picked as attacks.
@@ -1149,9 +1149,11 @@ class Fighter {
         let a = 0;
         if (t && t.W) { const c = mid(t.W.sh, t.W.hip); a = Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1); }
         a = clamp(a + rand(-0.12, 0.12), -1, 1.1);
-        const sp = 540;
+        const sp = this.move.speed;
         shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, life: 3, col: colorOf(this) }); sfx('fire', H.x, 0.5);
         spawnSparks(H.x, H.y, '#ffffff', 3);
+        // The first shot warns: a guard raised then lasts until it can arrive
+        if (k === 0) this.warn(9999, false);
       }
     } else {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 10), this.pose);
@@ -1564,8 +1566,9 @@ class Fighter {
       lerpPose(this.pose, FLING, Math.min(1, dt * 18), this.pose);
       if (this.st >= 0.2 && this.W) {
         md.ph = 'throw'; md.t0 = this.st;
-        this.castShot(this.W.hF, 'ice', 720, 0.04);
+        this.castShot(this.W.hF, 'ice', this.move.speed, 0.04);
         sfx('freeze', this.x, 0.7);
+        this.warn(9999, false);
       }
     } else {
       lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
