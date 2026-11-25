@@ -1652,14 +1652,18 @@ class Fighter {
         if (!t || !t.alive) { this.endMove(); return; }
         // Mark where the target stands; the bolt falls there a moment later
         md.ph = 'mark'; md.x = clamp(t.x + t.vx * 0.25, 14, worldW - 14); md.z = t.z;
-        addFx({ type: 'mark', x: md.x, y: groundY(md.z), dur: 0.6, col: ELEMENT.bolt });
+        // The bolt ends at the floor or at the first platform top over it, which stops it (issue #174)
+        md.ledge = null;
+        for (const p of platforms) if (md.x >= p.x0 && md.x <= p.x1 && (!md.ledge || p.y < md.ledge.y)) md.ledge = p;
+        md.gy = md.ledge ? md.ledge.y : groundY(md.z);
+        addFx({ type: 'mark', x: md.x, y: md.gy, dur: 0.6, col: ELEMENT.bolt });
       }
     } else if (md.ph === 'mark') {
       lerpPose(this.pose, CALL, Math.min(1, dt * 14), this.pose);
       this.aura = 0.8;
       if (this.st >= 0.75) {
         md.ph = 'rec'; md.t0 = this.st;
-        const gy = groundY(md.z), pts = [];
+        const gy = md.gy, pts = [];
         for (let y = 0, x = md.x; y < gy; y += rand(18, 32)) { pts.push([x, y]); x = md.x + rand(-12, 12); }
         pts.push([md.x, gy]);
         addFx({ type: 'bolt', pts, dur: 0.25, col: ELEMENT.bolt });
@@ -1670,6 +1674,7 @@ class Fighter {
         shake = Math.max(shake, 8);
         for (const e of fighters) {
           if (!isEnemy(this, e) || !e.hittable || !e.W || Math.abs(e.x - md.x) > 24 || Math.abs(e.z - md.z) > 20) continue;
+          if (md.ledge && groundY(e.z) - e.alt > gy + 0.5) continue;   // Under the platform that stopped it
           e.takeHit(this, m, 'head', e.bodyPoint(),
             { launch: { vx: (e.x >= md.x ? 1 : -1) * 150, va: 420 }, big: true, unblockable: true });
         }
