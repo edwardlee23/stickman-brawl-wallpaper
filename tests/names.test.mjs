@@ -58,6 +58,12 @@ test('a 20-character name is cut to 12', () => {
   assert.equal(game.nameOf(game.fighters[0]), 'abcdefghijkl');
 });
 
+test('a name with emoji is cut by characters, not code units', () => {
+  const { game, we } = load();
+  we.applyUserProperties({ fighternames: { value: 'abcdefghijk😀xyz' } });
+  assert.equal(game.nameOf(game.fighters[0]), 'abcdefghijk😀');
+});
+
 test('a name tag is drawn above a named fighter only', () => {
   const { game, we, calls } = load();
   we.applyUserProperties({ fighternames: { value: 'ann' } });
