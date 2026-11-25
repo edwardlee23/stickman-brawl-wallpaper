@@ -2070,7 +2070,7 @@ function updateShots(dt) {
           let o;
           if (s.kind === 'fire') o = { dmg, launch: { vx: dir * 420, va: 300 }, big: true };
           else if (s.kind === 'ice') o = { dmg, freeze: 1.1 };
-          else o = e.alt > 0 || Math.random() < 0.25 ? { dmg, launch: { vx: dir * 280, va: 200 } } : { dmg, hold: true };
+          else o = e.aloft() || Math.random() < 0.25 ? { dmg, launch: { vx: dir * 280, va: 200 } } : { dmg, hold: true };
           if (s.fan) o.fan = s.fan;
           e.takeHit({ facing: dir, owner: s.owner }, s.m, zone, { x: s.x, y: s.y }, o);
           if (s.kind === 'fire') addFx({ type: 'flame', x: s.x, y: s.y + 10, dur: 0.5 });
@@ -2300,11 +2300,12 @@ function update(dt) {
   // Avoid overlap
   for (let i = 0; i < fighters.length; i++) {
     const a = fighters[i];
-    if (!SOLID.has(a.state) || a.alt > 20) continue;
+    // Height above the floor or ledge it stands on, so fighters on one ledge are pushed apart too
+    if (!SOLID.has(a.state) || a.alt - a.surfaceAlt() > 20) continue;
     for (let j = i + 1; j < fighters.length; j++) {
       const b = fighters[j];
       const dz = b.z - a.z, adz = Math.abs(dz);
-      if (!SOLID.has(b.state) || b.alt > 20 || adz > 10) continue;
+      if (!SOLID.has(b.state) || b.alt - b.surfaceAlt() > 20 || Math.abs(b.alt - a.alt) > 20 || adz > 10) continue;
       const dx = b.x - a.x, ad = Math.abs(dx);
       if (ad < 16) {
         const s = dx !== 0 ? sgn(dx) : (a.id < b.id ? 1 : -1), push = (16 - ad) * 0.5;
