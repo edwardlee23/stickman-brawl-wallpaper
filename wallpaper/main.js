@@ -2003,12 +2003,21 @@ for (const id of STAFF_STRIKES) {
     range: [Math.max(4, Math.min(ra, rw) + go - 4), Math.max(ra, rw) + go + 8] });
   STAFF_MOVE[id] = s;
 }
+// The staff follows the style switches: it is used, and picked up, only while a striking
+// style is on, or while every style is off (when fighters use every martial-arts move)
+const STRIKING = ['boxing', 'muaythai', 'taekwondo'];
+function staffUsable() {
+  return STRIKING.some(s => cfg.styles[s]) || !Object.values(cfg.styles).some(Boolean);
+}
 // The move a fighter makes of a queued one: a strike becomes a staff strike while it holds
-// a staff, and a staff strike queued before the staff was used up becomes the bare move again
+// a staff, and a staff strike queued before the staff was used up becomes the bare move again.
+// A kick, knee or elbow becomes a staff swing of its own style, so no turned-off style shows.
 function withStaff(f, m) {
-  const staff = f.held && f.held.kind === 'staff';
-  if (staff && m && !m.type && !m.grab && !m.staff) return STAFF_MOVE[m.id] || STAFF_MOVE[pick(STAFF_STRIKES)];
-  if (!staff && m && m.staff) return Object.getPrototypeOf(m);
+  const staff = f.held && f.held.kind === 'staff' && staffUsable();
+  if (staff && m && !m.type && !m.grab && !m.staff) {
+    return STAFF_MOVE[m.id] || Object.assign(Object.create(STAFF_MOVE[pick(STAFF_STRIKES)]), { style: m.style, bare: m });
+  }
+  if (!staff && m && m.staff) return m.bare || Object.getPrototypeOf(m);
   return m;
 }
 // With no enemy close, an idle fighter walks to the nearest item it can use
@@ -2017,7 +2026,7 @@ function seekItem(f, dt) {
   for (const e of fighters) if (e.alive && isEnemy(f, e) && Math.abs(e.x - f.x) < 130 && Math.abs(e.z - f.z) < 30) return;
   let best = null, bd = 320;
   for (const it of items) {
-    if (it.kind === 'heart' ? f.hp >= f.maxHp : f.held) continue;
+    if (it.kind === 'heart' ? f.hp >= f.maxHp : f.held || (it.kind === 'staff' && !staffUsable())) continue;
     const d = Math.abs(it.x - f.x) + Math.abs(it.z - f.z);
     if (d < bd) { bd = d; best = it; }
   }
@@ -2056,8 +2065,8 @@ function updateItems(dt) {
   if (!cfg.items) { if (items.length || itemTimer !== null) clearItems(true); return; }
   for (const f of fighters) {
     if (!f.held) continue;
-    // A knockout drops it; a staff goes once its last strike ends
-    if (!f.alive || (f.held.kind === 'staff' && f.held.n <= 0 && !(f.move && f.move.staff))) { f.held = null; continue; }
+    // A knockout drops it; a staff goes once its last strike ends, or once no striking style is on
+    if (!f.alive || (f.held.kind === 'staff' && (f.held.n <= 0 || !staffUsable()) && !(f.move && f.move.staff))) { f.held = null; continue; }
     // A boomerang is thrown once at a target in range on the same line
     const t = f.target;
     if (f.held.kind === 'boomerang' && f.state === 'idle' && f.alt <= 0 && f.cool <= 0 && t && t.alive && t.hittable &&
@@ -2087,7 +2096,7 @@ function updateItems(dt) {
         f.hp = Math.min(f.maxHp, f.hp + f.maxHp * HEART_HP / 100);
         spawnSparks(it.x, y, '#ff6b8a', 10, true);
       } else {
-        if (f.held) continue;
+        if (f.held || (it.kind === 'staff' && !staffUsable())) continue;
         f.held = it.kind === 'staff' ? { kind: 'staff', n: STAFF_USES } : { kind: 'boomerang' };
         spawnSparks(it.x, y, '#ffe28a', 6, true);
       }
