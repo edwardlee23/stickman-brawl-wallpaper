@@ -12,7 +12,8 @@ const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
 function load(random) {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
+  const listeners = {};
+  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: (k, f) => { listeners[k] = f; } };
   const context = vm.createContext({
     window, console, performance, URLSearchParams,
     location: { search: '?count=2&mode=ffa' },
@@ -22,7 +23,7 @@ function load(random) {
   // A fixed Math.random of 0.99 turns off the random jumps and dashes
   if (random) vm.runInContext('Math.random = () => ' + random + ';', context);
   vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener };
+  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, window, listeners };
 }
 
 // Two fighters on one line: a attacks, e stands still and can be hit without reacting
@@ -236,4 +237,26 @@ test('with every striking style off, a fighter neither picks up nor keeps a staf
   const throwMove = game.MOVES.find(m => m.grab);
   a.held = { kind: 'staff', n: 3 };
   assert.equal(game.withStaff(a, throwMove), throwMove);
+});
+
+test('a narrower window brings every item back on screen, where it can be picked up (#117)', () => {
+  const { game, window, listeners } = load();
+  game.cfg.items = true;
+  const [a] = duel(game, 400);
+  a.hp = 50;
+  game.spawnItem('staff', 920, 50, 0);
+  game.spawnItem('heart', 920, 50, 0);
+  window.innerWidth = 640;
+  listeners.resize();
+  const worldW = window.innerWidth / (game.cfg.scale * window.innerHeight / 540);
+  for (const it of game.items) {
+    assert.ok(it.x >= 40 && it.x <= worldW - 40, it.kind + ' at x ' + it.x + ' is off a world ' + worldW + ' wide');
+  }
+  // A fighter standing on the heart picks it up
+  const heart = game.items.find(it => it.kind === 'heart');
+  Object.assign(a, { x: heart.x, z: heart.z, state: 'idle', cool: 99 });
+  a.W = a.joints();
+  game.update(1 / 60);
+  assert.ok(!game.items.includes(heart), 'the heart was not picked up');
+  assert.ok(a.hp > 50, 'the heart did not heal');
 });

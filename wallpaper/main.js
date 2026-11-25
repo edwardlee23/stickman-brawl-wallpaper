@@ -286,6 +286,8 @@ function resize() {
       if (dx) for (const o of Object.values(f.rag.pts)) { o.x += dx; o.px += dx; }
     }
   }
+  // Items on the floor too, or one left past the edge could never be picked up
+  for (const it of items) it.x = clamp(it.x, 40, worldW - 40);
 }
 
 const TEAM_COLOR = ['#ff6b6b', '#4dabf7'];
