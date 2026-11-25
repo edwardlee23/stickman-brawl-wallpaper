@@ -82,6 +82,9 @@ const EXPECT = {
   figurescale: [150, (g, v) => assert.equal(g.cfg.scale, v / 100)],
   showhealth: [false, (g, v) => assert.equal(g.cfg.showHP, v)],
   showscore: [true, (g, v) => assert.equal(g.cfg.showScore, v)],
+  // cfg.names comes from the sandbox's realm, so compare it as JSON
+  fighternames: ['Ann, Bo', (g, v) => assert.equal(JSON.stringify(g.cfg.names), JSON.stringify(v.split(',').map(s => s.trim())))],
+  headgear: [true, (g, v) => assert.equal(g.cfg.headgear, v)],
   colorful: [false, (g, v) => assert.equal(g.cfg.colorful, v)],
   reducemotion: [false, (g, v) => assert.equal(g.cfg.reduceMotion, v)],
   soundeffects: [true, (g, v) => assert.equal(g.cfg.sound, v)],
