@@ -2307,7 +2307,7 @@ function drawSkeleton(J, col, alpha, width, headFill) {
   path(J.hip, J.sh, J.head);
   path(J.hip, J.kF, J.fF); path(J.sh, J.eF, J.hF);
   ctx.beginPath(); ctx.arc(J.head.x, J.head.y, L.head, 0, Math.PI * 2);
-  if (headFill) { ctx.fillStyle = cfg.bg; ctx.fill(); }
+  if (headFill) { ctx.fillStyle = headCol; ctx.fill(); }
   ctx.stroke();
   if (glow) ctx.shadowBlur = 0;
 }
@@ -2513,7 +2513,17 @@ const bg = {
     const h = d.getHours() + d.getMinutes() / 60;
     return h < 5 || h >= 20.5 ? 'night' : h < 7.5 ? 'dawn' : h < 18 ? 'day' : 'dusk';
   },
+  // The fill inside a head: the backdrop behind the fighters' heads (the wall or the sky), so a
+  // head reads as an outline over the theme rather than a dark disc
+  headFill(theme, date) {
+    if (theme === 'dojo') return '#1a1510';
+    if (theme === 'rooftop') return bg.SKY.night[1];
+    if (theme === 'comic') return '#16141d';
+    if (theme === 'daynight') return bg.SKY[bg.skyPhase(date)][1];
+    return cfg.bg;
+  },
 };
+let headCol = cfg.bg;      // This frame's head fill, set by render()
 // A fixed pseudo-random value in [0, 1) for an index, so the drawing never touches
 // Math.random and looks the same every time it is repainted
 const bgHash = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -2608,6 +2618,7 @@ function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, SW, SH);
   if (cfg.bgTheme !== 'plain') drawBackground();
+  headCol = bg.headFill(cfg.bgTheme, bg.now());
   const sk = cfg.reduceMotion ? 0 : shake;
   const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
   ctx.setTransform(dpr * S, 0, 0, dpr * S, ox * dpr, oy * dpr);
