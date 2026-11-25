@@ -55,6 +55,11 @@ background color: a dojo, a rooftop at night, comic halftone dots, or a sky
 that follows the local clock from dawn to night. All of them are drawn in
 code. The default, Plain, keeps the flat color.
 
+"Slow-motion finish" (off by default) slows the fight to a quarter speed for
+about a second when the knockout that ends a round lands, and zooms in on the
+fighter knocked out. With "Reduce flashing and screen shake" on, the fight
+still slows but the view does not move.
+
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.
 The sounds are made in code when they play, so the wallpaper loads no audio

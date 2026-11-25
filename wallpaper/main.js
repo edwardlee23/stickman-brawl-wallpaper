@@ -21,6 +21,8 @@ const cfg = {
   volume: 0.5,          // 0 to 1
   names: [],            // fighter names from the settings panel; '' keeps #n
   headgear: false,      // headband, ninja mask, cap or topknot per fighter
+
+  slowmo: false,        // slow-motion finish on the knockout that ends a round
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true, ninjutsu: true },
 };
 // ---------- Helpers ----------
@@ -256,6 +258,35 @@ function hitStop(t) {
   freezeGap = Math.max(freezeGap, freeze * FREEZE_GAP);
 }
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
+// Slow-motion finish (optional, issue #90): the knockout that ends a round runs game time at a
+// quarter for SLOWMO_HOLD s of real time, then eases back to full speed over SLOWMO_EASE s.
+// Unless motion is reduced, the view also zooms in up to 1 + SLOWMO_ZOOM times toward the
+// fighter knocked out, and back out as the slow motion ends.
+const SLOWMO_HOLD = 0.8, SLOWMO_EASE = 0.4, SLOWMO_ZOOM = 0.4, SLOWMO_ZOOM_IN = 0.2;
+let slowmoT = -1, slowmoOn = null, lastKO = null;   // slowmoT: real time since it began, -1 when off
+function startSlowmo() { if (cfg.slowmo) { slowmoT = 0; slowmoOn = lastKO; } }
+// 1 while time is slow, easing to 0 as full speed comes back
+function slowmoLevel() {
+  if (slowmoT < 0) return 0;
+  return slowmoT < SLOWMO_HOLD ? 1 : 1 - ease(clamp((slowmoT - SLOWMO_HOLD) / SLOWMO_EASE, 0, 1));
+}
+// The share of real time this frame runs as game time; moves the slow motion on by real seconds
+function slowmoRate(real) {
+  if (slowmoT < 0) return 1;
+  const k = slowmoLevel();
+  slowmoT += real;
+  if (slowmoT >= SLOWMO_HOLD + SLOWMO_EASE) slowmoT = -1;
+  return 1 - 0.75 * k;
+}
+// Replaces the world transform with one zoomed in about the knocked-out fighter, which stays
+// where it is on screen; (ox, oy) is the screen shake
+function slowmoView(ox, oy) {
+  if (slowmoT < 0 || cfg.reduceMotion) return;
+  const z = 1 + SLOWMO_ZOOM * ease(clamp(slowmoT / SLOWMO_ZOOM_IN, 0, 1)) * slowmoLevel();
+  const f = slowmoOn, p = !f ? { x: worldW / 2, y: worldH / 2 } : f.rag ? f.rag.pts.hip : { x: f.x, y: groundY(f.z) };
+  const cx = clamp(p.x * S, 0, SW), cy = clamp(p.y * S, 0, SH);
+  ctx.setTransform(dpr * S * z, 0, 0, dpr * S * z, (ox * z + cx * (1 - z)) * dpr, (oy * z + cy * (1 - z)) * dpr);
+}
 const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove, pickTarget,
   render: () => render(),
@@ -1631,6 +1662,7 @@ class Fighter {
   ko(vx, vy) {
     this.state = 'ko'; this.st = 0; this.clearMove(); this.trailOn = true;
     this.rag = makeRag(this.W, vx, vy); stats.ko++; sfx('ko', this.x);
+    lastKO = this;
   }
 }
 
@@ -1638,6 +1670,7 @@ class Fighter {
 function newRound() {
   fighters = []; sparks.length = 0; fx.length = 0; shots.length = 0;
   roundOver = false; roundTime = 0; shake = 0; freeze = 0; freezeGap = 0;
+  slowmoT = -1; slowmoOn = null; lastKO = null;
   const n = clamp(Math.round(cfg.count), 2, 16);
   scoreRound(n);
   const per = Math.ceil(n / 2);
@@ -1671,6 +1704,7 @@ function checkRound(dt) {
     // knocked out, burst where they are
     for (const s of shots) burst(s);
     shots.length = 0;
+    startSlowmo();
   } else if (roundTime > 150) {
     newRound();
   }
@@ -2139,6 +2173,7 @@ function render() {
   const sk = cfg.reduceMotion ? 0 : shake;
   const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
   ctx.setTransform(dpr * S, 0, 0, dpr * S, ox * dpr, oy * dpr);
+  slowmoView(ox, oy);
   ctx.fillStyle = cfg.line;
   ctx.globalAlpha = 0.035; ctx.fillRect(-20, floorTop - 6, worldW + 40, DEPTH + 12);
   ctx.globalAlpha = 0.12; ctx.fillRect(-20, floorTop + DEPTH + 6, worldW + 40, 0.7);
@@ -2247,7 +2282,7 @@ function frame(now) {
   // Split the simulated time into equal substeps of at most about 1/60 s, so blasts,
   // strike and grab windows and ragdolls see the same step size at any speed or frame rate.
   // The 0.1 slack keeps a slightly long 60 fps frame at 100% speed in one step.
-  const sim = real * cfg.speed;
+  const sim = real * cfg.speed * slowmoRate(real);
   const n = clamp(Math.ceil(sim / SUBSTEP - 0.1), 1, MAX_SUBSTEPS);
   for (let i = 0; i < n; i++) {
     // Hit stop is counted in game time, so it is shortened by Speed and a step it takes is
@@ -2279,6 +2314,7 @@ window.wallpaperPropertyListener = {
     if (p.fighternames) cfg.names = parseNames(p.fighternames.value);
     if (p.headgear) cfg.headgear = p.headgear.value;
     if (p.soundvolume) { cfg.volume = p.soundvolume.value / 100; soundSetVolume(); }
+    if (p.slowmofinish) { cfg.slowmo = p.slowmofinish.value; if (!cfg.slowmo) slowmoT = -1; }
     let styles = false;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
     // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes
