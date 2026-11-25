@@ -223,6 +223,8 @@ const maxAlt = z => groundY(z) - FIG_TOP;
 let platforms = [];
 function layoutPlatforms() {
   platforms = [];
+  // A body at rest simulates again, so it falls if its platform moved or went away
+  for (const f of fighters) if (f.rag) f.rag.age = Math.min(f.rag.age, 3.5);
   if (!cfg.platforms) return;
   const add = (a, b, y) => { if (y >= FIG_TOP && y <= floorTop - 40) platforms.push({ x0: worldW * a, x1: worldW * b, y }); };
   add(0.1, 0.32, floorTop - 60); add(0.68, 0.9, floorTop - 60);
@@ -249,6 +251,42 @@ function ragPlatform(o, k) {
     if (o.x >= p.x0 && o.x <= p.x1 && o.sy <= top + 0.5 && o.y > top) {
       const vy = o.y - o.py, vx = o.x - o.px;
       o.y = top; o.py = top + vy * 0.3; o.px = o.x - vx * 0.75;
+    }
+  }
+}
+// A ragdoll lying on a platform does not hang through it. A bone across a platform's end, with
+// its end on the platform side on or above the top, is lifted over the corner. While any point
+// of the body rests on the top, a point under the platform with a bone up to the top, or one
+// that swings in under it from past an end, is put back out past the nearer end. Without this a
+// body tipping off an end could swing in under the platform with its legs still on top.
+function ragCorners(r) {
+  const P = r.pts;
+  for (const q of platforms) {
+    const top = q.y - 1.5;
+    const inside = o => o.x > q.x0 && o.x < q.x1;
+    const out = o => { const x = o.x - q.x0 < q.x1 - o.x ? q.x0 - 0.5 : q.x1 + 0.5; o.px += x - o.x; o.x = x; };
+    let on = false;
+    for (const k in P) if (inside(P[k]) && P[k].y <= q.y - (k === 'head' ? L.head : 1.5) + 0.5) on = true;
+    for (const [a, b] of r.bones) {
+      const A = P[a], B = P[b];
+      if (inside(A) && inside(B)) {
+        const [U, D] = A.y < B.y ? [A, B] : [B, A];
+        if (U.y <= top + 0.5 && D.y > top + 0.5 && D.y - D.py > -2) out(D);
+        continue;
+      }
+      for (const cx of [q.x0, q.x1]) {
+        if ((A.x - cx) * (B.x - cx) >= 0) continue;              // Not across this end
+        const s = (cx - A.x) / (B.x - A.x), y = A.y + (B.y - A.y) * s;
+        if (y <= top) continue;                                   // Over the corner
+        const inner = (A.x - cx) * (q.x0 + q.x1 - 2 * cx) > 0 ? A : B;
+        if (inner.y > top + 0.5) continue;                        // Under the platform, clear of it
+        const d = (y - top) / ((1 - s) * (1 - s) + s * s);
+        A.y -= d * (1 - s); B.y -= d * s;
+      }
+    }
+    if (on) for (const k in P) {
+      const o = P[k];
+      if (inside(o) && o.y > top + 0.5 && (o.px <= q.x0 || o.px >= q.x1)) out(o);
     }
   }
 }
@@ -589,7 +627,12 @@ function stepRag(r, gy) {
         o.x = w; o.px = w + vx * 0.5;          // Bounce off the wall
       }
     }
+    if (platforms.length) ragCorners(r);
   }
+  // The fastest point's speed, so a body still moving is not stopped
+  let v = 0;
+  for (const k in p) v = Math.max(v, Math.abs(p[k].x - p[k].px) + Math.abs(p[k].y - p[k].py));
+  r.v = v / RAG_H;
 }
 
 // ---------- Hit detection ----------
@@ -807,7 +850,8 @@ class Fighter {
         // Afterimages follow the flight only: stacked on a body at rest they would undo its dimming
         if (this.trailOn && r.age > 0.2 &&
             (r.age >= 5 || Math.hypot(r.pts.hip.x - r.pts.hip.px, r.pts.hip.y - r.pts.hip.py) < 120 * RAG_H)) this.trailOn = false;
-        if (r.age < 5) {
+        // A body simulates for 5 s, and on for up to 15 s while it still moves (sliding off a platform, say)
+        if (r.age < 5 || (r.age < 15 && r.v > 5)) {
           r.acc = Math.min(r.acc + dt, RAG_H * 12);
           while (r.acc >= RAG_H) { stepRag(r, groundY(this.z)); r.acc -= RAG_H; }
         }

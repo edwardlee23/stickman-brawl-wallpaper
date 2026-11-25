@@ -9,7 +9,9 @@ import vm from 'node:vm';
 function load(on = true, scale) {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
+  const listeners = {};
+  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: (t, f) => (listeners[t] ||= []).push(f) };
+  window.resize = (w, h) => { window.innerWidth = w; window.innerHeight = h; for (const f of listeners.resize) f(); };
   const context = vm.createContext({
     window, console, performance, URLSearchParams,
     location: { search: '?count=4&mode=ffa' },
@@ -326,4 +328,49 @@ test('a fighter launched onto a platform near its end lies down on it', () => {
     run(game, 0.4);
     assert.ok(onTop(game, a, p), `${at}: fell to feet ${feetY(game, a)} while down`);
   }
+});
+
+// Issue #112: a knocked-out body does not hang through a ledge, and falls when its ledge moves or goes
+// Drops a knocked-out body 80 above platform p at x, flung at vx; returns its points once at rest
+function koDrop(game, a, x, p, vx) {
+  dropAbove(game, a, x, p, 80);
+  a.W = a.joints(); a.hp = 0; a.ko(vx, 0);
+  run(game, 8);
+  return Object.entries(a.rag.pts);
+}
+// Points inside a platform's span, below its top and above the floor: hanging through it
+const hanging = (game, pts, p) => pts.filter(([, o]) => o.x >= p.x0 && o.x <= p.x1 && o.y > p.y + 3 && o.y < game.groundY(60) - 20);
+
+test('a knocked-out body dropped near a platform end never rests hanging through it', () => {
+  const bad = [];
+  for (let dx = -10; dx <= 230; dx += 10) for (const vx of [-200, 0, 200]) {
+    const { game, a } = load();
+    const p = game.platforms[0];
+    const pts = koDrop(game, a, p.x0 + dx, p, vx);
+    const h = hanging(game, pts, p);
+    if (h.length) bad.push(`x ${p.x0 + dx} vx ${vx}: ${h.map(([k, o]) => k + '@' + o.y.toFixed(0)).join(' ')}`);
+  }
+  assert.deepEqual(bad, [], `top at ${load().game.platforms[0].y}`);
+});
+
+test('a body resting on a platform falls when platforms are turned off', () => {
+  const { game, a, window } = load();
+  const p = game.platforms[0];
+  koDrop(game, a, (p.x0 + p.x1) / 2, p, 0);
+  window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: false } });
+  run(game, 3);
+  const low = Math.max(...Object.values(a.rag.pts).map(o => o.y));
+  assert.ok(low > game.groundY(60) - 20, `lowest point at ${low}, floor at ${game.groundY(60)}`);
+});
+
+test('a body resting on a platform falls when a resize moves the platform from under it', () => {
+  const { game, a, window } = load();
+  const p = game.platforms[0];
+  koDrop(game, a, p.x1 - 30, p, 0);
+  window.resize(800, 720);
+  const q = game.platforms[0];
+  assert.ok(Math.min(...Object.values(a.rag.pts).map(o => o.x)) > q.x1, 'the body is no longer over the platform');
+  run(game, 3);
+  const low = Math.max(...Object.values(a.rag.pts).map(o => o.y));
+  assert.ok(low > game.groundY(60) - 20, `lowest point at ${low}, floor at ${game.groundY(60)}`);
 });
