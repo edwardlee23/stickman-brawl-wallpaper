@@ -81,6 +81,7 @@ const EXPECT = {
   gamespeed: [250, (g, v) => assert.equal(g.cfg.speed, v / 100)],
   figurescale: [150, (g, v) => assert.equal(g.cfg.scale, v / 100)],
   showhealth: [false, (g, v) => assert.equal(g.cfg.showHP, v)],
+  showscore: [true, (g, v) => assert.equal(g.cfg.showScore, v)],
   colorful: [false, (g, v) => assert.equal(g.cfg.colorful, v)],
   reducemotion: [false, (g, v) => assert.equal(g.cfg.reduceMotion, v)],
   soundeffects: [true, (g, v) => assert.equal(g.cfg.sound, v)],
