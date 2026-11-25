@@ -13,6 +13,7 @@ const cfg = {
   colorful: true,
   showScore: false,    // running score board in a top corner
   bg: '#111318',
+  bgTheme: 'plain',     // 'plain' | 'dojo' | 'rooftop' | 'comic' | 'daynight'
   line: '#ececec',
   fps: 0,               // 0 = uncapped
   reduceMotion: true,   // skip full-screen flashes and speed lines, no screen shake
@@ -2022,9 +2023,119 @@ function drawFx(o, layer) {
   }
   ctx.globalAlpha = 1;
 }
+// ---------- Background themes ----------
+// Drawn in code with a few dark, low-contrast shapes, so the figures stay readable. A theme
+// is painted once into an offscreen canvas and copied each frame; the copy is repainted only
+// when the size, the theme or (for Day and night) the minute changes. Plain is the flat
+// background color, as before, and makes no canvas.
+const bg = {
+  now: () => new Date(),   // Replaced in tests to set the clock
+  builds: 0,               // Times the cache was painted, for tests
+  canvas: null, key: '',
+  // Sky gradient, top to bottom, for each time of day
+  SKY: {
+    night: ['#04060d', '#0b1020', '#121830'],
+    dawn: ['#141a33', '#2a2440', '#4a3040'],
+    day: ['#18283e', '#22364e', '#2e4458'],
+    dusk: ['#1a1430', '#3a2034', '#4c2a26'],
+  },
+  skyPhase(d) {
+    const h = d.getHours() + d.getMinutes() / 60;
+    return h < 5 || h >= 20.5 ? 'night' : h < 7.5 ? 'dawn' : h < 18 ? 'day' : 'dusk';
+  },
+};
+// A fixed pseudo-random value in [0, 1) for an index, so the drawing never touches
+// Math.random and looks the same every time it is repainted
+const bgHash = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+function bgSky(c, top, bottom, colors) {
+  const g = c.createLinearGradient(0, top, 0, bottom);
+  colors.forEach((col, i) => g.addColorStop(i / (colors.length - 1), col));
+  c.fillStyle = g; c.fillRect(0, 0, SW, bottom);
+}
+function bgSkyline(c, floorY, lit) {
+  for (let x = -10, i = 0; x < SW; i++) {
+    const w = 40 + bgHash(i) * 90, h = floorY * (0.18 + bgHash(i + 50) * 0.32);
+    c.fillStyle = '#0a0c14'; c.fillRect(x, floorY - h, w + 1, h);
+    c.fillStyle = '#3a3420';
+    for (let wy = floorY - h + 10; wy < floorY - 12; wy += 16)
+      for (let wx = x + 7, j = 0; wx < x + w - 10; wx += 13, j++)
+        if (bgHash(i * 131 + wy * 7 + j) < lit) c.fillRect(wx, wy, 5, 7);
+    x += w + 4 + bgHash(i + 99) * 14;
+  }
+}
+function bgPaint(c, theme, date) {
+  const floorY = floorTop * S;
+  c.fillStyle = cfg.bg; c.fillRect(0, 0, SW, SH);
+  if (theme === 'dojo') {
+    c.fillStyle = '#1a1510'; c.fillRect(0, 0, SW, floorY);
+    const pw = Math.max(80, SW / 7), top = SH * 0.08, bottom = floorY - SH * 0.05;
+    for (let x = pw * 0.2; x + pw * 0.8 < SW; x += pw) {
+      c.fillStyle = '#29231a'; c.fillRect(x, top, pw * 0.8, bottom - top);
+      c.fillStyle = '#1a1510';
+      for (let k = 1; k < 3; k++) c.fillRect(x + pw * 0.8 * k / 3 - 1, top, 2, bottom - top);
+      for (let y = top + (bottom - top) / 4; y < bottom - 4; y += (bottom - top) / 4) c.fillRect(x, y - 1, pw * 0.8, 2);
+    }
+    c.fillStyle = '#120e0a'; c.fillRect(0, floorY - 6, SW, 6);
+    c.fillStyle = '#17120c'; c.fillRect(0, floorY, SW, SH - floorY);
+    c.fillStyle = '#100c08';
+    const bh = Math.max(14, (SH - floorY) / 8);
+    for (let y = floorY, r = 0; y < SH; y += bh, r++) {
+      c.fillRect(0, y, SW, 1.5);
+      for (let x = (r % 2) * 90; x < SW; x += 180) c.fillRect(x, y, 1.5, bh);
+    }
+  } else if (theme === 'rooftop') {
+    bgSky(c, 0, floorY, bg.SKY.night);
+    c.fillStyle = '#353a4c'; c.beginPath(); c.arc(SW * 0.8, SH * 0.16, SH * 0.055, 0, Math.PI * 2); c.fill();
+    bgSkyline(c, floorY, 0.22);
+    c.fillStyle = '#0c0d12'; c.fillRect(0, floorY, SW, SH - floorY);
+    c.fillStyle = '#16171e'; c.fillRect(0, floorY, SW, 3);
+  } else if (theme === 'comic') {
+    c.fillStyle = '#16141d'; c.fillRect(0, 0, SW, SH);
+    const cx = SW / 2, cy = SH / 2, r = Math.hypot(SW, SH);
+    c.fillStyle = '#1c1a25';
+    for (let i = 0; i < 48; i += 2) {
+      const a = i / 48 * Math.PI * 2, b = (i + 1) / 48 * Math.PI * 2;
+      c.beginPath(); c.moveTo(cx, cy);
+      c.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); c.lineTo(cx + Math.cos(b) * r, cy + Math.sin(b) * r);
+      c.fill();
+    }
+    c.fillStyle = '#24212f';
+    for (let y = 7; y < SH; y += 14) for (let x = 7 + (y % 28 ? 7 : 0); x < SW; x += 14) {
+      const d = Math.hypot(x - cx, y - cy) / (r / 2);
+      if (d > 0.35) { c.beginPath(); c.arc(x, y, Math.min(4, d * 3.2), 0, Math.PI * 2); c.fill(); }
+    }
+  } else if (theme === 'daynight') {
+    const phase = bg.skyPhase(date);
+    bgSky(c, 0, floorY, bg.SKY[phase]);
+    if (phase === 'night') {
+      c.fillStyle = '#5a6078';
+      for (let i = 0; i < 90; i++) c.fillRect(bgHash(i) * SW, bgHash(i + 300) * floorY * 0.7, 1.5, 1.5);
+    }
+    bgSkyline(c, floorY, phase === 'day' ? 0 : phase === 'night' ? 0.22 : 0.1);
+    c.fillStyle = '#0c0d12'; c.fillRect(0, floorY, SW, SH - floorY);
+  }
+}
+// Called from render() for any theme but Plain, after the flat fill
+function drawBackground() {
+  const date = bg.now();
+  const minute = cfg.bgTheme === 'daynight' ? date.getHours() * 60 + date.getMinutes() : 0;
+  const key = [cfg.bgTheme, SW, SH, dpr, S, cfg.bg, minute].join();
+  if (!bg.canvas && typeof document.createElement === 'function') bg.canvas = document.createElement('canvas');
+  if (!bg.canvas) { bgPaint(ctx, cfg.bgTheme, date); return; }   // No offscreen canvas: paint every frame
+  if (key !== bg.key) {
+    bg.key = key; bg.builds++;
+    bg.canvas.width = Math.round(SW * dpr); bg.canvas.height = Math.round(SH * dpr);
+    const c = bg.canvas.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    bgPaint(c, cfg.bgTheme, date);
+  }
+  ctx.drawImage(bg.canvas, 0, 0, SW, SH);
+}
+window.__stickmanBrawl.bg = bg;
 function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, SW, SH);
+  if (cfg.bgTheme !== 'plain') drawBackground();
   const sk = cfg.reduceMotion ? 0 : shake;
   const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
   ctx.setTransform(dpr * S, 0, 0, dpr * S, ox * dpr, oy * dpr);
@@ -2162,6 +2273,7 @@ window.wallpaperPropertyListener = {
     if (p.showscore) cfg.showScore = p.showscore.value;
     if (p.backgroundcolor) { cfg.bg = weColor(p.backgroundcolor.value); document.body.style.background = cfg.bg; }
     if (p.linecolor) cfg.line = weColor(p.linecolor.value);
+    if (p.backgroundtheme) cfg.bgTheme = p.backgroundtheme.value;
     if (p.reducemotion) cfg.reduceMotion = p.reducemotion.value;
     if (p.soundeffects) { cfg.sound = p.soundeffects.value; soundSetPaused(paused); }
     if (p.fighternames) cfg.names = parseNames(p.fighternames.value);
