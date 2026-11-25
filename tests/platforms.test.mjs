@@ -377,3 +377,56 @@ test('a body resting on a platform falls when a resize moves the platform from u
   const low = Math.max(...Object.values(a.rag.pts).map(o => o.y));
   assert.ok(low > game.groundY(60) - 20, `lowest point at ${low}, floor at ${game.groundY(60)}`);
 });
+
+// Issue #125: items land on ledges, and fighters on the ledge pick them up
+function itemLoad() {
+  const r = load();
+  r.game.cfg.items = true;
+  return r;
+}
+test('an item dropped over a platform rests on its top', () => {
+  const { game } = itemLoad();
+  const p = game.platforms[0];
+  const it = game.spawnItem('heart', (p.x0 + p.x1) / 2, 60);
+  run(game, 3);
+  assert.ok(game.items.includes(it), 'the item is gone');
+  assert.ok(Math.abs(game.groundY(it.z) - it.alt - p.y) < 1e-6, `rests at ${game.groundY(it.z) - it.alt}, platform top at ${p.y}`);
+});
+
+test('a fighter on a platform picks up an item resting there', () => {
+  const { game, a } = itemLoad();
+  const p = game.platforms[0];
+  const x = (p.x0 + p.x1) / 2;
+  dropAbove(game, a, x, p, 0);
+  a.hp = 50;
+  game.spawnItem('heart', x, 60);
+  run(game, 3);
+  assert.ok(a.hp > 50, 'not healed');
+  assert.equal(game.items.length, 0);
+});
+
+test('an idle fighter on a platform walks to an item on it, not to one on the floor', () => {
+  const { game, a, context } = itemLoad();
+  seed(context, 5);
+  const p = game.platforms[0];
+  dropAbove(game, a, p.x0 + 30, p, 0);
+  game.update(1 / 60);
+  Object.assign(a, { state: 'idle', cool: 999, hp: 50 });
+  for (const f of game.fighters) if (f !== a) Object.assign(f, { invis: true });
+  const floor = game.spawnItem('heart', p.x0 + 20, 60, 0);
+  const top = game.spawnItem('heart', p.x0 + 140, 60, game.groundY(60) - p.y);
+  let t = 0;
+  for (; t < 5 && game.items.includes(top); t += 1 / 60) game.update(1 / 60);
+  assert.ok(!game.items.includes(top), 'never picked up the item on its platform');
+  assert.ok(game.items.includes(floor), 'went down for the item on the floor');
+});
+
+test('an item resting on a platform falls when platforms are turned off', () => {
+  const { game, window } = itemLoad();
+  const p = game.platforms[0];
+  const it = game.spawnItem('staff', (p.x0 + p.x1) / 2, 60);
+  run(game, 3);
+  window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: false } });
+  run(game, 2);
+  assert.equal(it.alt, 0);
+});
