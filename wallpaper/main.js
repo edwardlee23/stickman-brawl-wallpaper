@@ -240,7 +240,17 @@ const isEnemy = (a, b) => a !== b && (cfg.mode === 'teams' ? a.team !== b.team :
 
 let fighters = [];
 const sparks = [], fx = [], shots = [];
-let shake = 0, freeze = 0;
+let shake = 0, freeze = 0, freezeGap = 0;
+// Hit stop: the whole fight pauses for t seconds of game time at a hit. After one ends, the
+// fight runs at least FREEZE_GAP times as long before a new one can start, so with many
+// fighters hit stops take at most a small share of the time and Speed is still honored.
+// A hit inside a hit stop (a knockout on the same blow, say) may still lengthen it.
+const FREEZE_GAP = 12;
+function hitStop(t) {
+  if (freeze <= 0 && freezeGap > 0) return;
+  freeze = Math.max(freeze, t);
+  freezeGap = Math.max(freezeGap, freeze * FREEZE_GAP);
+}
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
 const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove,
@@ -279,7 +289,7 @@ function impact(x, y, big) {
   spawnSparks(x, y, '#ffe28a', big ? 18 : 10, false, big ? 1.6 : 1);
   sfx(big ? 'hitBig' : 'hit', x);
   shake = Math.max(shake, big ? 9 : 4);
-  freeze = Math.max(freeze, big ? 0.09 : 0.035);
+  hitStop(big ? 0.09 : 0.035);
   if (big) addFx({ type: 'focus', x, y, dur: 0.28 });
 }
 // A cloud of smoke: a few grey balls that swell and fade
@@ -1059,7 +1069,7 @@ class Fighter {
         this.alt = 0; this.va = 0; this.hover = false; this.vx = 0; this.trailOn = false;
         const gx = this.x, gy = groundY(this.z);
         quake(gx, gy, 160);
-        shake = Math.max(shake, 13); freeze = Math.max(freeze, 0.08);
+        shake = Math.max(shake, 13); hitStop(0.08);
         for (const e of fighters) {
           if (!isEnemy(this, e) || !e.hittable || e.alt > 40 || Math.abs(e.z - this.z) > 50) continue;
           const d = Math.abs(e.x - gx);
@@ -1492,7 +1502,7 @@ class Fighter {
     impact(H.x, H.y, big);
     if (this.hp <= 0) {
       const v = Lv || { vx: dir * 520, va: 380 };
-      freeze = Math.max(freeze, 0.16); shake = Math.max(shake, 12);
+      hitStop(0.16); shake = Math.max(shake, 12);
       addFx({ type: 'focus', x: H.x, y: H.y, dur: 0.4 });
       this.ko(v.vx * 1.4, -v.va * 1.3 - 150);
       return;
@@ -1537,7 +1547,7 @@ class Fighter {
         const wy = groundY(this.z) - this.alt - 14;
         crack(side < 0 ? 0 : worldW, wy, 'wall', 70);
         addFx({ type: 'ring', x: side < 0 ? 0 : worldW, y: wy, r0: 4, r1: 60, dur: 0.3, w: 3 });
-        shake = Math.max(shake, 10); freeze = Math.max(freeze, 0.07);
+        shake = Math.max(shake, 10); hitStop(0.07);
         this.state = 'splat'; this.st = 0; this.vx = 0; this.va = 0; this.splatSide = side;
         this.rot = side * this.facing * Math.PI / 2; this.trailOn = false; stats.splats++;
         if (this.hp <= 0) this.koPending = true;
@@ -1584,7 +1594,7 @@ class Fighter {
 // ---------- Rounds ----------
 function newRound() {
   fighters = []; sparks.length = 0; fx.length = 0; shots.length = 0;
-  roundOver = false; roundTime = 0; shake = 0; freeze = 0;
+  roundOver = false; roundTime = 0; shake = 0; freeze = 0; freezeGap = 0;
   const n = clamp(Math.round(cfg.count), 2, 16);
   const per = Math.ceil(n / 2);
   for (let i = 0; i < n; i++) {
@@ -2019,24 +2029,23 @@ function frame(now) {
     next += interval;
     if (next < now) next = now + interval;   // Fell behind (first frame, a stall): start over
   }
-  // Real time per frame is capped, so a stall or a page coming back from a hidden tab does
-  // not jump the fight ahead. Below 20 fps the cap follows the frame-rate limit, or game time
-  // would fall behind real time.
-  const maxReal = Math.min(0.2, Math.max(0.05, cfg.fps > 0 ? 1.5 / cfg.fps : 0));
-  const real = Math.min(maxReal, (now - last) / 1000);
+  // Real time per frame follows the actual frame interval, so game time keeps up with real
+  // time at any frame rate, slow machines included. Only a stall (or a page coming back from a
+  // hidden tab) is capped, at 0.2 s, so it does not jump the fight ahead.
+  const real = Math.min(0.2, (now - last) / 1000);
   last = now;
   shake = shake > 0.3 ? shake * Math.pow(0.0015, real) : 0;
-  if (freeze > 0) { freeze -= real; render(); return; }   // Hit stop
   // Split the simulated time into equal substeps of at most about 1/60 s, so blasts,
   // strike and grab windows and ragdolls see the same step size at any speed or frame rate.
   // The 0.1 slack keeps a slightly long 60 fps frame at 100% speed in one step.
   const sim = real * cfg.speed;
   const n = clamp(Math.ceil(sim / SUBSTEP - 0.1), 1, MAX_SUBSTEPS);
   for (let i = 0; i < n; i++) {
+    // Hit stop is counted in game time, so it is shortened by Speed and a step it takes is
+    // not lost: the fight pauses at the hit, then runs on within the same frame.
+    if (freeze > 0) { freeze -= sim / n; continue; }
     update(sim / n);
-    // A hit started a hit stop: drop the rest of this frame's time, so the fight pauses
-    // at the hit instead of running on past it. At 100% speed a frame is one step anyway.
-    if (freeze > 0) break;
+    freezeGap -= sim / n;
   }
   render();
 }
