@@ -1822,8 +1822,10 @@ class Fighter {
 }
 
 // ---------- Rounds ----------
-function newRound() {
-  const prev = fighters, decided = roundOver;
+// decided: the round before ended with a winner or a draw and its banner ran out. Any other
+// new round (a time-out, a reset from the settings panel, the first) restores everyone.
+function newRound(decided = false) {
+  const prev = fighters;
   fighters = []; sparks.length = 0; fx.length = 0; shots.length = 0;
   clearItems();
   roundOver = false; roundTime = 0; shake = 0; freeze = 0; freezeGap = 0;
@@ -1849,7 +1851,7 @@ function newRound() {
 }
 function checkRound(dt) {
   roundTime += dt;
-  if (roundOver) { roundTimer -= dt; if (roundTimer <= 0) newRound(); return; }
+  if (roundOver) { roundTimer -= dt; if (roundTimer <= 0) newRound(true); return; }
   const alive = fighters.filter(f => f.alive);
   const sides = new Set(alive.map(f => (cfg.mode === 'teams' ? f.team : f.id)));
   if (sides.size <= 1) {
