@@ -26,6 +26,7 @@ const cfg = {
   audioStrength: 0.5,   // 0 to 1
   clickBlast: false,    // a click on the wallpaper launches the fighters near it
   rules: 'normal',      // Round rules: 'normal' | 'king' | 'ladder' | 'survival'
+  platforms: false,     // floating platforms, off by default
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true, ninjutsu: true },
 };
 // ---------- Helpers ----------
@@ -213,6 +214,52 @@ const groundY = z => floorTop + z;
 // keeps it on screen, which matters at large figure sizes, where the screen is short
 const FIG_TOP = 110;
 const maxAlt = z => groundY(z) - FIG_TOP;
+
+// ---------- Platforms ----------
+// Optional thin floating ledges (setting "Floating platforms", off by default). A platform is
+// a span x0..x1 at the screen height y; a fighter stands on it with its feet at y whatever its
+// depth, so its altitude there is groundY(z) - y. No top is higher on screen than FIG_TOP, so
+// heads stay on screen; one that would not fit at this figure size is left out.
+let platforms = [];
+function layoutPlatforms() {
+  platforms = [];
+  if (!cfg.platforms) return;
+  const add = (a, b, y) => { if (y >= FIG_TOP && y <= floorTop - 40) platforms.push({ x0: worldW * a, x1: worldW * b, y }); };
+  add(0.1, 0.32, floorTop - 60); add(0.68, 0.9, floorTop - 60);
+  if (worldW >= 700) add(0.4, 0.6, floorTop - 125);
+}
+// The platform whose top is at the screen height feet (within half a unit) under x, or null
+function platformAt(x, feet) {
+  for (const p of platforms) if (x >= p.x0 && x <= p.x1 && Math.abs(p.y - feet) <= 0.5) return p;
+  return null;
+}
+// Altitude at depth z of the highest platform top under x that is at or below the screen
+// height feet, or 0 (the floor) when there is none
+function platformAlt(x, z, feet) {
+  let h = 0;
+  for (const p of platforms) {
+    if (x >= p.x0 && x <= p.x1 && p.y >= feet - 0.5) h = Math.max(h, groundY(z) - p.y);
+  }
+  return h;
+}
+// A ragdoll point that crossed a platform top from above this step lands on it, as on the floor
+function ragPlatform(o, k) {
+  for (const p of platforms) {
+    const top = p.y - (k === 'head' ? L.head : 1.5);
+    if (o.x >= p.x0 && o.x <= p.x1 && o.sy <= top + 0.5 && o.y > top) {
+      const vy = o.y - o.py, vx = o.x - o.px;
+      o.y = top; o.py = top + vy * 0.3; o.px = o.x - vx * 0.75;
+    }
+  }
+}
+function drawPlatforms() {
+  ctx.fillStyle = cfg.line;
+  for (const p of platforms) {
+    ctx.globalAlpha = 0.85; ctx.fillRect(p.x0, p.y, p.x1 - p.x0, 2.5);
+    ctx.globalAlpha = 0.15; ctx.fillRect(p.x0 + 3, p.y + 2.5, p.x1 - p.x0 - 6, 4);
+  }
+  ctx.globalAlpha = 1;
+}
 let laidOut = false;         // Whether the world has had a real (non-zero) size yet
 function resize() {
   // A window that is 0 in either dimension (a page opened hidden, a 0-size frame) has no
@@ -226,6 +273,7 @@ function resize() {
   S = cfg.scale * SH / 540;
   worldW = SW / S; worldH = SH / S;
   floorTop = worldH * 0.74 - DEPTH / 2;
+  layoutPlatforms();
   // Fighters placed before the first real size stood on a 0-wide floor; spread them over this one
   if (!laidOut) { laidOut = true; if (fighters.length) { newRound(); return; } }
   for (const f of fighters) {
@@ -294,6 +342,8 @@ const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, k
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove, pickTarget,
   render: () => render(),
   get fighters() { return fighters; } };
+Object.defineProperty(window.__stickmanBrawl, 'platforms', { get: () => platforms });
+window.__stickmanBrawl.groundY = groundY;
 
 // ---------- Score board ----------
 // Wins per side across rounds: per team in teams mode, per fighter number in free-for-all.
@@ -507,6 +557,7 @@ function stepRag(r, gy) {
     const o = p[k];
     const vx = (o.x - o.px) * 0.998, vy = (o.y - o.py) * 0.998;
     o.px = o.x; o.py = o.y;
+    o.sy = o.y;                                  // Height before this step, for platforms
     o.x += vx; o.y += vy + 900 * RAG_H * RAG_H;
   }
   for (let it = 0; it < 6; it++) {
@@ -525,6 +576,7 @@ function stepRag(r, gy) {
         const vy = o.y - o.py, vx = o.x - o.px;
         o.y = fl; o.py = fl + vy * 0.3; o.px = o.x - vx * 0.75;
       }
+      if (platforms.length) ragPlatform(o, k);
       if (o.y < 4) { const vy = o.y - o.py; o.y = 4; o.py = 4 + vy * 0.5; }
       if (o.x < 4 || o.x > worldW - 4) {
         const vx = o.x - o.px, w = o.x < 4 ? 4 : worldW - 4;
@@ -683,7 +735,7 @@ class Fighter {
       case 'hit': {
         const u = clamp((this.st / this.dur - 0.3) / 0.7, 0, 1);
         lerpPose(FLINCH, GUARD, ease(u), this.pose);
-        if (this.st >= this.dur) this.state = this.alt > 0 ? 'air' : 'idle';
+        if (this.st >= this.dur) this.state = this.aloft() ? 'air' : 'idle';
         break;
       }
       case 'block':
@@ -707,7 +759,7 @@ class Fighter {
       case 'frozen':
         // Held in its pose inside the ice; it still falls if frozen in the air
         if (this.st >= this.dur) {
-          this.state = this.alt > 0 ? 'air' : 'idle'; this.st = 0; this.cool = rand(0.1, 0.3);
+          this.state = this.aloft() ? 'air' : 'idle'; this.st = 0; this.cool = rand(0.1, 0.3);
           spawnSparks(this.x, groundY(this.z) - this.alt - 40, ELEMENT.ice, 10);
           sfx('freeze', this.x, 0.5);
         }
@@ -759,18 +811,30 @@ class Fighter {
       this.vx = approach(this.vx, 0, 520 * dt);
       this.vz = approach(this.vz, 0, 300 * dt);
     }
+    const feet = groundY(this.z) - this.alt;
     this.x = clamp(this.x + this.vx * dt, 14, worldW - 14);
     this.z = clamp(this.z + this.vz * dt, 0, DEPTH);
+    const base = platforms.length ? this.platformBase(feet) : 0;
     if (this.hover) {
       this.alt = clamp(this.alt + this.va * dt, 0, maxAlt(this.z));
-    } else if (this.alt > 0 || this.va > 0) {
+    } else if (this.alt > base || this.va > 0) {
       this.va -= G * dt;
       this.alt += this.va * dt;
       // At the top of the screen, start falling instead of hanging there while still rising
       const top = maxAlt(this.z);
       if (this.alt > top) { this.alt = top; this.va = Math.min(this.va, 0); }
-      if (this.alt <= 0) { this.alt = 0; this.va = 0; this.onLand(); }
+      if (this.alt <= base) { this.alt = base; this.va = 0; this.onLand(); }
     }
+  }
+  // The altitude of the surface under a fighter whose feet were at the screen height feet before
+  // this step; one standing on a platform keeps its feet on it as its depth changes
+  platformBase(feet) {
+    const h = platformAlt(this.x, this.z, feet);
+    if (h > 0 && this.va <= 0 && !this.hover && platformAt(this.x, feet)) {
+      this.alt = h;
+      if (this.va < 0) { this.va = 0; this.onLand(); }   // Came down within half a unit of the top
+    }
+    return h;
   }
 
   onLand() {
@@ -782,7 +846,7 @@ class Fighter {
 
   updIdle(dt) {
     const tp = Object.assign(TMP, GUARD);
-    if (this.alt > 0) { this.state = 'air'; return; }
+    if (this.aloft()) { this.state = 'air'; return; }
     // Back on its feet by any path (getup, a thaw, a hold hit, a special's landing): the
     // juggle count and the air dash and double jump start over
     this.juggle = 0; this.dashed = false; this.dj = false;
@@ -823,6 +887,7 @@ class Fighter {
         }
         seekItem(this, dt);
       }
+      if (platforms.length && this.chaseSurface(t, dt)) return;
       // Jump at random; jump more often when the opponent is airborne
       if (Math.random() < dt * (t.alt > 60 ? 1.2 : 0.22)) {
         this.va = rand(480, 640); this.alt = 1; this.vx = this.facing * rand(100, 260);
@@ -871,6 +936,35 @@ class Fighter {
       if (m && m.type && m.air && dist >= m.range[0] && dist <= m.range[1] && Math.abs(t.z - this.z) < 20) this.startMove(m);
       else this.cool = rand(0.15, 0.4);
     }
+  }
+
+  // With platforms: a target standing on another surface (the floor or another platform) is
+  // reached by walking off this one, or by jumping up onto the target's. Sets the walking
+  // speed toward it; returns true when it starts a jump.
+  chaseSurface(t, dt) {
+    const feet = groundY(this.z) - this.alt;
+    const mine = platformAt(this.x, feet);
+    const theirs = t.alt > 0 ? platformAt(t.x, groundY(t.z) - t.alt) : null;
+    if ((t.alt > 0 && !theirs) || mine === theirs) return false;
+    let goal = t.x;
+    if (theirs && theirs.y < feet - 1) {
+      // The target is higher: get under its platform, then jump high enough to clear its top
+      if (this.x > theirs.x0 - 30 && this.x < theirs.x1 + 30 && Math.random() < dt * 4) {
+        this.va = Math.sqrt(2 * G * (feet - theirs.y + 30)); this.alt += 1;
+        this.vx = sgn(t.x - this.x) * 120; this.state = 'air'; this.st = 0;
+        return true;
+      }
+      goal = clamp(t.x, theirs.x0 + 10, theirs.x1 - 10);
+    } else if (mine && t.x > mine.x0 - 20 && t.x < mine.x1 + 20) {
+      // The target is lower, right under this platform: walk off its nearer edge
+      goal = t.x - mine.x0 < mine.x1 - t.x ? mine.x0 - 25 : mine.x1 + 25;
+    }
+    if (Math.abs(goal - this.x) > 2) this.vx = approach(this.vx, sgn(goal - this.x) * 130, 600 * dt);
+    return false;
+  }
+  // In the air: above the floor or, with platforms, above the top it would stand on
+  aloft() {
+    return platforms.length ? this.alt > platformAlt(this.x, this.z, groundY(this.z) - this.alt) + 0.5 : this.alt > 0;
   }
 
   startMove(m, surprise) {
@@ -923,7 +1017,7 @@ class Fighter {
 
   endMove() {
     if (this.move && !this.move.type && !this.hitDone) { stats.whiff++; sfx('whiff', this.x); }
-    this.state = this.alt > 0 ? 'air' : 'idle'; this.st = 0;
+    this.state = this.aloft() ? 'air' : 'idle'; this.st = 0;
     this.move = null; this.md = null; this.spin = false; this.hover = false; this.ghost = false;
     this.rot = 0; this.trailOn = false; this.invis = false; this.alpha = 1; this.vz = 0;
     this.cool = rand(0.15, 0.7) * musicDelay();
@@ -1613,7 +1707,7 @@ class Fighter {
     this.clearMove();
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1;
     let Lv = o.launch;
-    if (!Lv && !o.hold && (this.alt > 0 || Math.random() < (m.kd || 0) * 2 + (dmg >= 8 ? 0.3 : 0))) {
+    if (!Lv && !o.hold && (this.aloft() || Math.random() < (m.kd || 0) * 2 + (dmg >= 8 ? 0.3 : 0))) {
       Lv = { vx: dir * ((m.push || 30) * 4 + 200), va: m.down ? -400 : (m.up ? 620 : 200 + rand(0, 240)) };
     }
     const big = o.big || (Lv && Math.hypot(Lv.vx, Lv.va) > 650);
@@ -1650,6 +1744,7 @@ class Fighter {
   }
 
   updLaunched(dt) {
+    const feet = groundY(this.z) - this.alt;
     this.va -= G * dt;
     this.x += this.vx * dt; this.alt += this.va * dt; this.rot += this.rotV * dt;
     this.z = clamp(this.z + this.vz * dt, 0, DEPTH);
@@ -1677,9 +1772,10 @@ class Fighter {
       this.alt = top;
       if (this.va > 0) { this.va = -this.va * 0.4; shake = Math.max(shake, 5); }
     }
-    if (this.alt <= 0 && this.va < 0) {
-      this.alt = 0;
-      const gy = groundY(this.z);
+    const base = platforms.length ? platformAlt(this.x, this.z, feet) : 0;
+    if (this.alt <= base && this.va < 0) {
+      this.alt = base;
+      const gy = groundY(this.z) - base;
       if (this.va < -450) {
         // Slam into the ground and bounce
         this.va = -this.va * 0.42; this.vx *= 0.6; this.rotV *= 0.7;
@@ -2476,6 +2572,7 @@ function render() {
   ctx.globalAlpha = 0.035; ctx.fillRect(-20, floorTop - 6, worldW + 40, DEPTH + 12);
   ctx.globalAlpha = 0.12; ctx.fillRect(-20, floorTop + DEPTH + 6, worldW + 40, 0.7);
   ctx.globalAlpha = 1;
+  drawPlatforms();
   for (const o of fx) drawFx(o, 0);
   drawItems();
 
@@ -2606,6 +2703,7 @@ window.wallpaperPropertyListener = {
     if (p.gamemode) { cfg.mode = p.gamemode.value; reset = true; }
     if (p.roundrules) { cfg.rules = p.roundrules.value; reset = true; }
     if (p.gamespeed) cfg.speed = p.gamespeed.value / 100;
+    if (p.platforms) { cfg.platforms = p.platforms.value; layoutPlatforms(); }
     if (p.figurescale) { cfg.scale = p.figurescale.value / 100; resize(); reset = true; }
     if (p.showhealth) cfg.showHP = p.showhealth.value;
     if (p.colorful) cfg.colorful = p.colorful.value;
