@@ -2275,7 +2275,9 @@ function drawItems() {
   for (const it of items) {
     const x = it.x, y = groundY(it.z) - it.alt - 6 - (it.rest ? Math.abs(Math.sin(it.t * 3)) * 3 : 0);
     ctx.globalAlpha = 0.12; ctx.fillStyle = cfg.line;
-    ctx.beginPath(); ctx.ellipse(x, groundY(it.z) - (it.rest ? it.alt : 0), 8, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+    // On the surface under it the whole fall, a platform top or the floor (issue #218)
+    const s = it.rest ? it.alt : platforms.length ? platformAlt(x, it.z, groundY(it.z) - it.alt) : 0;
+    ctx.beginPath(); ctx.ellipse(x, groundY(it.z) - s, 8, 1.8, 0, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
     if (it.kind === 'heart') {
       ctx.fillStyle = '#ff6b8a'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2;
@@ -2778,8 +2780,11 @@ function render() {
     const x = f.rag ? f.rag.pts.hip.x : f.state === 'thrown' ? f.th.hx : f.x;
     // On the surface under it, the floor or a platform top, as an item's shadow is (issue #173)
     const s = platforms.length ? platformAlt(x, f.z, f.rag ? f.rag.pts.hip.y : groundY(f.z) - f.alt) : 0;
-    const k = 1 - Math.min(0.7, Math.max(0, f.alt - s) / 300);
-    ctx.globalAlpha = 0.12 * k; ctx.fillStyle = cfg.line;
+    // A ragdoll's height is that of its lowest point now, since ko() leaves f.alt as it was (issue #218)
+    const h = f.rag ? groundY(f.z) - 1.5 - Math.max(...Object.values(f.rag.pts).map(o => o.y)) : f.alt;
+    const k = 1 - Math.min(0.7, Math.max(0, h - s) / 300);
+    // Fades with the fighter, as its health bar and crown do (issue #218)
+    ctx.globalAlpha = 0.12 * k * f.alpha; ctx.fillStyle = cfg.line;
     ctx.beginPath(); ctx.ellipse(x, groundY(f.z) - s, 14 * k, 2.5 * k, 0, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
