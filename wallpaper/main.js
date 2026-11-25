@@ -1811,7 +1811,9 @@ class Fighter {
         const r = ((this.rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
         const fs = r < Math.PI ? 1 : -1;
         this.fallSign = fs; this.rot = fs * Math.PI / 2; this.pose = clonePose(DOWN);
-        this.x = clamp(this.x - fs * this.facing * 44, 14, worldW - 14);
+        // Sliding on landing, stays on the platform it landed on rather than slide off its end lying down
+        const ledge = base > 0 ? platformAt(this.x, gy) : null;
+        this.x = clamp(this.x - fs * this.facing * 44, Math.max(14, ledge ? ledge.x0 : 0), Math.min(worldW - 14, ledge ? ledge.x1 : worldW));
         this.vx = 0; this.va = 0; this.state = 'down'; this.st = 0; this.downDur = rand(0.6, 1.2);
         spawnSparks(this.x, gy, 'rgba(200,200,200,0.6)', 8, true);
         if (this.hp <= 0) this.koPending = true;

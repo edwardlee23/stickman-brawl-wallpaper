@@ -310,3 +310,20 @@ test('a melee strike gets no reaction from an enemy far above or below it', () =
   assert.equal(reactions(false, true), 0, 'an enemy on a platform above reacted');
   assert.equal(reactions(true, false), 0, 'an enemy on the floor below reacted');
 });
+
+// Issue #111: the slide on landing lying down does not carry a fighter off a ledge
+test('a fighter launched onto a platform near its end lies down on it', () => {
+  for (const edge of ['x0', 'x1']) for (const facing of [-1, 1]) for (const rot of [0.5, 4]) {
+    const { game, a } = load();
+    const p = game.platforms[0];
+    const x = edge === 'x0' ? p.x0 + 10 : p.x1 - 10;
+    dropAbove(game, a, x, p, 0.4);
+    Object.assign(a, { state: 'launched', st: 0, va: -100, vx: 0, rot, rotV: 0, facing });
+    for (let t = 0; t < 1 && a.state === 'launched'; t += 1 / 60) game.update(1 / 60);
+    const at = `landing at ${edge}, facing ${facing}, rot ${rot}`;
+    assert.equal(a.state, 'down', at);
+    assert.ok(a.x >= p.x0 && a.x <= p.x1 && onTop(game, a, p), `${at}: lies at x ${a.x}, feet ${feetY(game, a)}`);
+    run(game, 0.4);
+    assert.ok(onTop(game, a, p), `${at}: fell to feet ${feetY(game, a)} while down`);
+  }
+});
