@@ -1054,6 +1054,9 @@ class Fighter {
       const r = Math.random(), guard = !grab && !unguardable;
       if (guard && r < 0.25) {
         e.state = 'block'; e.st = 0; e.dur = (this.move.wind || 0.3) + (this.move.act || 0.4) + rand(0.05, 0.2) + fly;
+        // A block ends a dash, so its speed and afterimages do not carry the blocker on (#169)
+        if (e.dash > 0) e.vx = 0;
+        e.dash = 0; e.trailOn = false;
         e.facing = sgn(this.x - e.x);
       } else if (r < 0.37) {
         e.evade = 0.3; e.vx = sgn(e.x - this.x) * rand(160, 230);
@@ -1798,7 +1801,7 @@ class Fighter {
       return;
     }
     if (Lv) { this.launch(Lv.vx, Lv.va); return; }
-    this.state = 'hit'; this.st = 0;
+    this.state = 'hit'; this.st = 0; this.dash = 0; this.trailOn = false;
     if (o.hold) {
       this.dur = 0.22; this.vx = dir * 20;
       if (this.aloft()) this.va = Math.max(this.va, 90);
