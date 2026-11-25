@@ -2180,12 +2180,17 @@ Fighter.prototype.u_boomerang = function (dt) {
     if (this.st - md.t0 > 0.3) this.endMove();
   }
 };
-// A boomerang slows, turns at about 1 s and flies back; its thrower catches it
+// A boomerang slows, turns at about 1 s and flies back; its thrower catches it. On the way
+// back it heads for the thrower's front hand, at the speed it would have retracing its path:
+// it leaves from the low throwing pose, and the hand it comes back to is higher (issue #211).
 function steerBoomerang(s, dt) {
   s.age += dt;
-  s.vx -= s.v0x * dt; s.vy -= s.v0y * dt;
   const o = s.owner;
-  if (s.age > 1 && (!o.alive || !o.W || Math.hypot(o.W.hF.x - s.x, o.W.hF.y - s.y) < 24)) s.life = 0;
+  if (s.age > 1 && (!o.alive || !o.W || Math.hypot(o.W.hF.x - s.x, o.W.hF.y - s.y) < 24)) { s.life = 0; return; }
+  if (s.age <= 1) { s.vx -= s.v0x * dt; s.vy -= s.v0y * dt; return; }
+  const dx = o.W.hF.x - s.x, dy = o.W.hF.y - s.y, d = Math.hypot(dx, dy);
+  const v = Math.hypot(s.v0x, s.v0y) * (s.age - 1);
+  s.vx = dx / d * v; s.vy = dy / d * v;
 }
 function updateItems(dt) {
   if (!cfg.items) { if (items.length || itemTimer !== null) clearItems(true); return; }
