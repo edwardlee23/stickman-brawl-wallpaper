@@ -1254,7 +1254,7 @@ class Fighter {
         const sp = this.move.speed;
         // The shots of one blast share a fan token, so a shield takes the whole volley as one hit
         if (!md.fan) md.fan = {};
-        shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, life: 3, col: colorOf(this), fan: md.fan }); sfx('fire', H.x, 0.5);
+        shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, dmg: this.move.dmg, life: 3, col: colorOf(this), fan: md.fan }); sfx('fire', H.x, 0.5);
         spawnSparks(H.x, H.y, '#ffffff', 3);
         // The first shot warns: a guard raised then lasts until it can arrive
         if (k === 0) this.warn(9999, false);
