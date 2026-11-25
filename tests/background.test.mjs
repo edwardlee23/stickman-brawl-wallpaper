@@ -12,7 +12,13 @@ const source = readFileSync('wallpaper/main.js', 'utf8');
 // as ['=name', value]; methods return the same recorder, so gradients log their stops too.
 function recorder(log) {
   const self = new Proxy(function () {}, {
-    get: (_, k) => (k === Symbol.toPrimitive ? () => '' : (...args) => { log.push([k, ...args]); return self; }),
+    get: (_, k) => (k === Symbol.toPrimitive ? () => '' : (...args) => {
+      // As a browser does, refuse to draw a canvas with no pixels
+      if (k === 'drawImage' && args[0] && (args[0].width === 0 || args[0].height === 0)) {
+        throw new Error('InvalidStateError: The image argument is a canvas element with a width or height of 0.');
+      }
+      log.push([k, ...args]); return self;
+    }),
     set: (_, k, v) => { log.push(['=' + String(k), v]); return true; },
   });
   return self;
@@ -20,7 +26,7 @@ function recorder(log) {
 
 // Loads the wallpaper with a recording screen context. With offscreen on, the page can
 // make canvases, and each one made is returned in offscreen with its own log.
-function load({ offscreen = true } = {}) {
+function load({ offscreen = true, width = 1280, height = 720 } = {}) {
   const screen = [];
   const made = [];
   const listeners = {};
@@ -36,7 +42,7 @@ function load({ offscreen = true } = {}) {
     };
   }
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: (k, f) => { listeners[k] = f; } };
+  const window = { innerWidth: width, innerHeight: height, devicePixelRatio: 1, addEventListener: (k, f) => { listeners[k] = f; } };
   Object.assign(window, {
     window, document,
     location: { search: '?count=2' },
@@ -178,4 +184,12 @@ test('the comic halftone staggers alternate rows of dots (#119)', () => {
   assert.ok(Number.isFinite(firstX(7)) && Number.isFinite(firstX(21)), 'no dots in the top rows');
   assert.notEqual(firstX(7), firstX(21), 'rows y=7 and y=21 start at the same x');
   assert.equal(firstX(7), firstX(35), 'every other row lines up');
+});
+
+test('at a 0 x 0 window a theme draws no empty cache and no frame throws (#127)', () => {
+  for (const theme of THEMES.slice(1)) {
+    const w = load({ width: 0, height: 0 });
+    w.we.applyUserProperties({ backgroundtheme: { value: theme } });
+    for (let i = 0; i < 5; i++) assert.doesNotThrow(() => w.frame(), theme);
+  }
 });
