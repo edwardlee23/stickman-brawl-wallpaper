@@ -2147,7 +2147,8 @@ function withStaff(f, m) {
 function seekItem(f, dt) {
   if (!cfg.items || !items.length || f.aloft()) return;
   const mine = platformAt(f.x, groundY(f.z) - f.alt);
-  for (const e of fighters) if (e.alive && isEnemy(f, e) && Math.abs(e.x - f.x) < 130 && Math.abs(e.z - f.z) < 30) return;
+  // A fighter waiting at the side under Ladder rules cannot fight, so it is no near enemy (issue #221)
+  for (const e of fighters) if (e.alive && e.state !== 'wait' && isEnemy(f, e) && Math.abs(e.x - f.x) < 130 && Math.abs(e.z - f.z) < 30) return;
   let best = null, bd = 320;
   for (const it of items) {
     if (it.kind === 'heart' ? f.hp >= f.maxHp : f.held || (it.kind === 'staff' && !staffUsable())) continue;
