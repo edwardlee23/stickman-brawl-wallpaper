@@ -58,7 +58,7 @@ test('a thrower standing still catches its own boomerang that missed (#211)', ()
   }
 });
 
-// 320 puts the thrower past the farthest point of a 560 px/s throw (about 280 px out)
+// 320 puts the thrower past the farthest point of a 600 px/s throw (about 300 px out)
 test('a thrower that stepped aside after the throw, even past the boomerang, still catches it (#211)', () => {
   for (const walk of [-60, 40, 320]) {
     const r = throwAndMiss(250, walk);
