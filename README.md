@@ -65,6 +65,14 @@ knockouts and the end of a round, with its own volume. It is off by default.
 The sounds are made in code when they play, so the wallpaper loads no audio
 files and works offline.
 
+"React to music", off by default, listens to the audio playing on the desktop
+through Wallpaper Engine: bass beats and loud passages make fighters attack
+sooner and pick specials more often, and with "Reduce flashing and screen
+shake" off a beat also makes the lines glow. "Music reaction strength" sets
+how much; game speed never changes, and a few seconds of silence bring the
+fight back to normal. A plain browser has no such audio, so nothing changes
+there.
+
 Opened in a plain browser, `wallpaper/index.html` also reads `count`, `mode`,
 `speed`, `reducemotion`, `sound` and `volume` from the query string, for
 example `index.html?count=8&mode=teams` or `index.html?sound=1&volume=50`.
