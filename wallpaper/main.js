@@ -847,7 +847,7 @@ class Fighter {
           quake(th.hx, groundY(this.z) - this.alt, 90);
           impact(th.hx, groundY(this.z) - this.alt - 6, true);
           this.rot = -Math.PI / 2; this.fallSign = -1;
-          this.x = clamp(th.hx1 + this.facing * this.hipH, 14, worldW - 14);
+          this.x = clamp(th.hx1 + this.facing * th.lie, 14, worldW - 14);
           this.th = null; this.state = 'down'; this.st = 0; this.downDur = rand(0.9, 1.5);
           if (this.hp <= 0) this.koPending = true;
         }
@@ -1756,13 +1756,16 @@ class Fighter {
       // platform, say, with the body pulled back to lie on it, or the floor (issue #165). A
       // landing just past a platform's end is moved out until the arc clears its corner.
       const feet = groundY(this.z) - this.alt, hx0 = e.W.hip.x, hy0 = e.W.hip.y;
+      // The body lies from the hip by the lying pose's hip height, not the one at the grab:
+      // a crouched victim's hip is lower than once it lies down (issue #216)
+      const lie = -fk(DOWN).hip.y;
       let hx1 = clamp(this.x - af * 68, 40, worldW - 40), land, hy1, arc;
       for (let n = 0; n < 80; n++) {
         let q = null; land = 0;
         for (const p of platforms) {
           if (hx1 >= p.x0 && hx1 <= p.x1 && p.y >= feet - 0.5 && groundY(e.z) - p.y > land) { land = groundY(e.z) - p.y; q = p; }
         }
-        if (q) hx1 = clamp(clamp(hx1 - af * e.hipH, 14, worldW - 14), q.x0, q.x1) + af * e.hipH;
+        if (q) hx1 = clamp(clamp(hx1 - af * lie, 14, worldW - 14), q.x0, q.x1) + af * lie;
         hy1 = groundY(e.z) - land - 5;
         // The arc over the thrower's head, lower on a short screen: the health bar can be
         // about 70 above the spinning hip, and stays on screen
@@ -1777,7 +1780,7 @@ class Fighter {
         hx1 = nx;
       }
       e.facing = -af; e.state = 'thrown'; e.st = 0; e.from = clonePose(e.pose); e.alt = land;
-      e.th = { hx0, hy0, hx1, hy1, hx: hx0, hy: hy0, dur: 0.75, arc };
+      e.th = { hx0, hy0, hx1, hy1, hx: hx0, hy: hy0, dur: 0.75, arc, lie };
     } else {
       e.knockDown(af, m.grab === 'takedown' ? 0.25 : 0.3);
     }
