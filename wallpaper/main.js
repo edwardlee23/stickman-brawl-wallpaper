@@ -243,6 +243,19 @@ function platformAt(x, feet) {
   for (const p of platforms) if (x >= p.x0 && x <= p.x1 && Math.abs(p.y - feet) <= 0.5) return p;
   return null;
 }
+// Where the segment from A to B first crosses a platform top going down, as { x, y }, or null.
+// Shots and beams coming down stop at a platform, as lightning and landing fighters do; from
+// below they pass up through it, as fighters jump up through it (issue #217).
+function ledgeHit(A, B) {
+  if (!(B.y > A.y)) return null;
+  let best = null, bt = Infinity;
+  for (const p of platforms) {
+    if (A.y > p.y || B.y < p.y) continue;
+    const t = (p.y - A.y) / (B.y - A.y), x = A.x + (B.x - A.x) * t;
+    if (x >= p.x0 && x <= p.x1 && t < bt) { bt = t; best = { x, y: p.y }; }
+  }
+  return best;
+}
 // Altitude at depth z of the highest platform top under x that is at or below the screen
 // height feet, or 0 (the floor) when there is none
 function platformAlt(x, z, feet) {
@@ -1188,7 +1201,11 @@ class Fighter {
       const gy = groundY(this.z);
       if (d.y > 0.01) { const tg = (gy - O.y) / d.y; if (tg < tt) { tt = tg; ground = true; } }
       if (d.y < -0.01) tt = Math.min(tt, -O.y / d.y);
-      md.O = O; md.E = { x: O.x + d.x * tt, y: O.y + d.y * tt }; md.ground = ground;
+      md.O = O; md.E = { x: O.x + d.x * tt, y: O.y + d.y * tt };
+      // A beam coming down stops at the first platform top it meets (issue #217)
+      const lh = ledgeHit(O, md.E);
+      if (lh) { md.E = { x: lh.x, y: lh.y }; ground = false; }
+      md.ground = ground;
       this.vx = -this.facing * 25;
       shake = Math.max(shake, 3);
       if (ground && !md.cracked) { md.cracked = true; quake(md.E.x, md.E.y, 110); }
@@ -2069,9 +2086,13 @@ function updateShots(dt) {
     const P0 = { x: s.x, y: s.y };   // Sweep from the last position so a fast blast can't skip a body
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
     let boom = s.life <= 0 || s.x < -20 || s.x > worldW + 20 || s.y < -20;
-    if (!boom && s.y >= groundY(s.z)) {
-      boom = true; crack(s.x, groundY(s.z), 'ground', 25);
-      if (s.kind === 'fire') addFx({ type: 'flame', x: s.x, y: groundY(s.z), dur: 0.7 });
+    // A shot coming down onto a platform top bursts there, as on the floor (issue #217)
+    const lh = boom ? null : ledgeHit(P0, s);
+    if (lh) { s.x = lh.x; s.y = lh.y; }
+    if (!boom && (lh || s.y >= groundY(s.z))) {
+      const gy = lh ? lh.y : groundY(s.z);
+      boom = true; crack(s.x, gy, 'ground', 25);
+      if (s.kind === 'fire') addFx({ type: 'flame', x: s.x, y: gy, dur: 0.7 });
     }
     if (s.kind === 'fire' && Math.random() < 0.6) spawnSparks(s.x, s.y, ELEMENT.fire, 1, true, 0.5);
     if (!boom) {
