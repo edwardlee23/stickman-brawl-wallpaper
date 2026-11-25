@@ -41,14 +41,16 @@ for (const [w, h] of [[0, 0], [1280, 0], [0, 720]]) {
     const { game, window, resize, frame } = load(w, h);
     window.innerWidth = 1280; window.innerHeight = 720;
     resize();
+    // They start spread across the floor, not piled up against one wall. Measured before
+    // any frame runs, since within a second of fighting they close in on each other.
+    const start = game.fighters.map(f => f.x);
+    assert.ok(Math.max(...start) - Math.min(...start) > WORLD_W / 4, `fighters bunched at ${start.map(x => x.toFixed(1))}`);
     for (let i = 1; i <= 60; i++) frame(i * 1000 / 60);
     const xs = game.fighters.map(f => f.x);
     for (const x of xs) {
       assert.ok(Number.isFinite(x), `a fighter is at x = ${x}`);
       assert.ok(x >= 14 && x <= WORLD_W - 14, `a fighter is at x = ${x}, outside [14, ${WORLD_W - 14}]`);
     }
-    // They start spread across the floor, not piled up against one wall
-    assert.ok(Math.max(...xs) - Math.min(...xs) > WORLD_W / 4, `fighters bunched at ${xs.map(x => x.toFixed(1))}`);
   });
 }
 
