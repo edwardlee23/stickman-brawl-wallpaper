@@ -185,6 +185,7 @@ const SPECIALS = [...SUPER, ...MAGIC, ...NINJA];
 const SHIELD_UP = 1.1;       // Seconds a shield stays up, longer against a far projectile
 const SMOKE_OUT = 0.3;       // Seconds hidden in a smoke escape, longer against a far projectile
 const BEAM_FIRE = 0.65;      // Seconds an energy beam fires and can hit
+const BLAST_SHOTS = 6, BLAST_GAP = 0.13;   // Shots of an energy blast, and seconds between them
 const MOVE_BY = {};
 for (const m of MOVES) {
   MOVE_BY[m.id] = m;
@@ -1077,7 +1078,9 @@ class Fighter {
       } else if (r >= 0.47 && r < 0.55 && cfg.styles.ninjutsu) {
         e.startMove(MOVE_BY.smoke, true);
         // A beam warns as it fires and keeps hitting along its line, so stay hidden until it stops
-        e.md.from = this.x; e.md.hold = SMOKE_OUT + fly + (this.move.type === 'beam' ? BEAM_FIRE : 0);
+        // A blast warns with its first shot and fires the rest after it, so stay hidden until the last arrives
+        e.md.from = this.x; e.md.hold = SMOKE_OUT + fly + (this.move.type === 'beam' ? BEAM_FIRE : 0)
+          + (this.move.type === 'blast' ? (BLAST_SHOTS - 1) * BLAST_GAP : 0);
       } else if (!grab && r >= 0.55 && r < 0.63 && cfg.styles.ninjutsu) {
         e.subFrom = this; e.subT = (this.move.wind || 0.3) + (this.move.act || 0.4) + 0.3 + fly;
       }
@@ -1207,7 +1210,7 @@ class Fighter {
   }
 
   u_blast(dt) {
-    const md = this.md, t = this.target, N = 6, gap = 0.13;
+    const md = this.md, t = this.target, N = BLAST_SHOTS, gap = BLAST_GAP;
     if (this.alt > 0) { this.hover = true; this.va = 0; }
     if (t && t.alive) this.facing = sgn(t.x - this.x);
     this.vx = approach(this.vx, 0, 600 * dt);
@@ -1224,7 +1227,9 @@ class Fighter {
         if (t && t.W) { const c = mid(t.W.sh, t.W.hip); a = Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1); }
         a = clamp(a + rand(-0.12, 0.12), -1, 1.1);
         const sp = this.move.speed;
-        shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, life: 3, col: colorOf(this) }); sfx('fire', H.x, 0.5);
+        // The shots of one blast share a fan token, so a shield takes the whole volley as one hit
+        if (!md.fan) md.fan = {};
+        shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, life: 3, col: colorOf(this), fan: md.fan }); sfx('fire', H.x, 0.5);
         spawnSparks(H.x, H.y, '#ffffff', 3);
         // The first shot warns: a guard raised then lasts until it can arrive
         if (k === 0) this.warn(9999, false);
@@ -1709,7 +1714,8 @@ class Fighter {
       if (this.st >= (md.hold || SHIELD_UP)) { md.ph = 'rec'; md.t0 = this.st; }
     } else {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 10), this.pose);
-      if (this.st - md.t0 > 0.2) this.endMove();
+      // A broken shield stays until the rest of the fan that broke it has come (a blast fires for a while)
+      if (this.st - md.t0 > 0.2 && !fanComing(md.fan, this)) this.endMove();
     }
   }
   shieldUp() { return this.state === 'attack' && this.move && this.move.type === 'shield' && this.md.ph === 'up'; }
@@ -2081,6 +2087,12 @@ function updateShots(dt) {
     }
     if (boom) { burst(s); shots.splice(i, 1); }
   }
+}
+// Whether more shots of fan are still coming at f: one still being fired, or one in flight towards it
+function fanComing(fan, f) {
+  if (!fan) return false;
+  if (fighters.some(x => x.state === 'attack' && x.md && x.md.fan === fan)) return true;
+  return shots.some(s => s.fan === fan && sgn(f.x - s.x) === sgn(s.vx));
 }
 // The small ring and sparks of a shot that ends
 function burst(s) {
