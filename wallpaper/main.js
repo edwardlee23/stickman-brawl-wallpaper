@@ -11,6 +11,7 @@ const cfg = {
   scale: 1,
   showHP: true,
   colorful: true,
+  showScore: false,    // running score board in a top corner
   bg: '#111318',
   line: '#ececec',
   fps: 0,               // 0 = uncapped
@@ -255,6 +256,44 @@ let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerCol
 const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove,
   get fighters() { return fighters; } };
+
+// ---------- Score board ----------
+// Wins per side across rounds: per team in teams mode, per fighter number in free-for-all.
+// Draws are not counted. The tally starts over when the fighter count or mode changes, since
+// fighter numbers mean something else then; other settings keep it.
+const score = { key: '', wins: [] };
+window.__stickmanBrawl.score = score;
+function scoreRound(n) {
+  const key = cfg.mode + n;
+  if (key !== score.key) { score.key = key; score.wins = new Array(cfg.mode === 'teams' ? 2 : n).fill(0); }
+}
+function scoreWin(w) { if (w) score.wins[cfg.mode === 'teams' ? w.team : w.id]++; }
+// Draws the score line in the top left corner: "RED 5 : 3 BLUE" in teams mode, the top three
+// fighters by wins ("#3 ×4  #1 ×2") in free-for-all. Text stays language-neutral.
+function drawScore() {
+  const parts = [];
+  if (cfg.mode === 'teams') {
+    parts.push([TEAM_NAME[0] + ' ' + score.wins[0], TEAM_COLOR[0]], [' : ', cfg.line], [score.wins[1] + ' ' + TEAM_NAME[1], TEAM_COLOR[1]]);
+  } else {
+    const top = score.wins.map((w, id) => ({ w, id })).filter(o => o.w > 0).sort((a, b) => b.w - a.w || a.id - b.id).slice(0, 3);
+    for (const o of top) {
+      if (parts.length) parts.push(['  ', null]);
+      const f = fighters[o.id];
+      parts.push(['#' + (o.id + 1) + ' ×' + o.w, f ? colorOf(f) : cfg.line]);
+    }
+  }
+  if (!parts.length) return;
+  ctx.globalAlpha = 0.85;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.font = '700 14px "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
+  ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000000';
+  let x = 14;
+  for (const [text, col] of parts) {
+    if (col) { ctx.strokeText(text, x, 24); ctx.fillStyle = col; ctx.fillText(text, x, 24); }
+    x += ctx.measureText(text).width;
+  }
+  ctx.globalAlpha = 1;
+}
 
 // ---------- Effects ----------
 function spawnSparks(x, y, col, n, up, speed = 1) {
@@ -1596,6 +1635,7 @@ function newRound() {
   fighters = []; sparks.length = 0; fx.length = 0; shots.length = 0;
   roundOver = false; roundTime = 0; shake = 0; freeze = 0; freezeGap = 0;
   const n = clamp(Math.round(cfg.count), 2, 16);
+  scoreRound(n);
   const per = Math.ceil(n / 2);
   for (let i = 0; i < n; i++) {
     const team = cfg.mode === 'teams' ? i % 2 : 0;
@@ -1622,6 +1662,7 @@ function checkRound(dt) {
     const w = alive[0];
     winnerText = !w ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[w.team] + ' WINS!' : '#' + (w.id + 1) + ' WINS!';
     winnerColor = w ? colorOf(w) : cfg.line;
+    scoreWin(w);
     // Nothing may hurt the winners now: shots still in flight, some from fighters already
     // knocked out, burst where they are
     for (const s of shots) burst(s);
@@ -2001,6 +2042,7 @@ function render() {
   }
   for (const o of fx) drawFx(o, 2);
   for (const o of fx) drawFx(o, 3);
+  if (cfg.showScore) drawScore();
   if (roundOver) {
     ctx.globalAlpha = clamp(roundTimer, 0, 1);
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
@@ -2061,6 +2103,7 @@ window.wallpaperPropertyListener = {
     if (p.figurescale) { cfg.scale = p.figurescale.value / 100; resize(); reset = true; }
     if (p.showhealth) cfg.showHP = p.showhealth.value;
     if (p.colorful) cfg.colorful = p.colorful.value;
+    if (p.showscore) cfg.showScore = p.showscore.value;
     if (p.backgroundcolor) { cfg.bg = weColor(p.backgroundcolor.value); document.body.style.background = cfg.bg; }
     if (p.linecolor) cfg.line = weColor(p.linecolor.value);
     if (p.reducemotion) cfg.reduceMotion = p.reducemotion.value;

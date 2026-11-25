@@ -39,6 +39,11 @@ big hits, and stops the screen shaking. Turn it off for the full comic look.
 With every style turned off, fighters use all five martial-arts styles,
 without the specials, magic or ninjutsu.
 
+"Show score" (off by default) keeps a running tally of round wins in the top
+left corner: `RED 5 : 3 BLUE` in teams mode, or the top three fighters as
+`#3 ×4  #1 ×2` in free-for-all. Draws are not counted, and the tally starts
+over when the number of fighters or the mode changes.
+
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.
 The sounds are made in code when they play, so the wallpaper loads no audio
