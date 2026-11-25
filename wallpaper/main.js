@@ -2113,7 +2113,8 @@ let itemTimer = null;        // Seconds to the next drop; null until the setting
 const ITEM_KINDS = ['staff', 'boomerang', 'heart'];
 const ITEM_HOLD = new Set(['idle', 'air', 'attack', 'hit', 'block']);   // States an item can be picked up in
 const STAFF_LEN = 26, STAFF_USES = 3, HEART_HP = 30 /* % of full health */, BOOMERANG_COL = '#d9a066';
-const BOOMERANG = { id: 'boomerang', type: 'boomerang', style: 'items', range: [70, 300], dmg: 6, speed: 560 };
+// It slows to a stop at 1 s, so it reaches speed / 2 px out: 600 reaches the end of its range
+const BOOMERANG = { id: 'boomerang', type: 'boomerang', style: 'items', range: [70, 300], dmg: 6, speed: 600 };
 MOVE_BY.boomerang = BOOMERANG;
 // A drop at world x and depth z, alt above the floor (from just above the top of the screen by default)
 function spawnItem(kind, x, z = rand(0, DEPTH), alt = groundY(z) + 20) {
