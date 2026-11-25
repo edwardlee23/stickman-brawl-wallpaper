@@ -22,6 +22,8 @@ const cfg = {
   names: [],            // fighter names from the settings panel; '' keeps #n
   headgear: false,      // headband, ninja mask, cap or topknot per fighter
   slowmo: false,        // slow-motion finish on the knockout that ends a round
+  audio: false,         // React to music (Wallpaper Engine's audio listener)
+  audioStrength: 0.5,   // 0 to 1
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true, ninjutsu: true },
 };
 // ---------- Helpers ----------
@@ -570,7 +572,7 @@ function pickMove(me, t, dist) {
   for (const m of SPECIALS) {
     if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air)) continue;
     if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
-    items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1)]);
+    items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1) * musicSpecial()]);
   }
   // Every style turned off: fight with all the martial-arts moves rather than stand still (see README)
   if (!items.length) for (const m of MOVES) items.push([m, m.w]);
@@ -583,6 +585,41 @@ function pickMove(me, t, dist) {
   for (const [m, w] of items) { r -= w; if (r <= 0) return m; }
   return items[items.length - 1][0];
 }
+
+// ---------- Music ----------
+// "React to music": Wallpaper Engine hands the listener about 30 frames a second of 128 levels
+// (64 left, 64 right, low to high frequency). A smoothed level and bass beats (low bins well
+// above their running average) shorten the wait between moves and favor specials for a moment;
+// they never change game speed. Silence, or no frames for 3 s, brings everything back to normal.
+const music = { level: 0, avg: 0, beat: 0, hold: 0, t: 0, glow: musicGlow };
+function musicReset() { music.level = 0; music.avg = 0; music.beat = 0; music.hold = 0; }
+function musicListener(a) {
+  if (!cfg.audio || !a || !a.length) return;
+  let bass = 0, all = 0;
+  const half = a.length >> 1;
+  for (let i = 0; i < a.length; i++) { const v = Math.min(1, +a[i] || 0); all += v; if (i % half < 6) bass += v; }
+  bass /= 12; all /= a.length;
+  music.level += (Math.min(1, all * 2) - music.level) * 0.1;
+  music.beat *= 0.88; music.hold--;
+  if (bass > 0.15 && bass > music.avg * 1.5 + 0.05 && music.hold <= 0) { music.beat = 1; music.hold = 6; }
+  music.avg += (bass - music.avg) * 0.05;
+  if (music.level < 0.002) music.level = 0;
+  if (music.beat < 0.01) music.beat = 0;
+  if (music.avg < 0.002) music.avg = 0;
+  music.t = performance.now();
+}
+// How strongly the music drives the fight now, 0 to 1 (0 when the setting is off)
+function musicDrive(beatOnly) {
+  if (!cfg.audio || !cfg.audioStrength) return 0;
+  if (performance.now() - music.t > 3000) musicReset();
+  return cfg.audioStrength * Math.min(1, music.beat + (beatOnly ? 0 : music.level * 1.5));
+}
+const musicDelay = () => 1 / (1 + 2 * musicDrive());          // Scales the wait after a move
+const musicTempo = () => 1 + 2 * musicDrive(true);            // How fast that wait runs out
+const musicSpecial = () => 1 + 2 * musicDrive(true);          // Extra weight for specials
+function musicGlow() { return cfg.reduceMotion ? 0 : musicDrive(true); }
+window.__stickmanBrawl.music = music;
+if (typeof window.wallpaperRegisterAudioListener === 'function') window.wallpaperRegisterAudioListener(musicListener);
 
 // ---------- Stickman ----------
 const TMP = clonePose(GUARD);
@@ -745,7 +782,7 @@ class Fighter {
     // Back on its feet by any path (getup, a thaw, a hold hit, a special's landing): the
     // juggle count and the air dash and double jump start over
     this.juggle = 0; this.dashed = false; this.dj = false;
-    this.retarget -= dt; this.cool -= dt;
+    this.retarget -= dt; this.cool -= dt * musicTempo();
     let t = this.target;
     if (!t || !t.alive || this.retarget <= 0) { t = this.target = pickTarget(this); this.retarget = rand(1.2, 3); }
     if (this.evade > 0) { this.evade -= dt; this.vx = approach(this.vx, 0, 500 * dt); }
@@ -881,7 +918,7 @@ class Fighter {
     this.state = this.alt > 0 ? 'air' : 'idle'; this.st = 0;
     this.move = null; this.md = null; this.spin = false; this.hover = false; this.ghost = false;
     this.rot = 0; this.trailOn = false; this.invis = false; this.alpha = 1; this.vz = 0;
-    this.cool = rand(0.15, 0.7);
+    this.cool = rand(0.15, 0.7) * musicDelay();
   }
 
   updAttack(dt) {
@@ -1866,6 +1903,7 @@ function path(...pts) {
 }
 function drawSkeleton(J, col, alpha, width, headFill) {
   ctx.strokeStyle = col; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const glow = musicGlow(); if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 10 * glow; }
   ctx.globalAlpha = alpha * 0.55;
   path(J.sh, J.eB, J.hB); path(J.hip, J.kB, J.fB);
   ctx.globalAlpha = alpha;
@@ -1874,6 +1912,7 @@ function drawSkeleton(J, col, alpha, width, headFill) {
   ctx.beginPath(); ctx.arc(J.head.x, J.head.y, L.head, 0, Math.PI * 2);
   if (headFill) { ctx.fillStyle = cfg.bg; ctx.fill(); }
   ctx.stroke();
+  if (glow) ctx.shadowBlur = 0;
 }
 function drawAura(f, col) {
   const J = f.W;
@@ -2316,6 +2355,8 @@ window.wallpaperPropertyListener = {
     if (p.headgear) cfg.headgear = p.headgear.value;
     if (p.soundvolume) { cfg.volume = p.soundvolume.value / 100; soundSetVolume(); }
     if (p.slowmofinish) { cfg.slowmo = p.slowmofinish.value; if (!cfg.slowmo) slowmoT = -1; }
+    if (p.audioreactive) { cfg.audio = p.audioreactive.value; musicReset(); }
+    if (p.audiostrength) cfg.audioStrength = p.audiostrength.value / 100;
     let styles = false;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
     // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes

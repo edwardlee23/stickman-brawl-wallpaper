@@ -9,6 +9,7 @@
 	"workshopid" : "3845187060",
 	"general" :
 	{
+		"supportsaudioprocessing" : true,
 		"properties" :
 		{
 			"fightercount" :
@@ -68,6 +69,8 @@
 			"reducemotion" : { "order" : 23, "text" : "ui_reducemotion", "type" : "bool", "value" : true },
 			"soundeffects" : { "order" : 24, "text" : "ui_soundeffects", "type" : "bool", "value" : false },
 			"soundvolume" : { "order" : 25, "text" : "ui_soundvolume", "type" : "slider", "min" : 0, "max" : 100, "value" : 50, "condition" : "soundeffects.value" },
+			"audioreactive" : { "order" : 26, "text" : "ui_audioreactive", "type" : "bool", "value" : false },
+			"audiostrength" : { "order" : 27, "text" : "ui_audiostrength", "type" : "slider", "min" : 0, "max" : 100, "value" : 50, "condition" : "audioreactive.value" },
 			"backgroundcolor" : { "order" : 30, "text" : "ui_backgroundcolor", "type" : "color", "value" : "0.067 0.075 0.094" },
 			"linecolor" : { "order" : 31, "text" : "ui_linecolor", "type" : "color", "value" : "0.925 0.925 0.925" },
 			"fighternames" : { "order" : 33, "text" : "ui_fighternames", "type" : "textinput", "value" : "" },
@@ -113,6 +116,8 @@
 				"ui_reducemotion" : "Reduce flashing and screen shake",
 				"ui_soundeffects" : "Sound effects",
 				"ui_soundvolume" : "Volume (%)",
+				"ui_audioreactive" : "React to music",
+				"ui_audiostrength" : "Music reaction strength (%)",
 				"ui_backgroundcolor" : "Background color",
 				"ui_linecolor" : "Line color",
 				"ui_fighternames" : "Fighter names (comma-separated)",
@@ -147,6 +152,8 @@
 				"ui_reducemotion" : "減少閃光與畫面震動",
 				"ui_soundeffects" : "音效",
 				"ui_soundvolume" : "音效音量 (%)",
+				"ui_audioreactive" : "隨音樂律動",
+				"ui_audiostrength" : "音樂反應強度 (%)",
 				"ui_backgroundcolor" : "背景顏色",
 				"ui_linecolor" : "線條顏色",
 				"ui_fighternames" : "角色名稱（以逗號分隔）",
@@ -181,6 +188,8 @@
 				"ui_reducemotion" : "减少闪光与画面震动",
 				"ui_soundeffects" : "音效",
 				"ui_soundvolume" : "音效音量 (%)",
+				"ui_audioreactive" : "随音乐律动",
+				"ui_audiostrength" : "音乐反应强度 (%)",
 				"ui_backgroundcolor" : "背景颜色",
 				"ui_linecolor" : "线条颜色",
 				"ui_fighternames" : "角色名称（以逗号分隔）",
