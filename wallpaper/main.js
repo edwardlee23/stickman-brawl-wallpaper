@@ -2154,7 +2154,7 @@ function updateItems(dt) {
     if (!f.alive || (f.held.kind === 'staff' && (f.held.n <= 0 || !staffUsable()) && !(f.move && f.move.staff))) { f.held = null; continue; }
     // A boomerang is thrown once at a target in range on the same line
     const t = f.target;
-    if (f.held.kind === 'boomerang' && f.state === 'idle' && f.alt <= 0 && f.cool <= 0 && t && t.alive && t.hittable &&
+    if (f.held.kind === 'boomerang' && f.state === 'idle' && !f.aloft() && f.cool <= 0 && t && t.alive && t.hittable &&
         Math.abs(t.z - f.z) < 9 && Math.abs(t.x - f.x) >= BOOMERANG.range[0] && Math.abs(t.x - f.x) <= BOOMERANG.range[1]) {
       f.facing = sgn(t.x - f.x);
       f.startMove(BOOMERANG, true);

@@ -430,3 +430,21 @@ test('an item resting on a platform falls when platforms are turned off', () => 
   run(game, 2);
   assert.equal(it.alt, 0);
 });
+
+// Issue #162: a fighter standing on a ledge throws its boomerang like one on the floor
+test('a fighter standing on a platform throws a held boomerang at a target on it', () => {
+  for (const [onLedge, throws] of [[true, true], [false, true], ['air', false]]) {
+    const { game, a, e, context } = itemLoad();
+    vm.runInContext('Math.random = () => 0.99', context);
+    for (const s in game.cfg.styles) game.cfg.styles[s] = false;
+    const p = game.platforms[0];
+    const top = game.groundY(50) - p.y;
+    const alt = onLedge === true ? top : onLedge === 'air' ? top + 60 : 0;
+    Object.assign(a, { x: p.x0 + 20, z: 50, alt, va: 0, vx: 0, facing: 1, state: onLedge === 'air' ? 'air' : 'idle', cool: 0, target: e, retarget: 99, held: { kind: 'boomerang' } });
+    Object.assign(e, { x: p.x0 + 180, z: 50, alt: onLedge === 'air' ? top : alt, va: 0, vx: 0, facing: -1, state: 'hit', st: 0, dur: 99, cool: 99, hp: 100 });
+    a.W = a.joints(); e.W = e.joints();
+    game.update(1 / 60);
+    // The throw starts as a move; the boomerang leaves the hand a few frames later
+    assert.equal(!!(a.move && a.move.id === 'boomerang'), throws, `standing ${onLedge === true ? 'on the ledge' : onLedge === 'air' ? 'in the air' : 'on the floor'}`);
+  }
+});
