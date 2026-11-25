@@ -896,6 +896,8 @@ class Fighter {
       }
       const altOK = m.type && !m.sameAlt ? true : Math.abs(t.alt - this.alt) < 35;
       if (this.cool <= 0 && t.hittable && altOK && dist >= m.range[0] && dist <= m.range[1] && Math.abs(dz) < 9) {
+        // Walking to an item turns the fighter away; every move starts facing the target
+        if (dist > 1) this.facing = sgn(dx);
         this.startMove(m);
         return;
       }

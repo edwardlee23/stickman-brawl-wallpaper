@@ -9,7 +9,7 @@ import vm from 'node:vm';
 
 const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
 
-function load() {
+function load(random) {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
@@ -19,6 +19,8 @@ function load() {
     document: { getElementById: () => canvas, body: { style: {} } },
     requestAnimationFrame() {},
   });
+  // A fixed Math.random of 0.99 turns off the random jumps and dashes
+  if (random) vm.runInContext('Math.random = () => ' + random + ';', context);
   vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener };
 }
@@ -169,4 +171,27 @@ test('a heart heals 30% of full health, so a King with double health is healed b
   a.W = a.joints(); a.hp = 190;
   handTo(game, a, 'heart');
   assert.equal(a.hp, 200);
+});
+
+test('a fighter walking to an item behind it turns back to its target to start a move (#109)', () => {
+  for (const id of ['dive', 'slam', 'jab']) {
+    const { game } = load(0.99);
+    game.cfg.items = true;
+    const [a, e] = game.fighters;
+    const m = [...game.MOVES, ...game.SUPER].find(m => m.id === id);
+    const gap = id === 'jab' ? m.range[1] - 2 : Math.min(300, m.range[1] - 20);
+    Object.assign(a, { x: 500, z: 50, alt: 0, vx: 0, facing: 1, state: 'idle', cool: 0, retarget: 99, target: e, hp: 50, nextMove: m });
+    Object.assign(e, { x: 500 + gap, z: 50, alt: 0, vx: 0, facing: -1, state: 'hit', st: 0, dur: 99, hp: 100, cool: 99, target: a });
+    a.W = a.joints(); e.W = e.joints();
+    game.spawnItem('heart', 380, 50, 0);
+    // Nothing else is near, so the heart behind a draws it while the move starts
+    run(game, 0.5, () => a.state === 'attack');
+    assert.equal(a.state, 'attack', id + ' started');
+    assert.equal(a.move.id, id);
+    assert.equal(a.facing, 1, id + ' faces its target');
+    if (id !== 'jab') {
+      run(game, 0.2, () => a.alt > 0 && a.vx !== 0);
+      assert.equal(Math.sign(a.vx), Math.sign(e.x - a.x), id + ' jumps toward its target: vx ' + a.vx);
+    }
+  }
 });
