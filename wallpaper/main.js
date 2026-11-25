@@ -1774,9 +1774,10 @@ function colorOf(f) {
   return cfg.line;
 }
 // ---------- Name tags and head gear ----------
-// Names come from the owner as one comma-separated text: trimmed, cut to 12 characters,
+// Names come from the owner as one comma-separated text (an ASCII comma, or the full-width
+// ， or 、 a Chinese keyboard types): trimmed, cut to 12 characters,
 // given to fighters in order; an empty entry leaves that fighter as #n.
-const parseNames = s => String(s ?? '').split(',').map(t => Array.from(t.trim()).slice(0, 12).join(''));
+const parseNames = s => String(s ?? '').split(/[,，、]/).map(t => Array.from(t.trim()).slice(0, 12).join(''));
 const nameOf = f => cfg.names[f.id] || '';
 const labelOf = f => nameOf(f).toUpperCase() || '#' + (f.id + 1);
 function drawNameTags(list) {

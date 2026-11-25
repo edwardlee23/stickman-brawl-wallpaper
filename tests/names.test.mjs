@@ -75,6 +75,12 @@ test('the free-for-all score shows a fighter by its name', () => {
   assert.ok(calls.some(c => c[0] === 'fillText' && c[1] === 'ANN ×1'), 'score line names the winner');
 });
 
+test('names split on the full-width and enumeration commas a Chinese keyboard types', () => {
+  const { game, we } = load();
+  we.applyUserProperties({ fighternames: { value: '小明，小華、阿強' } });
+  assert.deepEqual(game.fighters.map(f => game.nameOf(f)).join('|'), '小明|小華|阿強');
+});
+
 test('a name tag is drawn above a named fighter only', () => {
   const { game, we, calls } = load();
   we.applyUserProperties({ fighternames: { value: 'ann' } });
