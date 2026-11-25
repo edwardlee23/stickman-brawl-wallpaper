@@ -11,8 +11,8 @@ import vm from 'node:vm';
 const source = readFileSync('wallpaper/main.js', 'utf8');
 
 // A copy of main.js that adds up, in window.__sim, the game time handed to update()
-const SIM_ANCHOR = 'update(sim / n);';
-const counted = source.replace(SIM_ANCHOR, SIM_ANCHOR + ' window.__sim += sim / n;');
+const SIM_ANCHOR = 'freezeGap -= dt;';
+const counted = source.replace(SIM_ANCHOR, SIM_ANCHOR + ' window.__sim += dt;');
 
 // A seeded Math.random (mulberry32), so a fight plays out the same on every run
 function seeded(seed) {

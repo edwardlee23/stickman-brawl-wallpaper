@@ -2686,10 +2686,17 @@ function frame(now) {
   const n = clamp(Math.ceil(sim / SUBSTEP - 0.1), 1, MAX_SUBSTEPS);
   for (let i = 0; i < n; i++) {
     // Hit stop is counted in game time, so it is shortened by Speed and a step it takes is
-    // not lost: the fight pauses at the hit, then runs on within the same frame.
-    if (freeze > 0) { freeze -= sim / n; continue; }
-    update(sim / n);
-    freezeGap -= sim / n;
+    // not lost: the fight pauses at the hit, then runs on within the same frame. The substep
+    // a hit stop ends in simulates the rest of its time, so a hit stop lasts exactly as long
+    // as asked rather than a whole number of substeps.
+    let dt = sim / n;
+    if (freeze > 0) {
+      const f = Math.min(freeze, dt);
+      freeze -= f; dt -= f;
+      if (dt <= 1e-9) continue;
+    }
+    update(dt);
+    freezeGap -= dt;
   }
   render();
 }
