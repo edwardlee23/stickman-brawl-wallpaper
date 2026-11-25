@@ -1045,7 +1045,8 @@ class Fighter {
           if (!isEnemy(this, e) || !e.hittable || e.alt > 40 || Math.abs(e.z - this.z) > 50) continue;
           const d = Math.abs(e.x - gx);
           if (d > 150) continue;
-          e.takeHit(this, m, 'leg', { x: e.x, y: groundY(e.z) - 10 },
+          // The shockwave spreads both ways: each target is hit from the impact's side, not the slammer's front
+          e.takeHit({ facing: sgn(e.x - gx), owner: this }, m, 'leg', { x: e.x, y: groundY(e.z) - 10 },
             { dmg: m.dmg * (1 - d / 200), launch: { vx: sgn(e.x - gx) * 330, va: 540 } });
         }
         md.ph = 'rec'; md.t0 = this.st;
@@ -1423,7 +1424,7 @@ class Fighter {
     this.invis = false; this.alpha = 1; this.aura = 0; this.rot = 0; this.trailOn = false;
   }
 
-  // att is the attacker, or a stand-in with its facing: { facing, owner } for a projectile or a clone.
+  // att is the attacker, or a stand-in with its facing: { facing, owner } for a projectile, a clone or a shockwave.
   // Returns 'sub' when a readied substitution took the hit instead.
   takeHit(att, m, zone, H, o = {}) {
     const dir = att.facing, src = att.owner || att;
