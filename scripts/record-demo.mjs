@@ -7,8 +7,12 @@
 // Needs Playwright and ffmpeg, which the wallpaper itself does not use:
 //
 //   npm install --no-save playwright-core
-//   node scripts/record-demo.mjs --scan 1-12   # count the move styles each seed shows
-//   node scripts/record-demo.mjs --seed 29     # record that seed to demo.gif
+//   node scripts/record-demo.mjs --scan 1-40   # count the move styles each seed shows
+//   node scripts/record-demo.mjs --seed <n>    # record a seed that shows all eight to demo.gif
+//
+// A change to main.js can shift the random sequence, so scan again before each recording:
+// a seed that showed every style once may miss some now. Chrome draws the canvas in
+// software (no GPU), so with the same Chrome and ffmpeg a seed gives the same GIF.
 //
 // The browser is the installed Google Chrome; set CHROME to another Chromium's
 // executable to use that instead. Set FFMPEG if ffmpeg is not on PATH.
@@ -99,8 +103,8 @@ async function record(browser, seed, out) {
   }
 }
 
-function parseArgs(argv) {
-  const opt = { seed: 29, scan: null, out: path.join(ROOT, 'demo.gif') };
+export function parseArgs(argv) {
+  const opt = { seed: null, scan: null, out: path.join(ROOT, 'demo.gif') };
   for (let i = 0; i < argv.length; i += 2) {
     const a = argv[i], v = argv[i + 1];
     if (!['--seed', '--scan', '--out'].includes(a)) throw new Error('Unknown argument: ' + a);
@@ -115,7 +119,15 @@ function parseArgs(argv) {
       opt.scan = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
     } else opt.out = path.resolve(v);
   }
+  if (!opt.scan && opt.seed === null) throw new Error('--seed is needed: run --scan first and pick a seed that shows all eight move styles');
   return opt;
+}
+
+// The canvas is drawn in software: on the GPU, a few frames can differ by one in a colour
+// value from one run of the same seed to the next.
+export function launchOptions(env) {
+  const args = ['--disable-accelerated-2d-canvas', '--disable-gpu'];
+  return env.CHROME ? { executablePath: env.CHROME, args } : { channel: 'chrome', args };
 }
 
 async function main() {
@@ -123,7 +135,7 @@ async function main() {
   let chromium;
   try { ({ chromium } = await import('playwright-core')); }
   catch { throw new Error('playwright-core is missing: run npm install --no-save playwright-core'); }
-  const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : { channel: 'chrome' });
+  const browser = await chromium.launch(launchOptions(process.env));
   try {
     if (opt.scan) {
       for (const seed of opt.scan) console.log(seed, JSON.stringify(await scan(browser, seed)));

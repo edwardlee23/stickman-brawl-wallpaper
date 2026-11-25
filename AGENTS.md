@@ -29,12 +29,15 @@ so it is installed without saving it; the script also needs Google Chrome
 
 ```bash
 npm install --no-save playwright-core
-node scripts/record-demo.mjs --scan 1-12   # move styles each seed shows
-node scripts/record-demo.mjs --seed 29     # record that seed to demo.gif
+node scripts/record-demo.mjs --scan 1-40   # move styles each seed shows
+node scripts/record-demo.mjs --seed <n>    # record that seed to demo.gif
 ```
 
-With the same Chrome and ffmpeg, a seed gives the same GIF byte for byte.
-Pick a seed where every style appears, and name it in the commit message.
+Scan first, every time: a change to `main.js` can shift the random sequence,
+so a seed that showed every style before may miss some now. Pick a seed whose
+scan shows all eight styles, and name it in the commit message. The recorder
+draws the canvas in software, so with the same Chrome and ffmpeg a seed gives
+the same GIF byte for byte.
 
 ## Never
 
