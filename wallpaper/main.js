@@ -2587,6 +2587,8 @@ function bgPaint(c, theme, date) {
 }
 // Called from render() for any theme but Plain, after the flat fill
 function drawBackground() {
+  // Before the window has a real size the cache would be 0 x 0, which drawImage refuses
+  if (!(SW > 0 && SH > 0)) return;
   const date = bg.now();
   const minute = cfg.bgTheme === 'daynight' ? date.getHours() * 60 + date.getMinutes() : 0;
   const key = [cfg.bgTheme, SW, SH, dpr, S, cfg.bg, minute].join();
