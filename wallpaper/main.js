@@ -1961,10 +1961,13 @@ function applyRoundRules(prev, decided) {
     const order = fighters.slice().sort(() => Math.random() - 0.5);
     const [a, b] = order;
     a.x = worldW * 0.4; b.x = worldW * 0.6; a.facing = 1; b.facing = -1;
-    // The rest wait at the sides, alternating left and right, facing the middle
+    // The rest wait at the sides, alternating left and right, facing the middle. A side's row
+    // runs from the edge to 30 short of the bout, packed tighter when it would not fit (issue #171).
+    const per = Math.ceil((order.length - 2) / 2), near = Math.max(14, worldW * 0.4 - 30);
+    const from = clamp(near - 24 * (per - 1), 14, 30), step = per > 1 ? Math.min(24, (near - from) / (per - 1)) : 0;
     order.slice(2).forEach((f, j) => {
       const side = j % 2, k = Math.floor(j / 2);
-      f.x = side ? worldW - 30 - k * 24 : 30 + k * 24;
+      f.x = side ? worldW - from - k * step : from + k * step;
       f.facing = side ? -1 : 1;
       f.state = 'wait';
       ladderQueue.push(f);
