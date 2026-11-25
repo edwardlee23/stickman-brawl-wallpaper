@@ -1,6 +1,6 @@
 name: Feature request
 description: Propose a new move, setting or other change, so we can agree on it before code is written.
-labels: [enhancement]
+labels: ["type: feature"]
 body:
   - type: textarea
     id: what
