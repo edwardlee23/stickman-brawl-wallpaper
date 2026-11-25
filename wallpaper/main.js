@@ -62,9 +62,9 @@ cfg.volume = qNum('volume', 0, 100, cfg.volume * 100) / 100;
 const L = { torso: 34, neck: 5, head: 8, uarm: 17, farm: 17, thigh: 22, shin: 22 };
 // Angles are in local coordinates facing right: arms and legs are 0 pointing down, positive rotates forward; the torso is 0 pointing up, positive leans forward.
 // Elbows and knees bend relative to the previous segment. B = back hand/foot, F = front hand/foot.
-const KEYS = ['t', 'aB', 'eB', 'aF', 'eF', 'lB', 'kB', 'lF', 'kF', 'dx', 'lift'];
+const KEYS = ['t', 'aB', 'eB', 'aF', 'eF', 'lB', 'kB', 'lF', 'kF'];
 const JOINTS = ['hip', 'sh', 'head', 'eB', 'hB', 'eF', 'hF', 'kB', 'fB', 'kF', 'fF'];
-const GUARD = { t: 0.12, aB: 0.45, eB: 2.25, aF: 0.95, eF: 1.6, lB: -0.38, kB: -0.22, lF: 0.35, kF: -0.3, dx: 0, lift: 0 };
+const GUARD = { t: 0.12, aB: 0.45, eB: 2.25, aF: 0.95, eF: 1.6, lB: -0.38, kB: -0.22, lF: 0.35, kF: -0.3 };
 const P = o => Object.assign({}, GUARD, o);
 const clonePose = p => Object.assign({}, p);
 function lerpPose(a, b, u, out) {
@@ -110,7 +110,7 @@ function fk(p) {
   limb(J, 'kB', 'fB', J.hip, p.lB, p.kB, L.thigh, L.shin);
   limb(J, 'kF', 'fF', J.hip, p.lF, p.kF, L.thigh, L.shin);
   const g = Math.max(J.fB.y, J.fF.y, J.kB.y, J.kF.y);
-  for (const k in J) { J[k].x += p.dx; J[k].y -= g + p.lift; }
+  for (const k in J) J[k].y -= g;
   return J;
 }
 
