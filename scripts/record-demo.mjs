@@ -37,7 +37,7 @@ export function exposeFighters(src) {
 
 // Runs before main.js: a seeded Math.random (mulberry32), and a clock and
 // requestAnimationFrame that only move when the recorder calls __advance(ms).
-const fixedClock = seed => `(() => {
+export const fixedClock = seed => `(() => {
   let s = ${seed >>> 0};
   Math.random = () => {
     s = (s + 0x6D2B79F5) >>> 0;
@@ -63,21 +63,24 @@ async function openPage(browser, seed) {
   return page;
 }
 
-// Counts the moves started in each style over the recording's length.
+// Counts the moves started in each style over the recording's length. It runs inside the
+// page, so it uses only its arguments: advance(ms) moves the clock, fighters() lists them.
+export function countMoveStyles(advance, fighters, frames, fps) {
+  const last = new Map(), counts = {};
+  for (let i = 0; i < frames; i++) {
+    advance(1000 / fps);
+    fighters().forEach((f, k) => {
+      const m = f.state === 'attack' ? f.move : null;
+      if (m && last.get(k) !== m) counts[m.style] = (counts[m.style] || 0) + 1;
+      last.set(k, m);
+    });
+  }
+  return counts;
+}
+
 async function scan(browser, seed) {
   const page = await openPage(browser, seed);
-  const counts = await page.evaluate(({ FPS, SECS }) => {
-    const last = new Map(), counts = {};
-    for (let i = 0; i < FPS * SECS; i++) {
-      window.__advance(1000 / FPS);
-      window.__fighters().forEach((f, k) => {
-        const m = f.state === 'attack' ? f.move : null;
-        if (m && last.get(k) !== m) counts[m.style] = (counts[m.style] || 0) + 1;
-        last.set(k, m);
-      });
-    }
-    return counts;
-  }, { FPS, SECS });
+  const counts = await page.evaluate(`(${countMoveStyles})(window.__advance, window.__fighters, ${FPS * SECS}, ${FPS})`);
   await page.close();
   return counts;
 }
@@ -111,7 +114,8 @@ export function parseArgs(argv) {
     if (v === undefined) throw new Error(a + ' needs a value');
     if (a === '--seed') {
       opt.seed = Number(v);
-      if (!/^\d+$/.test(v)) throw new Error('--seed takes a whole number');
+      // The page seeds Math.random with a 32-bit value; a larger seed would wrap to another.
+      if (!/^\d+$/.test(v) || opt.seed > 0xFFFFFFFF) throw new Error('--seed takes a whole number from 0 to 4294967295');
     } else if (a === '--scan') {
       const m = /^(\d+)(?:-(\d+))?$/.exec(v);
       const lo = m && Number(m[1]), hi = m && Number(m[2] ?? m[1]);
@@ -119,6 +123,7 @@ export function parseArgs(argv) {
       opt.scan = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
     } else opt.out = path.resolve(v);
   }
+  if (opt.scan && opt.seed !== null) throw new Error('--seed and --scan cannot be used together: scan first, then record one seed');
   if (!opt.scan && opt.seed === null) throw new Error('--seed is needed: run --scan first and pick a seed that shows all eight move styles');
   return opt;
 }
