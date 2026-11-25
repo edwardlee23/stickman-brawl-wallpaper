@@ -281,7 +281,7 @@ function drawScore() {
     for (const o of top) {
       if (parts.length) parts.push(['  ', null]);
       const f = fighters[o.id];
-      parts.push(['#' + (o.id + 1) + ' ×' + o.w, f ? colorOf(f) : cfg.line]);
+      parts.push([(f ? labelOf(f) : '#' + (o.id + 1)) + ' ×' + o.w, f ? colorOf(f) : cfg.line]);
     }
   }
   if (!parts.length) return;

@@ -64,6 +64,17 @@ test('a name with emoji is cut by characters, not code units', () => {
   assert.equal(game.nameOf(game.fighters[0]), 'abcdefghijk😀');
 });
 
+test('the free-for-all score shows a fighter by its name', () => {
+  const { game, we, calls } = load();
+  we.applyUserProperties({ fighternames: { value: 'ann' }, showscore: { value: true } });
+  winBy(game, 0);
+  game.newRound();
+  for (const f of game.fighters) f.W = f.joints();
+  calls.length = 0;
+  game.render();
+  assert.ok(calls.some(c => c[0] === 'fillText' && c[1] === 'ANN ×1'), 'score line names the winner');
+});
+
 test('a name tag is drawn above a named fighter only', () => {
   const { game, we, calls } = load();
   we.applyUserProperties({ fighternames: { value: 'ann' } });
