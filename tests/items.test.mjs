@@ -158,3 +158,15 @@ test('no item ever spawns with the setting off, and turning it off clears the fi
   assert.equal(game.items.length, 0);
   assert.equal(game.fighters[0].held, null);
 });
+
+test('a heart heals 30% of full health, so a King with double health is healed by 60 and never lowered', () => {
+  const { game } = load();
+  game.cfg.items = true;
+  const [a] = duel(game, 400);
+  a.maxHp = 200; a.hp = 120;
+  handTo(game, a, 'heart');
+  assert.ok(Math.abs(a.hp - 180) < 1e-9, 'healed to ' + a.hp);
+  a.W = a.joints(); a.hp = 190;
+  handTo(game, a, 'heart');
+  assert.equal(a.hp, 200);
+});

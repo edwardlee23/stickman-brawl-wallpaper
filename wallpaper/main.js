@@ -1868,7 +1868,7 @@ const items = [];
 let itemTimer = null;        // Seconds to the next drop; null until the setting is first on in a round
 const ITEM_KINDS = ['staff', 'boomerang', 'heart'];
 const ITEM_HOLD = new Set(['idle', 'air', 'attack', 'hit', 'block']);   // States an item can be picked up in
-const STAFF_LEN = 26, STAFF_USES = 3, HEART_HP = 30, BOOMERANG_COL = '#d9a066';
+const STAFF_LEN = 26, STAFF_USES = 3, HEART_HP = 30 /* % of full health */, BOOMERANG_COL = '#d9a066';
 const BOOMERANG = { id: 'boomerang', type: 'boomerang', style: 'items', range: [70, 300], dmg: 6, speed: 560 };
 MOVE_BY.boomerang = BOOMERANG;
 // A drop at world x and depth z, alt above the floor (from just above the top of the screen by default)
@@ -1911,7 +1911,7 @@ function seekItem(f, dt) {
   for (const e of fighters) if (e.alive && isEnemy(f, e) && Math.abs(e.x - f.x) < 130 && Math.abs(e.z - f.z) < 30) return;
   let best = null, bd = 320;
   for (const it of items) {
-    if (it.kind === 'heart' ? f.hp >= 100 : f.held) continue;
+    if (it.kind === 'heart' ? f.hp >= f.maxHp : f.held) continue;
     const d = Math.abs(it.x - f.x) + Math.abs(it.z - f.z);
     if (d < bd) { bd = d; best = it; }
   }
@@ -1977,8 +1977,8 @@ function updateItems(dt) {
       if (!f.alive || f.invis || !f.W || !ITEM_HOLD.has(f.state) || Math.abs(f.z - it.z) > 16) continue;
       if (Math.abs(f.W.hip.x - it.x) > 16 || y < f.W.head.y - 10 || y > groundY(f.z) - f.alt + 6) continue;
       if (it.kind === 'heart') {
-        if (f.hp >= 100) continue;
-        f.hp = Math.min(100, f.hp + HEART_HP);
+        if (f.hp >= f.maxHp) continue;
+        f.hp = Math.min(f.maxHp, f.hp + f.maxHp * HEART_HP / 100);
         spawnSparks(it.x, y, '#ff6b8a', 10, true);
       } else {
         if (f.held) continue;
