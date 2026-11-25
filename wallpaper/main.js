@@ -2235,7 +2235,10 @@ function drawNameTags(list) {
     if (!name || !f.alive || !f.W || f.invis) continue;
     const hx = f.W.head.x, hy = Math.min(f.W.head.y, f.W.hip.y - 30);
     ctx.globalAlpha = 0.85 * f.alpha; ctx.fillStyle = colorOf(f);
-    ctx.fillText(name, hx, hy - 20);
+    // Near the top of a high jump the tag above the health bar would leave the screen:
+    // there it moves beside the bar instead, its 9 px text kept below the top edge
+    if (hy - 29 >= 0) ctx.fillText(name, hx, hy - 20);
+    else { ctx.textAlign = 'left'; ctx.fillText(name, hx + 16, Math.max(hy - 12, 9)); ctx.textAlign = 'center'; }
   }
   ctx.globalAlpha = 1;
 }

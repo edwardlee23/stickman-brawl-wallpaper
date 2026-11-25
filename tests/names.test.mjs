@@ -121,3 +121,20 @@ test('names and head gear are empty and off by default', () => {
   for (const f of game.fighters) assert.equal(game.nameOf(f), '');
   assert.equal(winBy(game, 2), '#3 WINS!');
 });
+
+test('at the highest altitude a name tag stays on screen (#118)', () => {
+  const { game, we, calls } = load('?count=2&mode=ffa');
+  we.applyUserProperties({ fighternames: { value: 'Agy,Bo' } });
+  const [f] = game.fighters;
+  // maxAlt(z): the health bar tops out about 108 above the feet, 110 below the screen top
+  Object.assign(f, { state: 'air', alt: game.groundY(f.z) - 110, va: 0 });
+  for (const g of game.fighters) g.W = g.joints();
+  calls.length = 0; game.render();
+  const tag = calls.find(c => c[0] === 'fillText' && c[1] === 'Agy');
+  assert.ok(tag, 'no tag drawn');
+  assert.ok(tag[3] - 9 >= 0, 'the tag top is off screen at y ' + (tag[3] - 9));
+  // It does not cover the health bar either
+  const hy = Math.min(f.W.head.y, f.W.hip.y - 30);
+  const beside = tag[2] > f.W.head.x + 13;
+  assert.ok(beside || tag[3] <= hy - 17, 'the tag covers the health bar');
+});
