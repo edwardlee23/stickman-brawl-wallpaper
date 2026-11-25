@@ -23,7 +23,7 @@ function load() {
   Object.assign(a, { x: 300, z: 50, alt: 0, facing: 1, state: 'idle', target: e });
   Object.assign(e, { x: 500, z: 50, alt: 0, facing: -1, state: 'idle', hp: 1000, cool: 99, target: a });
   a.W = a.joints(); e.W = e.joints();
-  return { game, a, e, window };
+  return { game, a, e, window, context };
 }
 const tech = (game, id) => game.NINJA.find(m => m.id === id);
 const jab = game => game.MOVES.find(m => m.id === 'jab');
@@ -242,4 +242,32 @@ test('a substitution readied against the shadow clones triggers on the first clo
   assert.equal(game.stats.subs, 1, 'never substituted');
   assert.equal(e.hp, 1000, 'took a clone hit before the log appeared');
   assert.equal(game.stats.hits.clones ?? 0, 0, 'a clone hit landed');
+});
+
+// Issue #56: a beam keeps hitting for its whole fire phase, so a smoke escape raised
+// against one must keep the fighter hidden until the beam is gone.
+test('a smoke escape from an energy beam lasts until the beam stops firing', () => {
+  const { game, a, e, context } = load();
+  const M = vm.runInContext('Math', context);   // The sandbox's own Math, which main.js uses
+  Object.assign(e, { x: 420, z: 50, hp: 100 });
+  a.W = a.joints(); e.W = e.joints();
+  const beam = game.SUPER.find(m => m.type === 'beam');
+  // Force the smoke escape (0.5 picks smoke in warn) only for the warn the beam raises
+  const warn = a.warn;
+  a.warn = function (...args) {
+    const random = M.random;
+    M.random = () => 0.5;
+    try { return warn.apply(this, args); } finally { M.random = random; }
+  };
+  a.startMove(beam);
+  let smoked = false;
+  for (let i = 0; i < 180 && a.move === beam; i++) {
+    game.update(1 / 60);
+    e.cool = 99;
+    if (e.move && e.move.id === 'smoke') smoked = true;
+  }
+  assert.ok(smoked, 'never vanished in smoke');
+  assert.notEqual(a.move, beam, 'beam never ended');
+  assert.equal(e.hp, 100, 'the beam hit the fighter that escaped in smoke');
+  assert.equal(game.stats.hits.beam, undefined);
 });
