@@ -134,6 +134,20 @@ test('a shield stops one hit from the front, then breaks', () => {
   assert.ok(e.hp < 1000, 'second hit was also stopped');
 });
 
+test('a shield stops every star of one shuriken fan, counted as one shielded hit (issue #59)', () => {
+  const { game, a, e } = load();
+  e.startMove(spell(game, 'shield'), true);
+  e.md.hold = 99;   // Stays up until a hit breaks it
+  e.update(0.05);
+  a.cool = 99;
+  a.startMove(game.NINJA.find(m => m.type === 'shuriken'));
+  for (let i = 0; i < 90; i++) { game.update(1 / 60); a.cool = 99; e.cool = 99; }
+  assert.equal(game.shots.length, 0, 'a star is still flying');
+  assert.equal(e.hp, 1000, 'a star of the fan got through the shield');
+  assert.equal(game.stats.shielded, 1, 'the fan was not counted as one shielded hit');
+  assert.equal(game.stats.hits.shuriken, undefined);
+});
+
 test('a shield does not stop a hit from behind', () => {
   const { game, a, e } = load();
   e.startMove(spell(game, 'shield'), true);
