@@ -2764,8 +2764,8 @@ function render() {
     for (const f of list) {
       if (!f.alive || !f.W || f.invis) continue;
       const hx = f.W.head.x, hy = Math.min(f.W.head.y, f.W.hip.y - 30);
-      ctx.globalAlpha = 0.25; ctx.fillStyle = cfg.line; ctx.fillRect(hx - 13, hy - 17, 26, 2.5);
-      ctx.globalAlpha = 0.9; ctx.fillStyle = colorOf(f); ctx.fillRect(hx - 13, hy - 17, 26 * clamp(f.hp / f.maxHp, 0, 1), 2.5);
+      ctx.globalAlpha = 0.25 * f.alpha; ctx.fillStyle = cfg.line; ctx.fillRect(hx - 13, hy - 17, 26, 2.5);
+      ctx.globalAlpha = 0.9 * f.alpha; ctx.fillStyle = colorOf(f); ctx.fillRect(hx - 13, hy - 17, 26 * clamp(f.hp / f.maxHp, 0, 1), 2.5);
     }
   }
   drawNameTags(list);
