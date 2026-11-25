@@ -1495,6 +1495,8 @@ class Fighter {
     } else {
       lerpPose(this.pose, FLYKICK, Math.min(1, dt * 20), this.pose);
       this.aura = 0.5;
+      // With its target gone there is nothing to steer at: fall like any airborne fighter
+      if (!t || !t.alive) { this.endMove(); return; }
       this.homeTo(t, 700, 3, dt);
       if (Math.abs(this.vx) > 1) this.facing = sgn(this.vx);
       // End on landing, hitting the other wall, or flying too long
