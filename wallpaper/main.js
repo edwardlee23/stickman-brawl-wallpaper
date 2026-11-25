@@ -881,8 +881,9 @@ class Fighter {
 
   // Nearby opponents may block, back off to dodge, raise a shield (magic), vanish in smoke or
   // ready a substitution for this attacker's hit (ninjutsu). Throws cannot be blocked,
-  // shielded or substituted, but smoke escapes them.
-  warn(reach, grab) {
+  // shielded or substituted, but smoke escapes them. An attack that comes round the guard
+  // (unguardable, the shadow clones) offers no block or shield, which could not stop it.
+  warn(reach, grab, unguardable) {
     for (const e of fighters) {
       if (!isEnemy(this, e) || e.state !== 'idle') continue;
       if (Math.abs(e.x - this.x) > reach || Math.abs(e.z - this.z) > 14) continue;
@@ -890,13 +891,13 @@ class Fighter {
       // A projectile is thrown as it warns and needs time to fly; a block, shield, smoke
       // escape or substitution lasts that much longer, so it is still up when the shot arrives
       const fly = this.move.speed ? Math.abs(e.x - this.x) / this.move.speed : 0;
-      const r = Math.random();
-      if (!grab && r < 0.25) {
+      const r = Math.random(), guard = !grab && !unguardable;
+      if (guard && r < 0.25) {
         e.state = 'block'; e.st = 0; e.dur = (this.move.wind || 0.3) + (this.move.act || 0.4) + rand(0.05, 0.2) + fly;
         e.facing = sgn(this.x - e.x);
       } else if (r < 0.37) {
         e.evade = 0.3; e.vx = sgn(e.x - this.x) * rand(160, 230);
-      } else if (!grab && r < 0.47 && cfg.styles.magic) {
+      } else if (guard && r < 0.47 && cfg.styles.magic) {
         e.facing = sgn(this.x - e.x);
         e.startMove(MOVE_BY.shield, true);
         e.md.from = this; e.md.hold = SHIELD_UP + fly;
@@ -1269,7 +1270,7 @@ class Fighter {
       if (this.st >= 0.25) {
         md.ph = 'rush'; md.t0 = this.st;
         for (const c of md.clones) c.x0 = c.x;
-        this.warn(Math.abs(t.x - this.x) + 30, false);
+        this.warn(Math.abs(t.x - this.x) + 30, false, true);
       }
     } else if (md.ph === 'rush') {
       // The real fighter runs in from the front; one clone circles behind the target, one leaps over it

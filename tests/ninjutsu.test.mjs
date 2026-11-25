@@ -275,3 +275,24 @@ test('a smoke escape from an energy beam lasts until the beam stops firing', () 
   assert.equal(e.hp, 100, 'the beam hit the fighter that escaped in smoke');
   assert.equal(game.stats.hits.beam, undefined);
 });
+
+test('a shadow-clone warning offers only reactions that can work, never a block or a shield (issue #58)', () => {
+  const { game, a, e } = load();
+  game.cfg.styles.magic = true; game.cfg.styles.ninjutsu = true;
+  let warned = 0, reacted = 0;
+  for (let i = 0; i < 300; i++) {
+    Object.assign(a, { x: 400, z: 50, alt: 0, vx: 0, facing: 1, state: 'idle', move: null, md: null });
+    Object.assign(e, { x: 500, z: 50, alt: 0, vx: 0, facing: -1, state: 'idle', move: null, md: null,
+      evade: 0, subFrom: null, invis: false, hp: 1000, cool: 99 });
+    a.W = a.joints(); e.W = e.joints();
+    a.startMove(tech(game, 'clones'));
+    for (let s = 0; s < 60 && a.md && a.md.ph !== 'rush'; s++) a.update(1 / 60);
+    assert.equal(a.md && a.md.ph, 'rush', 'the clones never started their rush');
+    warned++;
+    assert.notEqual(e.state, 'block', 'blocked a shadow-clone attack');
+    assert.ok(!e.move || e.move.id !== 'shield', 'raised a shield against a shadow-clone attack');
+    if (e.evade > 0 || e.subFrom || (e.move && e.move.id === 'smoke')) reacted++;
+  }
+  assert.equal(warned, 300);
+  assert.ok(reacted > 0, 'the warning no longer offers any reaction');
+});
