@@ -70,7 +70,22 @@
 			"backgroundcolor" : { "order" : 30, "text" : "ui_backgroundcolor", "type" : "color", "value" : "0.067 0.075 0.094" },
 			"linecolor" : { "order" : 31, "text" : "ui_linecolor", "type" : "color", "value" : "0.925 0.925 0.925" },
 			"fighternames" : { "order" : 33, "text" : "ui_fighternames", "type" : "textinput", "value" : "" },
-			"headgear" : { "order" : 34, "text" : "ui_headgear", "type" : "bool", "value" : false }
+			"headgear" : { "order" : 34, "text" : "ui_headgear", "type" : "bool", "value" : false },
+			"backgroundtheme" :
+			{
+				"order" : 32,
+				"text" : "ui_backgroundtheme",
+				"type" : "combo",
+				"value" : "plain",
+				"options" :
+				[
+					{ "label" : "ui_backgroundtheme_plain", "value" : "plain" },
+					{ "label" : "ui_backgroundtheme_dojo", "value" : "dojo" },
+					{ "label" : "ui_backgroundtheme_rooftop", "value" : "rooftop" },
+					{ "label" : "ui_backgroundtheme_comic", "value" : "comic" },
+					{ "label" : "ui_backgroundtheme_daynight", "value" : "daynight" }
+				]
+			}
 		},
 		"localization" :
 		{
@@ -99,7 +114,13 @@
 				"ui_backgroundcolor" : "Background color",
 				"ui_linecolor" : "Line color",
 				"ui_fighternames" : "Fighter names (comma-separated)",
-				"ui_headgear" : "Head gear (headbands, masks, caps, topknots)"
+				"ui_headgear" : "Head gear (headbands, masks, caps, topknots)",
+				"ui_backgroundtheme" : "Background",
+				"ui_backgroundtheme_plain" : "Plain (background color)",
+				"ui_backgroundtheme_dojo" : "Dojo",
+				"ui_backgroundtheme_rooftop" : "Rooftop at night",
+				"ui_backgroundtheme_comic" : "Comic",
+				"ui_backgroundtheme_daynight" : "Day and night (follows the clock)"
 			},
 			"zh-cht" :
 			{
@@ -126,7 +147,13 @@
 				"ui_backgroundcolor" : "背景顏色",
 				"ui_linecolor" : "線條顏色",
 				"ui_fighternames" : "角色名稱（以逗號分隔）",
-				"ui_headgear" : "頭飾（頭帶、蒙面、帽子、髮髻）"
+				"ui_headgear" : "頭飾（頭帶、蒙面、帽子、髮髻）",
+				"ui_backgroundtheme" : "背景主題",
+				"ui_backgroundtheme_plain" : "純色（背景顏色）",
+				"ui_backgroundtheme_dojo" : "道場",
+				"ui_backgroundtheme_rooftop" : "夜晚屋頂",
+				"ui_backgroundtheme_comic" : "漫畫",
+				"ui_backgroundtheme_daynight" : "日夜變化（依照時鐘）"
 			},
 			"zh-chs" :
 			{
@@ -153,7 +180,13 @@
 				"ui_backgroundcolor" : "背景颜色",
 				"ui_linecolor" : "线条颜色",
 				"ui_fighternames" : "角色名称（以逗号分隔）",
-				"ui_headgear" : "头饰（头带、蒙面、帽子、发髻）"
+				"ui_headgear" : "头饰（头带、蒙面、帽子、发髻）",
+				"ui_backgroundtheme" : "背景主题",
+				"ui_backgroundtheme_plain" : "纯色（背景颜色）",
+				"ui_backgroundtheme_dojo" : "道场",
+				"ui_backgroundtheme_rooftop" : "夜晚屋顶",
+				"ui_backgroundtheme_comic" : "漫画",
+				"ui_backgroundtheme_daynight" : "日夜变化（依照时钟）"
 			}
 		}
 	}

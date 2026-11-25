@@ -50,6 +50,11 @@ the win text (`ANN WINS!`). Names are cut to 12 characters, and an empty entry
 keeps `#n`. "Head gear" gives each fighter a headband, ninja mask, cap or
 topknot, the same one every round. Both are off by default.
 
+"Background" draws a dark scene behind the fight in place of the flat
+background color: a dojo, a rooftop at night, comic halftone dots, or a sky
+that follows the local clock from dawn to night. All of them are drawn in
+code. The default, Plain, keeps the flat color.
+
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.
 The sounds are made in code when they play, so the wallpaper loads no audio
