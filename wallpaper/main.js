@@ -317,6 +317,9 @@ let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerCol
 // fighter knocked out, and back out as the slow motion ends.
 const SLOWMO_HOLD = 0.8, SLOWMO_EASE = 0.4, SLOWMO_ZOOM = 0.4, SLOWMO_ZOOM_IN = 0.2;
 let slowmoT = -1, slowmoOn = null, lastKO = null;   // slowmoT: real time since it began, -1 when off
+// The world transform render() last drew with, in CSS pixels: screen = world * S * z + (x, y).
+// A click is turned back into world units with it, zoom and screen shake included.
+let view = { z: 1, x: 0, y: 0 };
 function startSlowmo() { if (cfg.slowmo) { slowmoT = 0; slowmoOn = lastKO; } }
 // 1 while time is slow, easing to 0 as full speed comes back
 function slowmoLevel() {
@@ -338,7 +341,8 @@ function slowmoView(ox, oy) {
   const z = 1 + SLOWMO_ZOOM * ease(clamp(slowmoT / SLOWMO_ZOOM_IN, 0, 1)) * slowmoLevel();
   const f = slowmoOn, p = !f ? { x: worldW / 2, y: worldH / 2 } : f.rag ? f.rag.pts.hip : { x: f.x, y: groundY(f.z) };
   const cx = clamp(p.x * S, 0, SW), cy = clamp(p.y * S, 0, SH);
-  ctx.setTransform(dpr * S * z, 0, 0, dpr * S * z, (ox * z + cx * (1 - z)) * dpr, (oy * z + cy * (1 - z)) * dpr);
+  view = { z, x: ox * z + cx * (1 - z), y: oy * z + cy * (1 - z) };
+  ctx.setTransform(dpr * S * z, 0, 0, dpr * S * z, view.x * dpr, view.y * dpr);
 }
 const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove, pickTarget,
@@ -2592,6 +2596,7 @@ function render() {
   const sk = cfg.reduceMotion ? 0 : shake;
   const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
   ctx.setTransform(dpr * S, 0, 0, dpr * S, ox * dpr, oy * dpr);
+  view = { z: 1, x: ox, y: oy };
   slowmoView(ox, oy);
   ctx.fillStyle = cfg.line;
   ctx.globalAlpha = 0.035; ctx.fillRect(-20, floorTop - 6, worldW + 40, DEPTH + 12);
@@ -2779,7 +2784,7 @@ function clickBlast(e) {
   const now = (e.timeStamp ?? performance.now()) / 1000;
   if (now - blastAt < BLAST_COOL) return;
   blastAt = now;
-  const x = e.clientX / S, y = e.clientY / S;   // Screen to world, as render() draws it
+  const x = (e.clientX - view.x) / (S * view.z), y = (e.clientY - view.y) / (S * view.z);   // Screen to world, as render() last drew it
   impact(x, y, true);
   const onFloor = y >= floorTop - 6 && y <= floorTop + DEPTH + 6;
   crack(x, y, onFloor ? 'ground' : 'wall', 60);
