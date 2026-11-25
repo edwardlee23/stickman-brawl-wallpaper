@@ -73,6 +73,11 @@ how much; game speed never changes, and a few seconds of silence bring the
 fight back to normal. A plain browser has no such audio, so nothing changes
 there.
 
+"Click to blast", off by default, makes a click on the wallpaper burst with
+an impact and a crack and throw the fighters near it away from it; knocked-out
+bodies are pushed too. It deals no damage, and clicks within half a second of
+one are ignored.
+
 Opened in a plain browser, `wallpaper/index.html` also reads `count`, `mode`,
 `speed`, `reducemotion`, `sound` and `volume` from the query string, for
 example `index.html?count=8&mode=teams` or `index.html?sound=1&volume=50`.

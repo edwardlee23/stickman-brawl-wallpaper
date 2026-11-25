@@ -24,6 +24,7 @@ const cfg = {
   slowmo: false,        // slow-motion finish on the knockout that ends a round
   audio: false,         // React to music (Wallpaper Engine's audio listener)
   audioStrength: 0.5,   // 0 to 1
+  clickBlast: false,    // a click on the wallpaper launches the fighters near it
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true, ninjutsu: true },
 };
 // ---------- Helpers ----------
@@ -2357,6 +2358,7 @@ window.wallpaperPropertyListener = {
     if (p.slowmofinish) { cfg.slowmo = p.slowmofinish.value; if (!cfg.slowmo) slowmoT = -1; }
     if (p.audioreactive) { cfg.audio = p.audioreactive.value; musicReset(); }
     if (p.audiostrength) cfg.audioStrength = p.audiostrength.value / 100;
+    if (p.clickblast) cfg.clickBlast = p.clickblast.value;
     let styles = false;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }
     // Drop moves queued from a style just turned off, so nobody starts one; a move in progress finishes
@@ -2372,6 +2374,41 @@ window.wallpaperPropertyListener = {
 window.addEventListener('resize', resize);
 // A plain browser keeps audio suspended until the page is clicked; Wallpaper Engine does not.
 window.addEventListener('pointerdown', () => { if (!paused && cfg.sound && snd.ac && snd.ac.state === 'suspended') soundSetPaused(false); });
+// Click to blast: a click makes an impact and a crack where it lands and launches the fighters
+// within BLAST_R of it away from it, harder the closer they are; knocked-out bodies are pushed
+// too. It deals no damage. After one, clicks are ignored for BLAST_COOL seconds, so a stream of
+// clicks cannot juggle everyone forever. impact() already obeys "Reduce flashing and screen shake".
+const BLAST_R = 150, BLAST_COOL = 0.5;
+let blastAt = -Infinity;
+function clickBlast(e) {
+  if (!cfg.clickBlast || paused || e.button > 0) return;
+  const now = (e.timeStamp ?? performance.now()) / 1000;
+  if (now - blastAt < BLAST_COOL) return;
+  blastAt = now;
+  const x = e.clientX / S, y = e.clientY / S;   // Screen to world, as render() draws it
+  impact(x, y, true);
+  const onFloor = y >= floorTop - 6 && y <= floorTop + DEPTH + 6;
+  crack(x, y, onFloor ? 'ground' : 'wall', 60);
+  for (const f of fighters) {
+    if (f.rag) {
+      for (const o of Object.values(f.rag.pts)) {
+        const dx = o.x - x, dy = o.y - y, d = Math.hypot(dx, dy) || 1;
+        if (d >= BLAST_R) continue;
+        const v = 300 + 600 * (1 - d / BLAST_R);
+        o.px = o.x - dx / d * v * RAG_H; o.py = o.y - (dy / d * v - 250) * RAG_H;
+      }
+      f.rag.age = Math.min(f.rag.age, 3.5);   // A body at rest simulates again
+      continue;
+    }
+    if (!f.alive || f.invis || f.state === 'thrown') continue;
+    const c = f.bodyPoint(), dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
+    if (d >= BLAST_R) continue;
+    const k = 1 - d / BLAST_R, uy = d ? dy / d : 0;
+    f.clearMove();
+    f.launch(sgn(dx) * (260 + 540 * k), (220 + 480 * k) * clamp(0.5 - uy, 0.3, 1.5));
+  }
+}
+window.addEventListener('pointerdown', clickBlast);
 resize();
 newRound();
 requestAnimationFrame(frame);
