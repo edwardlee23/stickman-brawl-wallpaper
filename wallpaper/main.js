@@ -226,6 +226,7 @@ function layoutPlatforms() {
   platforms = [];
   // A body at rest simulates again, so it falls if its platform moved or went away
   for (const f of fighters) if (f.rag) f.rag.age = Math.min(f.rag.age, 3.5);
+  for (const it of items) if (it.alt > 0) it.rest = false;   // An item on a platform falls again too
   if (!cfg.platforms) return;
   const add = (a, b, y) => { if (y >= FIG_TOP && y <= floorTop - 25) platforms.push({ x0: worldW * a, x1: worldW * b, y }); };
   const low = Math.max(FIG_TOP, floorTop - 60);
@@ -2059,7 +2060,8 @@ const BOOMERANG = { id: 'boomerang', type: 'boomerang', style: 'items', range: [
 MOVE_BY.boomerang = BOOMERANG;
 // A drop at world x and depth z, alt above the floor (from just above the top of the screen by default)
 function spawnItem(kind, x, z = rand(0, DEPTH), alt = groundY(z) + 20) {
-  const it = { kind, x: clamp(x, 40, worldW - 40), z, alt, va: 0, t: Math.random() * 10 };
+  // rest: lying on the floor or a platform top, and no longer falling
+  const it = { kind, x: clamp(x, 40, worldW - 40), z, alt, va: 0, t: Math.random() * 10, rest: alt <= 0 };
   items.push(it);
   return it;
 }
@@ -2102,11 +2104,14 @@ function withStaff(f, m) {
 }
 // With no enemy close, an idle fighter walks to the nearest item it can use
 function seekItem(f, dt) {
-  if (!cfg.items || !items.length || f.alt > 0) return;
+  if (!cfg.items || !items.length || f.aloft()) return;
+  const mine = platformAt(f.x, groundY(f.z) - f.alt);
   for (const e of fighters) if (e.alive && isEnemy(f, e) && Math.abs(e.x - f.x) < 130 && Math.abs(e.z - f.z) < 30) return;
   let best = null, bd = 320;
   for (const it of items) {
     if (it.kind === 'heart' ? f.hp >= f.maxHp : f.held || (it.kind === 'staff' && !staffUsable())) continue;
+    // One resting on another surface (a platform, or the floor below one) is out of reach
+    if (it.rest && platformAt(it.x, groundY(it.z) - it.alt) !== mine) continue;
     const d = Math.abs(it.x - f.x) + Math.abs(it.z - f.z);
     if (d < bd) { bd = d; best = it; }
   }
@@ -2163,9 +2168,14 @@ function updateItems(dt) {
   for (let i = items.length - 1; i >= 0; i--) {
     const it = items[i];
     it.t += dt;
-    if (it.alt > 0) {
+    if (!it.rest) {
+      // Falls to the floor, or onto a platform top it comes down on
+      const base = platforms.length ? platformAlt(it.x, it.z, groundY(it.z) - it.alt) : 0;
       it.va -= 700 * dt; it.alt += it.va * dt;
-      if (it.alt <= 0) { it.alt = 0; it.va = 0; spawnSparks(it.x, groundY(it.z), 'rgba(200,200,200,0.6)', 4, true); }
+      if (it.alt <= base) {
+        it.alt = base; it.va = 0; it.rest = true;
+        spawnSparks(it.x, groundY(it.z) - base, 'rgba(200,200,200,0.6)', 4, true);
+      }
     }
     const y = groundY(it.z) - it.alt - 6;
     for (const f of fighters) {
@@ -2197,9 +2207,9 @@ function boomerangPath(x, y, a, r) {
 function drawItems() {
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   for (const it of items) {
-    const x = it.x, y = groundY(it.z) - it.alt - 6 - (it.alt <= 0 ? Math.abs(Math.sin(it.t * 3)) * 3 : 0);
+    const x = it.x, y = groundY(it.z) - it.alt - 6 - (it.rest ? Math.abs(Math.sin(it.t * 3)) * 3 : 0);
     ctx.globalAlpha = 0.12; ctx.fillStyle = cfg.line;
-    ctx.beginPath(); ctx.ellipse(x, groundY(it.z), 8, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x, groundY(it.z) - (it.rest ? it.alt : 0), 8, 1.8, 0, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
     if (it.kind === 'heart') {
       ctx.fillStyle = '#ff6b8a'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2;
