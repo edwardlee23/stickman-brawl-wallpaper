@@ -63,7 +63,9 @@ still slows but the view does not move.
 "Round rules" varies the rounds; Normal, the default, plays them as before.
 King gives one fighter a round double health and a crown, and everyone else
 goes after it first. Ladder turns a free-for-all into one-on-one fights: the
-rest wait at the sides cheering, the winner stays and the next steps in.
+rest wait at the sides cheering, the winner stays and the next steps in. After
+a double knockout the next two step in; if only one is left waiting, it has
+nobody to fight and the round is a draw.
 Survival lets a round's winners keep their health into the next round, unless
 it is below 15%; a round that times out, or that a settings change starts over,
 restores everyone. King and Ladder apply to free-for-all only.

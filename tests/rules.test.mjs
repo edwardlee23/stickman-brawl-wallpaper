@@ -226,3 +226,28 @@ test('King: the crown fades with its king during a teleport (#120)', () => {
   assert.ok(crown.length, 'no crown drawn');
   for (const c of crown) assert.ok(c.alpha <= 0.1, 'the crown is drawn at alpha ' + c.alpha);
 });
+
+test('Ladder: after a double knockout the next pair steps in and the round goes on (#126)', () => {
+  const game = withRules('ladder', '?count=5&mode=ffa');
+  const rounds = game.stats.rounds;
+  const fighting = () => game.fighters.filter(f => f.alive && f.state !== 'wait');
+  const [a, b] = fighting();
+  const waiting = new Set(game.fighters.filter(f => f.state === 'wait'));
+  ragdoll(a); ragdoll(b);
+  game.checkRound(1 / 60);
+  assert.equal(game.stats.rounds, rounds, 'the round ended');
+  const now = fighting();
+  assert.equal(now.length, 2, 'the next two waiting fighters stepped in');
+  for (const f of now) assert.ok(waiting.has(f));
+});
+
+test('Ladder: a double knockout that leaves one fighter waiting is a draw, not a win for it (#126)', () => {
+  const game = withRules('ladder', '?count=3&mode=ffa');
+  const [a, b] = game.fighters.filter(f => f.alive && f.state !== 'wait');
+  const [c] = game.fighters.filter(f => f.state === 'wait');
+  ragdoll(a); ragdoll(b);
+  game.checkRound(1 / 60);
+  assert.notEqual(game.winnerText, '#' + (c.id + 1) + ' WINS!', 'a fighter that never fought won');
+  assert.equal(game.winnerText, 'DRAW');
+  assert.equal(game.score.wins[c.id], 0, 'a win was scored for it');
+});

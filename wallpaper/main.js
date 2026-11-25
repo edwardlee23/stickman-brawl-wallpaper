@@ -1853,10 +1853,18 @@ function checkRound(dt) {
   roundTime += dt;
   if (roundOver) { roundTimer -= dt; if (roundTimer <= 0) newRound(true); return; }
   const alive = fighters.filter(f => f.alive);
+  // Ladder: after a knockout the next waiting fighters step in before the round is judged, so
+  // after a double knockout the next pair fights on. One fighter left waiting then has nobody
+  // to fight, and wins nothing for it: the round is a draw.
+  let noBout = false;
+  if (ladderQueue.length) {
+    noBout = alive.length === 1 && alive[0].state === 'wait';
+    ladderStepIn();
+  }
   const sides = new Set(alive.map(f => (cfg.mode === 'teams' ? f.team : f.id)));
   if (sides.size <= 1) {
     roundOver = true; roundTimer = 4.5; stats.rounds++; sfx('win', worldW / 2);
-    const w = alive[0];
+    const w = noBout ? null : alive[0];
     winnerText = !w ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[w.team] + ' WINS!' : labelOf(w) + ' WINS!';
     winnerColor = w ? colorOf(w) : cfg.line;
     scoreWin(w);
@@ -1917,6 +1925,9 @@ function ruleTarget(me) {
 function roundRulesStep() {
   if (!ladderQueue.length) return;
   for (const f of ladderQueue) lerpPose(GUARD, VICTORY, 0.5 + 0.5 * Math.sin(f.time * 5 + f.id), f.pose);
+  ladderStepIn();
+}
+function ladderStepIn() {
   let active = fighters.filter(f => f.alive && f.state !== 'wait').length;
   while (active < 2 && ladderQueue.length) {
     const f = ladderQueue.shift();
