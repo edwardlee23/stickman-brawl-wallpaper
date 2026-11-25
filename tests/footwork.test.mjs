@@ -5,6 +5,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
+// A fixed Math.random of 0.99 turns off the random jumps and dashes, so the
+// fighter's footwork, and with it the time until a move is swapped, is the same
+// every run.
 function load() {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
@@ -15,6 +18,7 @@ function load() {
     document: { getElementById: () => canvas, body: { style: {} } },
     requestAnimationFrame() {},
   });
+  vm.runInContext('Math.random = () => 0.99;', context);
   vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   const game = window.__stickmanBrawl;
   const [a, e] = game.fighters;
@@ -45,15 +49,13 @@ test('a queued move kept out of reach by a retreating target is replaced', () =>
   e.x = 370;
   a.W = a.joints(); e.W = e.joints();
   // The target backs away at the same pace, 70 px ahead, out of the throw's reach
-  const step = 1 / 60;
-  let streak = 0, longest = 0;
-  for (let t = 0; t < 6; t += step) {
+  const step = 1 / 60, queued = a.nextMove;
+  let t = 0;
+  for (; t < 6 && a.state === 'idle' && a.nextMove === queued; t += step) {
     e.x = Math.min(a.x + 70, 940); e.z = a.z;
     game.update(step);
-    // Waiting for a knocked-down target to get up does not count
-    const stuck = a.state === 'idle' && e.hittable && a.nextMove && !inRange(a.nextMove, Math.abs(e.x - a.x));
-    streak = stuck ? streak + step : 0;
-    longest = Math.max(longest, streak);
   }
-  assert.ok(longest < 2.2, `stood out of reach for ${longest.toFixed(2)} s`);
+  assert.notEqual(a.nextMove, queued, `kept ${queued.id} out of reach for ${t.toFixed(2)} s`);
+  // The move is swapped once it has been out of reach for 1.5 s, on the next step
+  assert.ok(t <= 1.5 + 2 * step, `swapped after ${t.toFixed(2)} s`);
 });
