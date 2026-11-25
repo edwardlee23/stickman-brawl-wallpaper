@@ -253,6 +253,9 @@ test('a smoke escape from an energy beam lasts until the beam stops firing', () 
   a.W = a.joints(); e.W = e.joints();
   const beam = game.SUPER.find(m => m.type === 'beam');
   // Force the smoke escape (0.5 picks smoke in warn) only for the warn the beam raises
+  // and hold the rest of Math.random at 0.99, so the target never jumps at random and is
+  // standing (idle) when the warn comes
+  M.random = () => 0.99;
   const warn = a.warn;
   a.warn = function (...args) {
     const random = M.random;
