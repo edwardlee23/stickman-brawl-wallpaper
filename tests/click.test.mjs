@@ -22,6 +22,8 @@ function load() {
     document: { getElementById: () => canvas, body: { style: {} } },
     requestAnimationFrame() {},
   });
+  // A seeded generator (an LCG) for Math.random, so every run is the same (issue #161)
+  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
   vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   const game = window.__stickmanBrawl;
   const [a, b] = game.fighters;
@@ -93,7 +95,9 @@ test('a click with Click to blast on pushes a knocked-out ragdoll away', () => {
   game.update(1 / 60);
   assert.equal(hip.x, rest, 'the body is at rest');
   click(hip.x - 25, hip.y);
-  assert.ok(hip.x - hip.px > 0, 'the hip moves rightward, away from the click');
+  // More than 1 unit a step: a resting body's leftover drift is far smaller than that (#186)
+  const step = hip.x - hip.px;
+  assert.ok(step > 1, `the hip is pushed rightward, away from the click (step ${step})`);
   const x0 = hip.x;
   game.update(1 / 60);
   assert.ok(hip.x > x0, 'a body at rest simulates again after the push');
