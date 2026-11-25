@@ -1,5 +1,6 @@
 // Runs main.js in a sandbox with a stubbed canvas and window, then checks the
-// dive special when its target is knocked out mid-flight (issue #60).
+// dive special (issue #60) and the wall-run leap (issue #114) when the target is
+// knocked out mid-flight.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -42,4 +43,24 @@ test('a dive whose target is knocked out falls instead of sticking to the ceilin
   }
   assert.ok(left >= 0 && left <= 1, `still diving after 1 s (left at ${left})`);
   assert.ok(worst <= 40, `dropped ${worst.toFixed(0)} px in one step`);
+});
+
+test('a wall-run leap whose target is knocked out falls instead of flying across the top (#114)', () => {
+  const game = load();
+  const [a, e] = game.fighters;
+  Object.assign(a, { x: 60, z: 20, facing: -1, cool: 99 });
+  Object.assign(e, { x: 600, z: 20, facing: -1, cool: 99 });
+  a.target = e; e.target = a;
+  for (const f of game.fighters) f.W = f.joints();
+  a.startMove(game.SUPER.find(m => m.id === 'wallrun'));
+  for (let i = 0; i < 300 && !(a.md && a.md.ph === 'leap'); i++) game.update(1 / 60);
+  assert.equal(a.md && a.md.ph, 'leap', 'the leap began');
+  e.ko(0, -40);
+  assert.equal(e.alive, false);
+  let alt = a.alt;
+  for (let i = 0; i < 18; i++) game.update(1 / 60);
+  assert.ok(!a.move || a.alt < alt, 'still flying level after 0.3 s: alt ' + a.alt + ' from ' + alt);
+  alt = a.alt;
+  game.update(1 / 60);
+  assert.ok(a.alt < alt, 'falling: alt ' + a.alt + ' from ' + alt);
 });
