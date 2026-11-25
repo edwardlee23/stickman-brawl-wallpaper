@@ -1920,12 +1920,14 @@ function roundRulesStep() {
     roundTime = 0;   // Each bout gets the full time before the round times out
   }
 }
-function drawCrown(J) {
+// Drawn at the king's alpha, so it fades with the body in a teleport or smoke escape
+function drawCrown(J, alpha) {
   const x = J.head.x, y = J.head.y - L.head - 1;
-  ctx.globalAlpha = 1; ctx.fillStyle = '#ffd43b'; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1;
+  ctx.globalAlpha = alpha; ctx.fillStyle = '#ffd43b'; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1;
   ctx.beginPath();
   for (const [dx, dy] of [[-7, 0], [-7, -7], [-3.5, -3], [0, -8], [3.5, -3], [7, -7], [7, 0]]) ctx.lineTo(x + dx, y + dy);
   ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.globalAlpha = 1;
 }
 Object.assign(window.__stickmanBrawl, { newRound, pickTarget });
 
@@ -2325,7 +2327,7 @@ function drawFighter(f) {
   const frozen = f.state === 'frozen';
   drawSkeleton(J, f.flash > 0 ? '#ffffff' : frozen ? ELEMENT.ice : col, base, 3.2, true);
   if (cfg.headgear) drawHeadgear(f, J, col, base);
-  if (f.king && f.alive) drawCrown(J);
+  if (f.king && f.alive) drawCrown(J, f.alpha);
   if (frozen) {
     // A block of ice around the body
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;

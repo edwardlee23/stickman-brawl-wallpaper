@@ -171,3 +171,31 @@ test('Ladder: a click with Click to blast on leaves the waiting fighters where t
   }
   assert.equal(game.fighters.filter(f => f.alive && f.state !== 'wait').length, 2, 'still two fighting');
 });
+
+test('King: the crown fades with its king during a teleport (#120)', () => {
+  // A context that keeps the styles set on it and logs each fill with the alpha it used
+  const fills = [], state = {};
+  const ctx = new Proxy(state, {
+    get: (s, k) => (k in s ? s[k] : (...a) => { if (k === 'fill') fills.push({ style: s.fillStyle, alpha: s.globalAlpha }); return { addColorStop() {} }; }),
+    set: (s, k, v) => { s[k] = v; return true; },
+  });
+  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
+  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
+  const context = vm.createContext({
+    window, console, performance, URLSearchParams,
+    location: { search: '?count=3&mode=ffa' },
+    document: { getElementById: () => canvas, body: { style: {} } },
+    requestAnimationFrame() {},
+  });
+  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
+  window.wallpaperPropertyListener.applyUserProperties({ roundrules: { value: 'king' } });
+  const game = window.__stickmanBrawl;
+  const king = game.fighters.find(f => f.king);
+  for (const f of game.fighters) f.W = f.joints();
+  king.alpha = 0.1;
+  fills.length = 0;
+  game.render();
+  const crown = fills.filter(f => f.style === '#ffd43b');
+  assert.ok(crown.length, 'no crown drawn');
+  for (const c of crown) assert.ok(c.alpha <= 0.1, 'the crown is drawn at alpha ' + c.alpha);
+});
