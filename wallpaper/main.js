@@ -159,7 +159,7 @@ const SUPER = [
   { id: 'beam', type: 'beam', range: [90, 9999], w: 3, air: true, dmg: 22, antiAir: true },
   { id: 'blast', type: 'blast', range: [100, 9999], w: 2.5, air: true, dmg: 4, antiAir: true, speed: 540 },
   { id: 'barrage', type: 'barrage', range: [14, 40], w: 3, dmg: 1.4, sameAlt: true },
-  { id: 'rising', type: 'rising', range: [8, 42], w: 3, dmg: 10, antiAir: true },
+  { id: 'rising', type: 'rising', range: [8, 42], w: 3, dmg: 10, antiAir: true, notBelow: true },
   { id: 'dive', type: 'dive', range: [60, 480], w: 3, air: true, dmg: 12, antiAir: true },
   { id: 'slam', type: 'slam', range: [30, 240], w: 2, air: true, dmg: 12 },
   { id: 'teleport', type: 'teleport', range: [110, 9999], w: 2 },
@@ -175,7 +175,7 @@ const MAGIC = [
 // Ninja techniques. Smoke escape and substitution are reactions to a warned attack, never picked as attacks.
 const NINJA = [
   { id: 'shuriken', type: 'shuriken', range: [80, 9999], w: 2.5, air: true, dmg: 3, speed: 620 },
-  { id: 'clones', type: 'clones', range: [40, 220], w: 2, dmg: 5 },
+  { id: 'clones', type: 'clones', range: [40, 220], w: 2, dmg: 5, sameAlt: true },
   { id: 'smoke', type: 'smoke', range: [0, 9999], w: 0, reactive: true },
   { id: 'substitute', type: 'substitute', range: [0, 9999], w: 0, reactive: true },
 ];
@@ -669,6 +669,12 @@ function pickTarget(me) {
   }
   return best;
 }
+// Whether a special can reach the target's height: a sameAlt move only on its own level, and the
+// rising uppercut (notBelow) not a target below it, as on the floor under a ledge
+function altFits(me, m, t) {
+  const d = t.alt - me.alt;
+  return m.sameAlt ? Math.abs(d) < 35 : m.notBelow ? d > -35 : true;
+}
 function pickMove(me, t, dist) {
   let items = [];
   // Height is measured from the surface the fighter stands on, so a ledge is not the air
@@ -678,7 +684,7 @@ function pickMove(me, t, dist) {
     items.push([m, m.w * (tAir ? 0.15 : 1)]);
   }
   for (const m of SPECIALS) {
-    if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air)) continue;
+    if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air) || (t && !altFits(me, m, t))) continue;
     if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
     items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1) * musicSpecial()]);
   }
@@ -948,7 +954,7 @@ class Fighter {
         this.state = 'air'; this.st = 0; this.cool = rand(0.1, 0.35);
         return;
       }
-      const altOK = m.type && !m.sameAlt ? true : Math.abs(t.alt - this.alt) < 35;
+      const altOK = m.type ? altFits(this, m, t) : Math.abs(t.alt - this.alt) < 35;
       if (this.cool <= 0 && t.hittable && altOK && dist >= m.range[0] && dist <= m.range[1] && Math.abs(dz) < 9) {
         // Walking to an item turns the fighter away; every move starts facing the target
         if (dist > 1) this.facing = sgn(dx);
