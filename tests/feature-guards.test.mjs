@@ -263,7 +263,7 @@ test('name tags: none over a fighter hidden in smoke', () => {
 });
 
 test('name tags: a tag is drawn in its fighter\'s color', () => {
-  const { game, calls, tags } = tagged((game, we) => we.applyUserProperties({ uniquecolors: { value: true } }));
+  const { game, calls, tags } = tagged((game, we) => we.applyUserProperties({ colorful: { value: true } }));
   assert.equal(tags.length, 3);
   for (const [c, i] of tags) {
     const f = game.fighters.find(f => game.nameOf(f) === c[1]);
