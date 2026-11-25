@@ -181,8 +181,10 @@ test('a slam from the air gives back the air dash and double jump on landing (is
   a.W = a.joints();
   a.startMove(game.SUPER.find(m => m.id === 'slam'));
   stepUntil(game, a, () => a.state !== 'attack', 3);
-  stepUntil(game, a, () => false, 1 / 60);   // One step on the floor
+  // Checked before the idle step: that step may start a random jump (issue #102)
+  assert.equal(a.state, 'idle', 'state');
   assert.equal(a.alt, 0, 'landed');
+  stepUntil(game, a, () => false, 1 / 60);   // One idle step on the floor
   assert.equal(a.dashed, false, 'dashed');
   assert.equal(a.dj, false, 'dj');
 });
