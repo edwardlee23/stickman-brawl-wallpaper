@@ -1357,7 +1357,9 @@ class Fighter {
 
   u_clones(dt) {
     const md = this.md, m = this.move, t = this.target;
-    if (!t || !t.alive) { this.endMove(); return; }
+    // Lost the target before the strike lands: stop. Once it has landed (a knockout included),
+    // the clones still vanish in their smoke.
+    if ((!t || !t.alive) && !md.hit) { this.endMove(); return; }
     if (md.ph === 'split') {
       if (!md.clones) {
         // Two faded copies step out to either side
