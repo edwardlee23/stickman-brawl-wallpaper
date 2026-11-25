@@ -223,3 +223,20 @@ test('heads are filled with a color close to each theme\'s backdrop (#128)', () 
     for (const f of headFills(w)) assert.equal(f, w.game.bg.SKY[phase][1], phase);
   }
 });
+
+test('switching back to Plain releases the background cache (#129)', () => {
+  const w = load();
+  w.we.applyUserProperties({ backgroundtheme: { value: 'dojo' } });
+  w.frame();
+  const cache = w.made.find(c => c.log.length);
+  assert.equal(cache.width, 1280);
+  w.we.applyUserProperties({ backgroundtheme: { value: 'plain' } });
+  w.frame();
+  assert.equal(w.game.bg.canvas, null, 'the cache is still held');
+  assert.deepEqual([cache.width, cache.height], [0, 0], 'its pixels are not freed');
+  // A theme turned on again makes and paints a new cache
+  w.we.applyUserProperties({ backgroundtheme: { value: 'comic' } });
+  w.frame();
+  assert.ok(w.game.bg.canvas && w.game.bg.canvas.width === 1280);
+  assert.ok(w.screen.some(([k, img]) => k === 'drawImage' && img === w.game.bg.canvas));
+});

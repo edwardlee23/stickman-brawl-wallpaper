@@ -2618,6 +2618,10 @@ function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, SW, SH);
   if (cfg.bgTheme !== 'plain') drawBackground();
+  else if (bg.canvas) {
+    // Back to Plain: free the cache's pixels (about 33 MB at 4K) instead of holding them
+    bg.canvas.width = bg.canvas.height = 0; bg.canvas = null; bg.key = '';
+  }
   headCol = bg.headFill(cfg.bgTheme, bg.now());
   const sk = cfg.reduceMotion ? 0 : shake;
   const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
