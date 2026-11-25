@@ -2181,6 +2181,8 @@ function updateItems(dt) {
     for (const f of fighters) {
       if (!f.alive || f.invis || !f.W || !ITEM_HOLD.has(f.state) || Math.abs(f.z - it.z) > 16) continue;
       if (Math.abs(f.W.hip.x - it.x) > 16 || y < f.W.head.y - 10 || y > groundY(f.z) - f.alt + 6) continue;
+      // One at rest on a platform is reached only from its top or above, never through it from below
+      if (it.rest && it.alt > 0 && groundY(f.z) - f.alt > groundY(it.z) - it.alt + 0.5) continue;
       if (it.kind === 'heart') {
         if (f.hp >= f.maxHp) continue;
         f.hp = Math.min(f.maxHp, f.hp + f.maxHp * HEART_HP / 100);
