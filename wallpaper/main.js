@@ -172,6 +172,7 @@ const NINJA = [
 const SPECIALS = [...SUPER, ...MAGIC, ...NINJA];
 const SHIELD_UP = 1.1;       // Seconds a shield stays up, longer against a far projectile
 const SMOKE_OUT = 0.3;       // Seconds hidden in a smoke escape, longer against a far projectile
+const BEAM_FIRE = 0.65;      // Seconds an energy beam fires and can hit
 const MOVE_BY = {};
 for (const m of MOVES) {
   MOVE_BY[m.id] = m;
@@ -777,7 +778,8 @@ class Fighter {
         e.md.from = this; e.md.hold = SHIELD_UP + fly;
       } else if (r >= 0.47 && r < 0.55 && cfg.styles.ninjutsu) {
         e.startMove(MOVE_BY.smoke, true);
-        e.md.from = this.x; e.md.hold = SMOKE_OUT + fly;
+        // A beam warns as it fires and keeps hitting along its line, so stay hidden until it stops
+        e.md.from = this.x; e.md.hold = SMOKE_OUT + fly + (this.move.type === 'beam' ? BEAM_FIRE : 0);
       } else if (!grab && r >= 0.55 && r < 0.63 && cfg.styles.ninjutsu) {
         e.subFrom = this; e.subT = (this.move.wind || 0.3) + (this.move.act || 0.4) + 0.3 + fly;
       }
@@ -899,7 +901,7 @@ class Fighter {
           e.takeHit(this, m, 'body', e.bodyPoint(), { launch: { vx: d.x * 780, va: -d.y * 780 + 220 }, big: true });
         }
       }
-      if (ft >= 0.65) { md.ph = 'rec'; md.t0 = this.st; md.w = 0; }
+      if (ft >= BEAM_FIRE) { md.ph = 'rec'; md.t0 = this.st; md.w = 0; }
     } else {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 8), this.pose);
       if (this.st - md.t0 > 0.3) this.endMove();
