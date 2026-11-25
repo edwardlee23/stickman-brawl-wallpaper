@@ -206,13 +206,14 @@ test('nothing is queued while the browser keeps audio suspended before a click (
   assert.equal(game.sfx('hit', 100), true, 'no sound after the click');
 });
 
-test('a sound at the left edge pans left and one at the right edge pans right', () => {
+test('a sound at the left edge pans 60% left and one at the right edge 60% right', () => {
   const { game, AC } = load('?count=2', { sound: true });
   const worldW = 1280 / (720 / 540);
   assert.equal(game.sfx('hit', 0), true);
   AC.instances[0].currentTime += 10;
   assert.equal(game.sfx('hit', worldW), true);
   const [left, right] = AC.instances[0].panners.map(p => p.pan.value);
-  assert.ok(left < 0, `left edge pans ${left}`);
-  assert.ok(right > 0, `right edge pans ${right}`);
+  // Only part of the way, so no sound is heard in one ear alone
+  assert.ok(Math.abs(left + 0.6) < 1e-9, `left edge pans ${left}`);
+  assert.ok(Math.abs(right - 0.6) < 1e-9, `right edge pans ${right}`);
 });

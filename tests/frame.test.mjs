@@ -107,6 +107,17 @@ for (const [fps, hz] of [[10, 10], [15, 15], [30, 30], [0, 60], [0, 15], [0, 10]
   });
 }
 
+test('after a stall the frame-rate limit holds at once, with no burst of frames to catch up', () => {
+  const { game, we, frame, draws } = load();
+  we.applyGeneralProperties({ fps: 30 });
+  for (let i = 1; i <= 60; i++) { hold(game); frame(i * 1000 / 60); }
+  const before = draws();
+  // 5 s with no refresh, then one second of a 60 Hz display
+  for (let i = 0; i < 60; i++) { hold(game); frame(6000 + i * 1000 / 60); }
+  const drawn = draws() - before;
+  assert.ok(Math.abs(drawn - 30) <= 1, `drew ${drawn} frames in the second after the stall`);
+});
+
 test('a long stall still does not jump the fight ahead', () => {
   const { game, we, frame } = load();
   we.applyGeneralProperties({ fps: 10 });
