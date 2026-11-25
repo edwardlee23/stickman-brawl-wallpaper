@@ -993,6 +993,8 @@ class Fighter {
       p.lF = Math.PI / 2 - md.a + 0.15;
       lerpPose(this.pose, p, Math.min(1, dt * 25), this.pose);
       this.aura = 0.5;
+      // With its target gone there is nothing to steer at: fall like any airborne fighter
+      if (!t || !t.alive) { this.endMove(); return; }
       this.homeTo(t, 860, 2.5, dt);
       if (this.vx !== 0) this.facing = sgn(this.vx);
       md.a = clamp(Math.atan2(-this.va, Math.abs(this.vx)), 0, 1.4);
