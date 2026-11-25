@@ -79,11 +79,14 @@ vanish when a round ends. A staff follows the style switches: with boxing, Muay
 Thai and taekwondo all off, fighters leave it on the floor and drop one they
 hold, and a staff strike keeps the style of the kick or punch it replaces.
 
-"Floating platforms" adds two or three thin ledges above the floor (two, set
-lower, at large figure sizes). Fighters land on them, walk off their edges,
-and jump up or drop down to reach an opponent on another level. Slams, dives
-and wall-run leaps land on a ledge too, and a slam's shockwave hits the
-fighters on the ledge it lands on, not those on the floor below. With Items
+"Floating platforms" adds two or three thin ledges above the floor. The middle
+one needs a wide world: a 16:9 screen at 100% figure size has three, while a
+narrow world, from a 5:4 or portrait screen or a large figure size, has only
+the two side ledges, set lower at large figure sizes. Fighters land on them,
+walk off their edges, and jump up or drop down to reach an opponent on
+another level. Slams, dives and wall-run leaps land on a ledge too, and a
+slam's shockwave hits the fighters on the ledge it lands on, not those on the
+floor below. With Items
 on too, an item can land on a ledge, and fighters standing on that ledge pick
 it up. It is off by default.
 

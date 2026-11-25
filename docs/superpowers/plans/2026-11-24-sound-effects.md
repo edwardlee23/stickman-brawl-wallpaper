@@ -1,5 +1,11 @@
 # Sound Effects Implementation Plan
 
+> **Historical plan.** This is the plan the sound effects were built from; the code has moved on
+> since, and `wallpaper/main.js` is what holds. Known differences: the master gain goes through a
+> limiter (a `DynamicsCompressor`) before `destination` instead of straight to it, `charge` is a
+> triangle wave, not a sawtooth, and the volume setting's English label is "Volume (%)". The design
+> spec, `docs/superpowers/specs/2026-11-24-sound-effects-design.md`, matches the code.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add synthesized, comic-style sound effects with an on/off setting (off by default) and a volume setting.
