@@ -1115,9 +1115,11 @@ class Fighter {
     if (md.ph === 'cast') {
       lerpPose(this.pose, FLING, Math.min(1, dt * 20), this.pose);
       if (this.st >= 0.16 && this.W) {
-        // A fan of three stars, spread a little above and below the aim
+        // A fan of three stars, spread a little above and below the aim. They share one
+        // fan token, so a shield takes the whole fan as one hit.
         md.ph = 'throw'; md.t0 = this.st;
-        for (const off of [-0.16, 0, 0.16]) this.castShot(this.W.hF, 'star', this.move.speed, 0.02, off);
+        const fan = {};
+        for (const off of [-0.16, 0, 0.16]) this.castShot(this.W.hF, 'star', this.move.speed, 0.02, off).fan = fan;
         sfx('toss', this.x);
         this.warn(9999, false);
       }
@@ -1294,14 +1296,16 @@ class Fighter {
 
   // ---- Spells ----
   // Throws a projectile of the given kind from point H, aimed at the target's body,
-  // turned by offset radians plus a random spread.
+  // turned by offset radians plus a random spread. Returns the shot.
   castShot(H, kind, speed, spread, offset = 0) {
     const t = this.target;
     let a = 0;
     if (t && t.W) { const c = mid(t.W.sh, t.W.hip); a = Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1); }
     a = clamp(a + offset + rand(-spread, spread), -1, 1.1);
-    shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * speed, vy: Math.sin(a) * speed, z: this.z,
-      owner: this, m: this.move, life: 3, col: ELEMENT[kind], kind, dmg: this.move.dmg });
+    const s = { x: H.x, y: H.y, vx: this.facing * Math.cos(a) * speed, vy: Math.sin(a) * speed, z: this.z,
+      owner: this, m: this.move, life: 3, col: ELEMENT[kind], kind, dmg: this.move.dmg };
+    shots.push(s);
+    return s;
   }
 
   u_fireball(dt) {
@@ -1452,9 +1456,15 @@ class Fighter {
       this.substitute(src);
       return 'sub';
     }
+    // A star of a fan whose first star broke this shield is stopped too: the fan is one hit
+    const fanBroke = o.fan && this.state === 'attack' && this.move && this.move.type === 'shield' && this.md.fan === o.fan;
+    if (!o.unblockable && fanBroke && this.facing === -dir) {
+      spawnSparks(H.x, H.y, colorOf(this), 6); sfx('shield', H.x, 0.4);
+      return;
+    }
     if (!o.unblockable && this.shieldUp() && this.facing === -dir) {
       // The shield takes the hit in full and breaks
-      this.md.ph = 'rec'; this.md.t0 = this.st;
+      this.md.ph = 'rec'; this.md.t0 = this.st; this.md.fan = o.fan;
       addFx({ type: 'ring', x: H.x, y: H.y, r0: 6, r1: 40, dur: 0.25, w: 2.5, col: colorOf(this) });
       spawnSparks(H.x, H.y, colorOf(this), 12); stats.shielded++; sfx('shield', H.x);
       this.vx = dir * 60;
@@ -1632,6 +1642,7 @@ function updateShots(dt) {
           if (s.kind === 'fire') o = { dmg, launch: { vx: dir * 420, va: 300 }, big: true };
           else if (s.kind === 'ice') o = { dmg, freeze: 1.1 };
           else o = e.alt > 0 || Math.random() < 0.25 ? { dmg, launch: { vx: dir * 280, va: 200 } } : { dmg, hold: true };
+          if (s.fan) o.fan = s.fan;
           e.takeHit({ facing: dir, owner: s.owner }, s.m, zone, { x: s.x, y: s.y }, o);
           if (s.kind === 'fire') addFx({ type: 'flame', x: s.x, y: s.y + 10, dur: 0.5 });
           boom = true;
