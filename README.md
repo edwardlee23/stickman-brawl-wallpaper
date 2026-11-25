@@ -44,6 +44,12 @@ left corner: `RED 5 : 3 BLUE` in teams mode, or the top three fighters as
 `#3 ×4  #1 ×2` in free-for-all. Draws are not counted, and the tally starts
 over when the number of fighters or the mode changes.
 
+"Fighter names" takes comma-separated names, given to fighters in order
+(`Ann, Bo, Cy`): a named fighter shows its name above its health bar and in
+the win text (`ANN WINS!`). Names are cut to 12 characters, and an empty entry
+keeps `#n`. "Head gear" gives each fighter a headband, ninja mask, cap or
+topknot, the same one every round. Both are off by default.
+
 "Sound effects" plays short comic sounds for hits, blocks, specials,
 knockouts and the end of a round, with its own volume. It is off by default.
 The sounds are made in code when they play, so the wallpaper loads no audio

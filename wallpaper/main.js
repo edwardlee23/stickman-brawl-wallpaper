@@ -18,6 +18,8 @@ const cfg = {
   reduceMotion: true,   // skip full-screen flashes and speed lines, no screen shake
   sound: false,         // sound effects, off unless turned on
   volume: 0.5,          // 0 to 1
+  names: [],            // fighter names from the settings panel; '' keeps #n
+  headgear: false,      // headband, ninja mask, cap or topknot per fighter
   styles: { boxing: true, muaythai: true, taekwondo: true, judo: true, wrestling: true, super: true, magic: true, ninjutsu: true },
 };
 // ---------- Helpers ----------
@@ -1660,7 +1662,7 @@ function checkRound(dt) {
   if (sides.size <= 1) {
     roundOver = true; roundTimer = 4.5; stats.rounds++; sfx('win', worldW / 2);
     const w = alive[0];
-    winnerText = !w ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[w.team] + ' WINS!' : '#' + (w.id + 1) + ' WINS!';
+    winnerText = !w ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[w.team] + ' WINS!' : labelOf(w) + ' WINS!';
     winnerColor = w ? colorOf(w) : cfg.line;
     scoreWin(w);
     // Nothing may hurt the winners now: shots still in flight, some from fighters already
@@ -1771,6 +1773,56 @@ function colorOf(f) {
   if (cfg.colorful) return `hsl(${f.hue},80%,66%)`;
   return cfg.line;
 }
+// ---------- Name tags and head gear ----------
+// Names come from the owner as one comma-separated text: trimmed, cut to 12 characters,
+// given to fighters in order; an empty entry leaves that fighter as #n.
+const parseNames = s => String(s ?? '').split(',').map(t => t.trim().slice(0, 12));
+const nameOf = f => cfg.names[f.id] || '';
+const labelOf = f => nameOf(f).toUpperCase() || '#' + (f.id + 1);
+function drawNameTags(list) {
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.font = '700 9px sans-serif';
+  for (const f of list) {
+    const name = nameOf(f);
+    if (!name || !f.alive || !f.W || f.invis) continue;
+    const hx = f.W.head.x, hy = Math.min(f.W.head.y, f.W.hip.y - 30);
+    ctx.globalAlpha = 0.85 * f.alpha; ctx.fillStyle = colorOf(f);
+    ctx.fillText(name, hx, hy - 20);
+  }
+  ctx.globalAlpha = 1;
+}
+// Chosen by index, so a fighter keeps the same gear every round
+const GEAR = ['headband', 'mask', 'cap', 'topknot'];
+const gearOf = f => GEAR[f.id % GEAR.length];
+Object.assign(window.__stickmanBrawl, { nameOf, gearOf, newRound, render });
+Object.defineProperty(window.__stickmanBrawl, 'winnerText', { get: () => winnerText });
+function drawHeadgear(f, J, col, alpha) {
+  const h = J.head, r = L.head;
+  // u points from the neck up through the head; v points the way the face looks
+  const dx = h.x - J.sh.x, dy = h.y - J.sh.y, d = Math.hypot(dx, dy) || 1;
+  const ux = dx / d, uy = dy / d, vx = -uy * f.facing, vy = ux * f.facing;
+  const at = (a, b) => ({ x: h.x + (vx * a + ux * b) * r, y: h.y + (vy * a + uy * b) * r });
+  const wave = Math.sin(f.time * 9) * 0.25;
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.globalAlpha = alpha;
+  switch (gearOf(f)) {
+    case 'headband':   // a band across the forehead, two tails flying from a knot at the back
+      path(at(-1, 0.4), at(1, 0.4));
+      path(at(-1, 0.4), at(-1.9, 0.5 + wave), at(-2.6, 0.2 + wave));
+      path(at(-1, 0.4), at(-1.8, 0 - wave), at(-2.4, -0.3 - wave));
+      break;
+    case 'mask':       // an eye slit over the face and a short knot at the back
+      path(at(0, 0.4), at(1, 0.4)); path(at(0, -0.1), at(1, -0.1));
+      path(at(-1, 0.2), at(-1.7, 0.1 + wave));
+      break;
+    case 'cap':        // a band with a brim to the front and a button on top
+      path(at(-1, 0.3), at(1.9, 0.3)); path(at(0, 1), at(0, 1.3));
+      break;
+    default:           // topknot: a small bun on a short stalk at the top of the head
+      path(at(-0.2, 1), at(-0.3, 1.3));
+      ctx.beginPath(); const k = at(-0.35, 1.65); ctx.arc(k.x, k.y, r * 0.35, 0, Math.PI * 2); ctx.stroke();
+  }
+}
 function path(...pts) {
   ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
@@ -1819,6 +1871,7 @@ function drawFighter(f) {
   const base = (f.alive ? 1 : 0.5) * f.alpha;
   const frozen = f.state === 'frozen';
   drawSkeleton(J, f.flash > 0 ? '#ffffff' : frozen ? ELEMENT.ice : col, base, 3.2, true);
+  if (cfg.headgear) drawHeadgear(f, J, col, base);
   if (frozen) {
     // A block of ice around the body
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -2040,6 +2093,7 @@ function render() {
       ctx.globalAlpha = 0.9; ctx.fillStyle = colorOf(f); ctx.fillRect(hx - 13, hy - 17, 26 * clamp(f.hp / 100, 0, 1), 2.5);
     }
   }
+  drawNameTags(list);
   for (const o of fx) drawFx(o, 2);
   for (const o of fx) drawFx(o, 3);
   if (cfg.showScore) drawScore();
@@ -2108,6 +2162,8 @@ window.wallpaperPropertyListener = {
     if (p.linecolor) cfg.line = weColor(p.linecolor.value);
     if (p.reducemotion) cfg.reduceMotion = p.reducemotion.value;
     if (p.soundeffects) { cfg.sound = p.soundeffects.value; soundSetPaused(paused); }
+    if (p.fighternames) cfg.names = parseNames(p.fighternames.value);
+    if (p.headgear) cfg.headgear = p.headgear.value;
     if (p.soundvolume) { cfg.volume = p.soundvolume.value / 100; soundSetVolume(); }
     let styles = false;
     for (const s of Object.keys(cfg.styles)) if (p['style' + s]) { cfg.styles[s] = p['style' + s].value; styles = true; }

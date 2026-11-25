@@ -68,7 +68,9 @@
 			"soundeffects" : { "order" : 24, "text" : "ui_soundeffects", "type" : "bool", "value" : false },
 			"soundvolume" : { "order" : 25, "text" : "ui_soundvolume", "type" : "slider", "min" : 0, "max" : 100, "value" : 50, "condition" : "soundeffects.value" },
 			"backgroundcolor" : { "order" : 30, "text" : "ui_backgroundcolor", "type" : "color", "value" : "0.067 0.075 0.094" },
-			"linecolor" : { "order" : 31, "text" : "ui_linecolor", "type" : "color", "value" : "0.925 0.925 0.925" }
+			"linecolor" : { "order" : 31, "text" : "ui_linecolor", "type" : "color", "value" : "0.925 0.925 0.925" },
+			"fighternames" : { "order" : 33, "text" : "ui_fighternames", "type" : "textinput", "value" : "" },
+			"headgear" : { "order" : 34, "text" : "ui_headgear", "type" : "bool", "value" : false }
 		},
 		"localization" :
 		{
@@ -95,7 +97,9 @@
 				"ui_soundeffects" : "Sound effects",
 				"ui_soundvolume" : "Volume (%)",
 				"ui_backgroundcolor" : "Background color",
-				"ui_linecolor" : "Line color"
+				"ui_linecolor" : "Line color",
+				"ui_fighternames" : "Fighter names (comma-separated)",
+				"ui_headgear" : "Head gear (headbands, masks, caps, topknots)"
 			},
 			"zh-cht" :
 			{
@@ -120,7 +124,9 @@
 				"ui_soundeffects" : "音效",
 				"ui_soundvolume" : "音效音量 (%)",
 				"ui_backgroundcolor" : "背景顏色",
-				"ui_linecolor" : "線條顏色"
+				"ui_linecolor" : "線條顏色",
+				"ui_fighternames" : "角色名稱（以逗號分隔）",
+				"ui_headgear" : "頭飾（頭帶、蒙面、帽子、髮髻）"
 			},
 			"zh-chs" :
 			{
@@ -145,7 +151,9 @@
 				"ui_soundeffects" : "音效",
 				"ui_soundvolume" : "音效音量 (%)",
 				"ui_backgroundcolor" : "背景颜色",
-				"ui_linecolor" : "线条颜色"
+				"ui_linecolor" : "线条颜色",
+				"ui_fighternames" : "角色名称（以逗号分隔）",
+				"ui_headgear" : "头饰（头带、蒙面、帽子、发髻）"
 			}
 		}
 	}
