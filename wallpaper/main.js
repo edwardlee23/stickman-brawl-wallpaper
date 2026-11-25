@@ -393,13 +393,20 @@ function slowmoRate(real) {
   if (slowmoT >= SLOWMO_HOLD + SLOWMO_EASE) slowmoT = -1;
   return 1 - 0.75 * k;
 }
+// This frame's slow-motion zoom: the scale z and the screen point (cx, cy) it zooms about,
+// which stays where it is on screen; null when there is none
+function slowmoZoom() {
+  if (slowmoT < 0 || cfg.reduceMotion) return null;
+  const z = 1 + SLOWMO_ZOOM * ease(clamp(slowmoT / SLOWMO_ZOOM_IN, 0, 1)) * slowmoLevel();
+  const f = slowmoOn, p = !f ? { x: worldW / 2, y: worldH / 2 } : f.rag ? f.rag.pts.hip : { x: f.x, y: groundY(f.z) };
+  return { z, cx: clamp(p.x * S, 0, SW), cy: clamp(p.y * S, 0, SH) };
+}
 // Replaces the world transform with one zoomed in about the knocked-out fighter, which stays
 // where it is on screen; (ox, oy) is the screen shake
 function slowmoView(ox, oy) {
-  if (slowmoT < 0 || cfg.reduceMotion) return;
-  const z = 1 + SLOWMO_ZOOM * ease(clamp(slowmoT / SLOWMO_ZOOM_IN, 0, 1)) * slowmoLevel();
-  const f = slowmoOn, p = !f ? { x: worldW / 2, y: worldH / 2 } : f.rag ? f.rag.pts.hip : { x: f.x, y: groundY(f.z) };
-  const cx = clamp(p.x * S, 0, SW), cy = clamp(p.y * S, 0, SH);
+  const zm = slowmoZoom();
+  if (!zm) return;
+  const { z, cx, cy } = zm;
   view = { z, x: ox * z + cx * (1 - z), y: oy * z + cy * (1 - z) };
   ctx.setTransform(dpr * S * z, 0, 0, dpr * S * z, view.x * dpr, view.y * dpr);
 }
@@ -2781,6 +2788,11 @@ function drawBackground() {
   const minute = cfg.bgTheme === 'daynight' ? date.getHours() * 60 + date.getMinutes() : 0;
   const key = [cfg.bgTheme, SW, SH, dpr, S, cfg.bg, minute].join();
   if (!bg.canvas && typeof document.createElement === 'function') bg.canvas = document.createElement('canvas');
+  // The slow-motion finish zooms the backdrop with the world, about the same point, so its
+  // painted floor line stays on the world floor (issue #219). Zoomed in about a point on the
+  // screen, the backdrop drawn larger still covers the whole screen.
+  const zm = slowmoZoom();
+  if (zm) ctx.setTransform(dpr * zm.z, 0, 0, dpr * zm.z, zm.cx * (1 - zm.z) * dpr, zm.cy * (1 - zm.z) * dpr);
   if (!bg.canvas) { bgPaint(ctx, cfg.bgTheme, date); return; }   // No offscreen canvas: paint every frame
   if (key !== bg.key) {
     bg.key = key; bg.builds++;
