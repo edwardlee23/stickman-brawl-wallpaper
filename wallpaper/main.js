@@ -255,6 +255,7 @@ function hitStop(t) {
 let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
 const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove, pickTarget,
+  render: () => render(),
   get fighters() { return fighters; } };
 
 // ---------- Score board ----------
