@@ -61,3 +61,27 @@ test('sound is off by default, and the query string turns it on with a clamped v
   assert.equal(load('?volume=-3').cfg.volume, 0);
   assert.equal(load('?volume=abc').cfg.volume, 0.5);
 });
+
+test('sound and reducemotion take yes and no words, and keep the default for anything else (issue #63)', () => {
+  for (const [query, sound] of [
+    ['?sound=1', true], ['?sound=true', true], ['?sound=ON', true], ['?sound=yes', true],
+    ['?sound=0', false], ['?sound=False', false], ['?sound=off', false], ['?sound=no', false],
+    ['?sound=', false], ['?sound', false], ['?sound=maybe', false],
+  ]) assert.equal(load(query).cfg.sound, sound, query);
+  for (const [query, reduceMotion] of [
+    ['', true], ['?reducemotion=1', true], ['?reducemotion=yes', true],
+    ['?reducemotion=0', false], ['?reducemotion=off', false], ['?reducemotion=no', false], ['?reducemotion=NO', false],
+    ['?reducemotion=', true], ['?reducemotion=maybe', true],
+  ]) assert.equal(load(query).cfg.reduceMotion, reduceMotion, query);
+});
+
+test('numbers with trailing text, or empty, keep the defaults (issue #63)', () => {
+  const game = load('?count=8abc&speed=2x&volume=50%');
+  assert.equal(game.cfg.count, 6);
+  assert.equal(game.cfg.speed, 1);
+  assert.equal(game.cfg.volume, 0.5);
+  const empty = load('?count=&speed=&volume=');
+  assert.equal(empty.cfg.count, 6);
+  assert.equal(empty.cfg.speed, 1);
+  assert.equal(empty.cfg.volume, 0.5);
+});

@@ -48,7 +48,9 @@ Opened in a plain browser, `wallpaper/index.html` also reads `count`, `mode`,
 `speed`, `reducemotion`, `sound` and `volume` from the query string, for
 example `index.html?count=8&mode=teams` or `index.html?sound=1&volume=50`.
 `count` (2 to 16), `speed` (0.25 to 3, where 1 is 100%) and `volume` (0 to
-100) are clamped to the panel's ranges, `mode` is `ffa` or `teams`, and any
+100) are clamped to the panel's ranges and must be plain numbers, `mode` is
+`ffa` or `teams`, `reducemotion` and `sound` are turned on by `1`, `true`,
+`on` or `yes` and off by `0`, `false`, `off` or `no` (in any case), and any
 other value keeps the default. A browser plays sound only after the page has
 been clicked once.
 
