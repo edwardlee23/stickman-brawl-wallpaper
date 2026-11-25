@@ -968,7 +968,8 @@ class Fighter {
       // The target is lower, right under this platform: walk off its nearer edge
       goal = t.x - mine.x0 < mine.x1 - t.x ? mine.x0 - 25 : mine.x1 + 25;
     }
-    if (Math.abs(goal - this.x) > 2) this.vx = approach(this.vx, sgn(goal - this.x) * 130, 600 * dt);
+    // Faster than the footwork above slows it, so the footwork cannot hold it in place
+    if (Math.abs(goal - this.x) > 2) this.vx = approach(this.vx, sgn(goal - this.x) * 130, 1200 * dt);
     return false;
   }
   // In the air: above the floor or, with platforms, above the top it would stand on

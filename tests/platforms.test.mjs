@@ -108,7 +108,8 @@ test('a ragdoll dropped on a platform rests on it', () => {
 });
 
 test('a fighter on a platform gets down to a target on the floor', () => {
-  const { game, a, e } = load();
+  const { game, a, e, context } = load();
+  seed(context, 3);   // Random jumps and air dashes can take it back up; a fixed seed keeps the time it takes repeatable
   const p = game.platforms[0];
   // Unseen, so no blow knocks it away from where it stands
   Object.assign(e, { x: (p.x0 + p.x1) / 2, z: 60, alt: 0, invis: true });
@@ -121,7 +122,8 @@ test('a fighter on a platform gets down to a target on the floor', () => {
 });
 
 test('a fighter on the floor jumps up to a target on a platform', () => {
-  const { game, a, e } = load();
+  const { game, a, e, context } = load();
+  seed(context, 3);
   const p = game.platforms[0];
   dropAbove(game, e, (p.x0 + p.x1) / 2, p, 0);
   e.invis = true;   // Unseen, so no blow knocks it off its platform
