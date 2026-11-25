@@ -20,8 +20,11 @@ function load(random) {
     document: { getElementById: () => canvas, body: { style: {} } },
     requestAnimationFrame() {},
   });
-  // A fixed Math.random of 0.99 turns off the random jumps and dashes
+  // A fixed Math.random of 0.99 turns off the random jumps and dashes. Without one, a seeded
+  // generator (an LCG) stands in, so a fighter's random jumps and dashes are the same on every
+  // run and cannot carry it out of reach at random (issue #161).
   if (random) vm.runInContext('Math.random = () => ' + random + ';', context);
+  else vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
   vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, window, listeners };
 }
