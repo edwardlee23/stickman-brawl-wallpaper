@@ -4,15 +4,17 @@ name: Dependabot auto-merge
 # passes; majors wait for a person.
 on: pull_request
 
-permissions:
-  contents: write
-  pull-requests: write
+# No token scopes for the workflow as a whole; the job below asks for what it needs.
+permissions: {}
 
 jobs:
   auto-merge:
     # Who opened the PR, not github.actor (who triggered this run).
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     timeout-minutes: 5
     steps:
       - id: metadata
