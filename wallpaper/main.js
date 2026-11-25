@@ -806,7 +806,7 @@ class Fighter {
         this.rot = this.fallSign * Math.PI / 2 * u * u;
         lerpPose(this.from, DOWN, ease(u), this.pose);
         if (u >= 1) {
-          quake(this.x, groundY(this.z), 50);
+          quake(this.x, groundY(this.z) - this.alt, 50);
           this.state = 'down'; this.st = 0; this.downDur = rand(0.7, 1.4);
           if (this.hp <= 0) this.koPending = true;
         }
@@ -899,7 +899,7 @@ class Fighter {
 
   onLand() {
     this.dashed = false; this.dj = false;
-    spawnSparks(this.x, groundY(this.z), 'rgba(200,200,200,0.6)', 5, true);
+    spawnSparks(this.x, groundY(this.z) - this.alt, 'rgba(200,200,200,0.6)', 5, true);
     if (this.state === 'air') { this.state = 'idle'; this.st = 0; this.trailOn = false; }
     else if (this.state === 'attack' && this.move.type === 'wallrun') this.endMove();
   }
@@ -1437,7 +1437,7 @@ class Fighter {
       if (!md.clones) {
         // Two faded copies step out to either side
         md.clones = [{ x: this.x, off: -40, alt: 0, fac: 1, a: 0 }, { x: this.x, off: 40, alt: 0, fac: 1, a: 0 }];
-        for (const c of md.clones) puff(this.x + c.off, groundY(this.z) - 40, 0.8);
+        for (const c of md.clones) puff(this.x + c.off, groundY(this.z) - this.alt - 40, 0.8);
         sfx('poof', this.x);
       }
       lerpPose(this.pose, SEAL, Math.min(1, dt * 20), this.pose);
@@ -1484,7 +1484,7 @@ class Fighter {
       }
       if (this.st - md.t0 > 0.2) {
         md.ph = 'vanish'; md.t0 = this.st;
-        for (const c of md.clones) puff(c.x, groundY(this.z) - c.alt - 40, 0.8);
+        for (const c of md.clones) puff(c.x, groundY(this.z) - this.alt - c.alt - 40, 0.8);
         sfx('poof', this.x, 0.7);
       }
     } else {
