@@ -195,7 +195,12 @@ const groundY = z => floorTop + z;
 // keeps it on screen, which matters at large figure sizes, where the screen is short
 const FIG_TOP = 110;
 const maxAlt = z => groundY(z) - FIG_TOP;
+let laidOut = false;         // Whether the world has had a real (non-zero) size yet
 function resize() {
+  // A window that is 0 in either dimension (a page opened hidden, a 0-size frame) has no
+  // world to lay out: dividing by it would put every fighter at NaN or Infinity. Keep the
+  // last layout and wait for a real size.
+  if (!(window.innerWidth > 0 && window.innerHeight > 0)) return;
   dpr = window.devicePixelRatio || 1;
   SW = window.innerWidth; SH = window.innerHeight;
   canvas.width = Math.round(SW * dpr); canvas.height = Math.round(SH * dpr);
@@ -203,6 +208,8 @@ function resize() {
   S = cfg.scale * SH / 540;
   worldW = SW / S; worldH = SH / S;
   floorTop = worldH * 0.74 - DEPTH / 2;
+  // Fighters placed before the first real size stood on a 0-wide floor; spread them over this one
+  if (!laidOut) { laidOut = true; if (fighters.length) { newRound(); return; } }
   for (const f of fighters) {
     f.x = clamp(f.x, 14, worldW - 14);
     // A body at rest no longer simulates, so slide it whole back inside a narrower screen
