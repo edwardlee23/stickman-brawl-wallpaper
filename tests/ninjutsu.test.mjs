@@ -296,3 +296,21 @@ test('a shadow-clone warning offers only reactions that can work, never a block 
   assert.equal(warned, 300);
   assert.ok(reacted > 0, 'the warning no longer offers any reaction');
 });
+
+test('shadow clones whose strike knocks the target out still vanish in smoke (#116)', () => {
+  const { game, a, e } = load();
+  Object.assign(e, { state: 'hit', st: 0, dur: 99, hp: 5 });
+  a.x = 440;
+  a.startMove(tech(game, 'clones'));
+  const phases = new Set(), puffs = new Set();
+  for (let t = 0; t < 1.5 && a.move; t += 1 / 60) {
+    a.W = a.joints(); e.W = e.joints();
+    a.update(1 / 60);
+    if (a.md) phases.add(a.md.ph);
+    for (const f of game.fx) if (f.type === 'puff') puffs.add(f);
+  }
+  assert.equal(e.alive, false, 'the strike knocked the target out');
+  assert.ok(phases.has('vanish'), 'no vanish phase: ' + [...phases].join(', '));
+  assert.equal(puffs.size, 4, 'two puffs to split and two to vanish');
+  assert.equal(a.move, null, 'move never ended');
+});
