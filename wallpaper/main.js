@@ -219,15 +219,17 @@ const maxAlt = z => groundY(z) - FIG_TOP;
 // Optional thin floating ledges (setting "Floating platforms", off by default). A platform is
 // a span x0..x1 at the screen height y; a fighter stands on it with its feet at y whatever its
 // depth, so its altitude there is groundY(z) - y. No top is higher on screen than FIG_TOP, so
-// heads stay on screen; one that would not fit at this figure size is left out.
+// heads stay on screen. At large figure sizes the two side ledges sit lower, down to 25 above the
+// back of the floor, so they always fit; the higher middle one is left out when it does not.
 let platforms = [];
 function layoutPlatforms() {
   platforms = [];
   // A body at rest simulates again, so it falls if its platform moved or went away
   for (const f of fighters) if (f.rag) f.rag.age = Math.min(f.rag.age, 3.5);
   if (!cfg.platforms) return;
-  const add = (a, b, y) => { if (y >= FIG_TOP && y <= floorTop - 40) platforms.push({ x0: worldW * a, x1: worldW * b, y }); };
-  add(0.1, 0.32, floorTop - 60); add(0.68, 0.9, floorTop - 60);
+  const add = (a, b, y) => { if (y >= FIG_TOP && y <= floorTop - 25) platforms.push({ x0: worldW * a, x1: worldW * b, y }); };
+  const low = Math.max(FIG_TOP, floorTop - 60);
+  add(0.1, 0.32, low); add(0.68, 0.9, low);
   if (worldW >= 700) add(0.4, 0.6, floorTop - 125);
 }
 // The platform whose top is at the screen height feet (within half a unit) under x, or null

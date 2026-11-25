@@ -6,11 +6,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-function load(on = true, scale) {
+function load(on = true, scale, [w, h] = [1280, 720]) {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: (t, f) => (listeners[t] ||= []).push(f) };
+  const window = { innerWidth: w, innerHeight: h, devicePixelRatio: 1, addEventListener: (t, f) => (listeners[t] ||= []).push(f) };
   window.resize = (w, h) => { window.innerWidth = w; window.innerHeight = h; for (const f of listeners.resize) f(); };
   const context = vm.createContext({
     window, console, performance, URLSearchParams,
@@ -54,15 +54,18 @@ test('platforms are off by default and none exists then', () => {
   assert.equal(a.alt, 0, 'a fighter in the air falls to the floor');
 });
 
-test('turning platforms on lays out two or three, all below the headroom', () => {
-  for (const scale of [50, 100, 150, 200]) {
-    const { game } = load(true, scale);
-    const n = game.platforms.length;
-    if (scale <= 100) assert.ok(n >= 2 && n <= 3, `${n} platforms at ${scale}%`);
-    for (const p of game.platforms) {
-      assert.ok(p.y >= 110, `platform top ${p.y} above the headroom at ${scale}%`);
-      assert.ok(p.y < game.groundY(0) - 40, `platform top ${p.y} too close to the floor at ${scale}%`);
-      assert.ok(p.x0 >= 0 && p.x1 > p.x0, 'platform span');
+test('turning platforms on lays out two or three at every figure size, all below the headroom', () => {
+  // Issue #113: at large figure sizes the ledges sit lower rather than vanish
+  for (const size of [[1280, 720], [1920, 1080], [2560, 1080], [1080, 1920]]) {
+    for (let scale = 50; scale <= 200; scale += 5) {
+      const { game } = load(true, scale, size);
+      const n = game.platforms.length, at = `at ${scale}% in ${size.join('x')}`;
+      assert.ok(n >= 2 && n <= 3, `${n} platforms ${at}`);
+      for (const p of game.platforms) {
+        assert.ok(p.y >= 110, `platform top ${p.y} above the headroom ${at}`);
+        assert.ok(p.y <= game.groundY(0) - 25, `platform top ${p.y} too close to the floor ${at}`);
+        assert.ok(p.x0 >= 0 && p.x1 > p.x0, 'platform span');
+      }
     }
   }
 });
