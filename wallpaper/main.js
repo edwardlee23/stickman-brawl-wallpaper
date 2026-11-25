@@ -729,8 +729,8 @@ function musicDrive(beatOnly) {
   return cfg.audioStrength * Math.min(1, music.beat + (beatOnly ? 0 : music.level * 1.5));
 }
 const musicDelay = () => 1 / (1 + 2 * musicDrive());          // Scales the wait after a move
-const musicTempo = () => 1 + 2 * musicDrive(true);            // How fast that wait runs out
-const musicSpecial = () => 1 + 2 * musicDrive(true);          // Extra weight for specials
+const musicTempo = () => 1 + 2 * musicDrive();                // How fast that wait runs out
+const musicSpecial = () => 1 + 2 * musicDrive();              // Extra weight for specials
 function musicGlow() { return cfg.reduceMotion ? 0 : musicDrive(true); }
 window.__stickmanBrawl.music = music;
 if (typeof window.wallpaperRegisterAudioListener === 'function') window.wallpaperRegisterAudioListener(musicListener);
