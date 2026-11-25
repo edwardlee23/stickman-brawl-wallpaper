@@ -245,3 +245,30 @@ for (const scale of [50, 100, 200]) {
     watch(g, 'thrown', 'throw');
   });
 }
+
+test('a knocked-out body thrown at the right wall bounces off it and stays on screen', () => {
+  const { game, e } = load();
+  const worldW = 1280 / (720 / 540);
+  e.x = 940;
+  e.W = e.joints();
+  e.ko(900, -100);
+  // The guard pose reaches past the wall before the first step; every step after keeps it inside
+  let lo = Infinity, hi = -Infinity, steps = 0;
+  stepUntil(game, e, () => {
+    if (steps++ === 0) return false;
+    for (const o of Object.values(e.rag.pts)) { lo = Math.min(lo, o.x); hi = Math.max(hi, o.x); }
+    return false;
+  }, 2);
+  assert.ok(hi <= worldW - 4 + 1e-9, `body reaches x ${hi.toFixed(1)} of ${worldW}`);
+  assert.ok(lo >= 4 - 1e-9, `body reaches x ${lo.toFixed(1)}`);
+});
+
+test('a fighter launched four times in one combo cannot be hit again while launched (issue #47)', () => {
+  const { e } = load();
+  Object.assign(e, { x: 600, z: 50, hp: 1000, cool: 99 });
+  for (let i = 0; i < 3; i++) e.launch(100, 500);
+  assert.equal(e.hittable, true, 'cap reached after three launches');
+  e.launch(100, 500);
+  assert.equal(e.state, 'launched');
+  assert.equal(e.hittable, false, `still hittable at juggle ${e.juggle}`);
+});

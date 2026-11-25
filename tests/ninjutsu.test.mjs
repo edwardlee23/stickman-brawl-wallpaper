@@ -90,6 +90,7 @@ test('a fighter about to be hit may vanish in smoke and reappear away, only whil
       e.update(0.4);
       assert.equal(e.invis, false, 'never reappeared');
       assert.ok(Math.abs(e.x - 500) >= 60, `moved only to ${e.x}`);
+      assert.equal(Math.sign(e.x - 500), Math.sign(500 - a.x), `reappeared at ${e.x}, toward the attacker at ${a.x}`);
     }
   }
   assert.ok(vanished > 0, 'never vanished');
