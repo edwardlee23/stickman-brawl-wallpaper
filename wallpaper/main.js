@@ -833,8 +833,8 @@ class Fighter {
         this.rot = 1.5 * Math.PI * e;
         lerpPose(this.from, DOWN, Math.min(1, u * 1.5), this.pose);
         if (u >= 1) {
-          quake(th.hx, groundY(this.z), 90);
-          impact(th.hx, groundY(this.z) - 6, true);
+          quake(th.hx, groundY(this.z) - this.alt, 90);
+          impact(th.hx, groundY(this.z) - this.alt - 6, true);
           this.rot = -Math.PI / 2; this.fallSign = -1;
           this.x = clamp(th.hx1 + this.facing * this.hipH, 14, worldW - 14);
           this.th = null; this.state = 'down'; this.st = 0; this.downDur = rand(0.9, 1.5);
@@ -1724,12 +1724,32 @@ class Fighter {
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1; stats.throws++;
     spawnSparks(e.W.sh.x, e.W.sh.y, '#ffe28a', 6);
     if (m.grab === 'over') {
-      e.facing = -af; e.state = 'thrown'; e.st = 0; e.from = clonePose(e.pose); e.alt = 0;
-      e.th = { hx0: e.W.hip.x, hy0: e.W.hip.y, hx1: clamp(this.x - af * 68, 40, worldW - 40),
-        hy1: groundY(e.z) - 5, hx: e.W.hip.x, hy: e.W.hip.y, dur: 0.75 };
-      // The arc over the thrower's head, lower on a short screen: the health bar can be
-      // about 70 above the spinning hip, and stays on screen
-      e.th.arc = clamp(Math.min(e.th.hy0, e.th.hy1) - 72, 0, 150);
+      // The hip lands on the highest surface under it at or below the thrower's feet: its
+      // platform, say, with the body pulled back to lie on it, or the floor (issue #165). A
+      // landing just past a platform's end is moved out until the arc clears its corner.
+      const feet = groundY(this.z) - this.alt, hx0 = e.W.hip.x, hy0 = e.W.hip.y;
+      let hx1 = clamp(this.x - af * 68, 40, worldW - 40), land, hy1, arc;
+      for (let n = 0; n < 80; n++) {
+        let q = null; land = 0;
+        for (const p of platforms) {
+          if (hx1 >= p.x0 && hx1 <= p.x1 && p.y >= feet - 0.5 && groundY(e.z) - p.y > land) { land = groundY(e.z) - p.y; q = p; }
+        }
+        if (q) hx1 = clamp(clamp(hx1 - af * e.hipH, 14, worldW - 14), q.x0, q.x1) + af * e.hipH;
+        hy1 = groundY(e.z) - land - 5;
+        // The arc over the thrower's head, lower on a short screen: the health bar can be
+        // about 70 above the spinning hip, and stays on screen
+        arc = clamp(Math.min(hy0, hy1) - 72, 0, 150);
+        let hits = false;
+        for (let k = 1; k <= 40 && !hits; k++) {
+          const u = k / 40, x = hx0 + (hx1 - hx0) * ease(u), y = hy0 + (hy1 - hy0) * ease(u) - Math.sin(Math.PI * u) * arc;
+          for (const p of platforms) if (p.y >= feet - 0.5 && x >= p.x0 && x <= p.x1 && y > p.y && y < p.y + 40) hits = true;
+        }
+        const nx = clamp(hx1 - af * 2, 40, worldW - 40);
+        if (!hits || nx === hx1) break;
+        hx1 = nx;
+      }
+      e.facing = -af; e.state = 'thrown'; e.st = 0; e.from = clonePose(e.pose); e.alt = land;
+      e.th = { hx0, hy0, hx1, hy1, hx: hx0, hy: hy0, dur: 0.75, arc };
     } else {
       e.knockDown(af, m.grab === 'takedown' ? 0.25 : 0.3);
     }
