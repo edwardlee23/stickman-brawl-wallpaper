@@ -41,19 +41,21 @@ const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 // Query string, for a plain browser: numbers are clamped to the settings panel's ranges,
 // switches take 1/true/on/yes or 0/false/off/no, and any other value keeps the default.
+// Numbers must be plain decimals: Number() alone would also read 0x10, 0b10 and 1e1.
 const q = new URLSearchParams(location.search);
 const qNum = (k, lo, hi, d) => {
   const s = (q.get(k) ?? '').trim();
-  const v = s === '' ? NaN : Number(s);
+  const v = /^[+-]?(\d+\.?\d*|\.\d+)$/.test(s) ? Number(s) : NaN;
   return Number.isFinite(v) ? clamp(v, lo, hi) : d;
 };
 const qBool = (k, d) => {
-  const s = q.get(k) ?? '';
+  const s = (q.get(k) ?? '').trim();
   return /^(1|true|on|yes)$/i.test(s) ? true : /^(0|false|off|no)$/i.test(s) ? false : d;
 };
 cfg.count = Math.round(qNum('count', 2, 16, cfg.count));
 cfg.speed = qNum('speed', 0.25, 3, cfg.speed);
-if (q.get('mode') === 'ffa' || q.get('mode') === 'teams') cfg.mode = q.get('mode');
+const qMode = (q.get('mode') ?? '').trim().toLowerCase();
+if (qMode === 'ffa' || qMode === 'teams') cfg.mode = qMode;
 cfg.reduceMotion = qBool('reducemotion', cfg.reduceMotion);
 cfg.sound = qBool('sound', cfg.sound);
 cfg.volume = qNum('volume', 0, 100, cfg.volume * 100) / 100;
