@@ -625,7 +625,8 @@ function pickTarget(me) {
 }
 function pickMove(me, t, dist) {
   let items = [];
-  const tAir = t && t.alt > 50, meAir = me.alt > 0;
+  // Height is measured from the surface the fighter stands on, so a ledge is not the air
+  const tAir = t && t.alt - me.surfaceAlt() > 50, meAir = me.aloft();
   for (const m of MOVES) {
     if (!cfg.styles[m.style] || meAir) continue;
     items.push([m, m.w * (tAir ? 0.15 : 1)]);
@@ -720,7 +721,7 @@ class Fighter {
     let px = 0, py = 0, ax = this.x, ay = groundY(this.z) - this.alt;
     if (this.state === 'thrown') { px = J.hip.x; py = J.hip.y; ax = this.th.hx; ay = this.th.hy; }
     else if (this.state === 'launched' || this.state === 'splat') { px = J.hip.x; py = J.hip.y; ay -= 14; }
-    else if (this.alt <= 0) ay -= Math.abs(Math.sin(this.rot)) * 5;
+    else if (!this.aloft()) ay -= Math.abs(Math.sin(this.rot)) * 5;
     const c = Math.cos(this.rot), s = Math.sin(this.rot), W = {};
     for (const k in J) {
       const lx = J[k].x - px, ly = J[k].y - py;
@@ -895,8 +896,8 @@ class Fighter {
       }
       if (platforms.length && this.chaseSurface(t, dt)) return;
       // Jump at random; jump more often when the opponent is airborne
-      if (Math.random() < dt * (t.alt > 60 ? 1.2 : 0.22)) {
-        this.va = rand(480, 640); this.alt = 1; this.vx = this.facing * rand(100, 260);
+      if (Math.random() < dt * (t.alt - this.alt > 60 ? 1.2 : 0.22)) {
+        this.va = rand(480, 640); this.alt += 1; this.vx = this.facing * rand(100, 260);
         this.state = 'air'; this.st = 0; this.cool = rand(0.1, 0.35);
         return;
       }
@@ -967,12 +968,17 @@ class Fighter {
       // The target is lower, right under this platform: walk off its nearer edge
       goal = t.x - mine.x0 < mine.x1 - t.x ? mine.x0 - 25 : mine.x1 + 25;
     }
-    if (Math.abs(goal - this.x) > 2) this.vx = approach(this.vx, sgn(goal - this.x) * 130, 600 * dt);
+    // Faster than the footwork above slows it, so the footwork cannot hold it in place
+    if (Math.abs(goal - this.x) > 2) this.vx = approach(this.vx, sgn(goal - this.x) * 130, 1200 * dt);
     return false;
   }
   // In the air: above the floor or, with platforms, above the top it would stand on
   aloft() {
-    return platforms.length ? this.alt > platformAlt(this.x, this.z, groundY(this.z) - this.alt) + 0.5 : this.alt > 0;
+    return platforms.length ? this.alt > this.surfaceAlt() + 0.5 : this.alt > 0;
+  }
+  // The altitude of the surface it stands on or would land on: the floor or a platform top
+  surfaceAlt() {
+    return platforms.length ? platformAlt(this.x, this.z, groundY(this.z) - this.alt) : 0;
   }
 
   startMove(m, surprise) {
@@ -1743,7 +1749,7 @@ class Fighter {
     this.state = 'hit'; this.st = 0;
     if (o.hold) {
       this.dur = 0.22; this.vx = dir * 20;
-      if (this.alt > 0) this.va = Math.max(this.va, 90);
+      if (this.aloft()) this.va = Math.max(this.va, 90);
       return;
     }
     this.dur = 0.16 + dmg * 0.025;

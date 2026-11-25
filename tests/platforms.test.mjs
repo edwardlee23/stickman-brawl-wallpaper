@@ -26,7 +26,7 @@ function load(on = true, scale) {
   for (const [i, f] of game.fighters.entries()) {
     Object.assign(f, { x: 900 - i * 5, z: 60, alt: 0, va: 0, vx: 0, state: 'hit', st: 0, dur: 999, hp: 1000, cool: 999 });
   }
-  return { game, a: game.fighters[0], e: game.fighters[1], window };
+  return { game, a: game.fighters[0], e: game.fighters[1], window, context };
 }
 
 // Puts f dy above the top of p (a positive dy is higher), in a flinch that runs no AI, so it only falls
@@ -36,6 +36,11 @@ function dropAbove(game, f, x, p, dy) {
   f.alt = game.groundY(z) - p.y + dy;
 }
 const feetY = (game, f) => game.groundY(f.z) - f.alt;
+// Makes Math.random inside the sandbox a seeded generator, so a test that counts random picks is repeatable
+function seed(context, s = 1) {
+  context.__seed = s >>> 0;
+  vm.runInContext('Math.random = () => (__seed = (Math.imul(__seed, 1664525) + 1013904223) >>> 0) / 4294967296', context);
+}
 const run = (game, s) => { for (let t = 0; t < s; t += 1 / 60) game.update(1 / 60); };
 
 test('platforms are off by default and none exists then', () => {
@@ -103,7 +108,8 @@ test('a ragdoll dropped on a platform rests on it', () => {
 });
 
 test('a fighter on a platform gets down to a target on the floor', () => {
-  const { game, a, e } = load();
+  const { game, a, e, context } = load();
+  seed(context, 3);   // Random jumps and air dashes can take it back up; a fixed seed keeps the time it takes repeatable
   const p = game.platforms[0];
   // Unseen, so no blow knocks it away from where it stands
   Object.assign(e, { x: (p.x0 + p.x1) / 2, z: 60, alt: 0, invis: true });
@@ -116,7 +122,8 @@ test('a fighter on a platform gets down to a target on the floor', () => {
 });
 
 test('a fighter on the floor jumps up to a target on a platform', () => {
-  const { game, a, e } = load();
+  const { game, a, e, context } = load();
+  seed(context, 3);
   const p = game.platforms[0];
   dropAbove(game, e, (p.x0 + p.x1) / 2, p, 0);
   e.invis = true;   // Unseen, so no blow knocks it off its platform
@@ -129,4 +136,82 @@ test('a fighter on the floor jumps up to a target on a platform', () => {
     up = a.state === 'idle' && Math.abs(feetY(game, a) - p.y) < 1e-6;
   }
   assert.ok(up, 'never got onto the platform');
+});
+
+// Issue #107: standing on a ledge is not being in the air
+test('a fighter standing on a platform keeps to the styles that are on', () => {
+  const { game, a, e, context } = load();
+  seed(context, 7);
+  const p = game.platforms[0];
+  for (const s in game.cfg.styles) game.cfg.styles[s] = s === 'boxing';
+  dropAbove(game, a, p.x0 + 40, p, 0);
+  dropAbove(game, e, p.x0 + 80, p, 0);
+  run(game, 0.1);
+  assert.ok(Math.abs(feetY(game, a) - p.y) < 1e-6, 'standing on the platform');
+  const got = {};
+  for (let i = 0; i < 2000; i++) { const m = game.pickMove(a, e); got[m.style] = (got[m.style] || 0) + 1; }
+  assert.deepEqual(got, { boxing: 2000 });
+});
+
+test('a fighter on a platform picks martial-arts moves about as often as on the floor', () => {
+  const rate = onLedge => {
+    const { game, a, e, context } = load();
+    seed(context, 11);
+    const p = game.platforms[0];
+    if (onLedge) { dropAbove(game, a, p.x0 + 40, p, 0); dropAbove(game, e, p.x0 + 80, p, 0); }
+    else Object.assign(a, { x: 500, z: 60, alt: 0 }), Object.assign(e, { x: 540, z: 60, alt: 0 });
+    run(game, 0.1);
+    const martial = new Set(game.MOVES);
+    let n = 0;
+    for (let i = 0; i < 2000; i++) if (martial.has(game.pickMove(a, e))) n++;
+    return n / 2000;
+  };
+  const floor = rate(false), ledge = rate(true);
+  assert.ok(floor > 0.2, `martial rate on the floor ${floor}`);
+  assert.ok(Math.abs(ledge - floor) < 0.08, `martial rate ${ledge} on a platform, ${floor} on the floor`);
+});
+
+test('an idle jump from a platform starts from its top', () => {
+  const { game, a, e, context } = load();
+  const p = game.platforms[0];
+  dropAbove(game, a, p.x0 + 40, p, 0);
+  dropAbove(game, e, p.x0 + 120, p, 0);
+  run(game, 0.1);
+  const top = a.alt;
+  Object.assign(a, { state: 'idle', cool: 999, target: e, retarget: 999, nextMove: game.MOVES[0] });
+  vm.runInContext('Math.random = () => 0.001', context);
+  game.update(1 / 60);
+  assert.equal(a.state, 'air');
+  assert.ok(a.alt > top, `jumped from alt ${a.alt}, below the platform top at ${top}`);
+  assert.ok(a.va > 0);
+});
+
+test('a held hit does not lift a target standing on a platform', () => {
+  const { game, a, e } = load();
+  const p = game.platforms[0];
+  dropAbove(game, e, p.x0 + 80, p, 0);
+  run(game, 0.1);
+  const top = e.alt;
+  Object.assign(e, { state: 'idle', cool: 999 });
+  e.takeHit(a, game.MOVES[0], 'body', { x: e.x, y: feetY(game, e) - 40 }, { hold: true });
+  assert.equal(e.va, 0, 'lifted off the platform');
+  game.update(1 / 60);
+  assert.ok(Math.abs(e.alt - top) < 1e-6, `alt ${e.alt}, platform top at ${top}`);
+});
+
+test('a fighter lying on a platform is drawn on its top, not through it', () => {
+  const lowest = onLedge => {
+    const { game, a } = load();
+    const p = game.platforms[0];
+    if (onLedge) dropAbove(game, a, (p.x0 + p.x1) / 2, p, 0);
+    else Object.assign(a, { x: 500, z: 60, alt: 0 });
+    run(game, 0.1);
+    a.knockDown(1, 0.3);
+    for (let t = 0; t < 1 && a.state !== 'down'; t += 1 / 60) game.update(1 / 60);
+    assert.equal(a.state, 'down');
+    const J = a.joints();
+    return Math.max(...Object.values(J).map(o => o.y)) - feetY(game, a);
+  };
+  const floor = lowest(false), ledge = lowest(true);
+  assert.ok(Math.abs(ledge - floor) < 1e-6, `lowest joint ${ledge} below a platform top, ${floor} below the floor`);
 });
