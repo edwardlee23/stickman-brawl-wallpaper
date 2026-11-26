@@ -19,7 +19,7 @@ test('the demo recorder refuses a main.js it cannot patch', () => {
 // and the docs say to run --scan first and pick a seed that shows every style today.
 test('a recording needs a seed; a scan does not', () => {
   assert.throws(() => parseArgs([]), /--seed/);
-  assert.deepEqual(parseArgs(['--scan', '1-3']).scan, [1, 2, 3]);
+  assert.deepEqual(parseArgs(['--scan', '1-3']).scan, { from: 1, to: 3 });
   assert.equal(parseArgs(['--seed', '23']).seed, 23);
 });
 

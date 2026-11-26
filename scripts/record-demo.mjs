@@ -119,8 +119,10 @@ export function parseArgs(argv) {
     } else if (a === '--scan') {
       const m = /^(\d+)(?:-(\d+))?$/.exec(v);
       const lo = m && Number(m[1]), hi = m && Number(m[2] ?? m[1]);
-      if (!m || lo > hi) throw new Error('--scan takes a seed or a range such as 1-12');
-      opt.scan = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
+      // The same 32-bit limit as --seed: a larger seed would scan another seed's fight.
+      if (!m || lo > hi || hi > 0xFFFFFFFF) throw new Error('--scan takes a seed or a range such as 1-12, from 0 to 4294967295');
+      // The two ends only: listing every seed of a range such as 0-4294967295 would not fit.
+      opt.scan = { from: lo, to: hi };
     } else opt.out = path.resolve(v);
   }
   if (opt.scan && opt.seed !== null) throw new Error('--seed and --scan cannot be used together: scan first, then record one seed');
@@ -143,7 +145,7 @@ async function main() {
   const browser = await chromium.launch(launchOptions(process.env));
   try {
     if (opt.scan) {
-      for (const seed of opt.scan) console.log(seed, JSON.stringify(await scan(browser, seed)));
+      for (let seed = opt.scan.from; seed <= opt.scan.to; seed++) console.log(seed, JSON.stringify(await scan(browser, seed)));
     } else {
       await record(browser, opt.seed, opt.out);
       console.log('Wrote ' + path.relative(process.cwd(), opt.out) + ' (seed ' + opt.seed + ', ' + (fs.statSync(opt.out).size / 1048576).toFixed(1) + ' MB)');
