@@ -96,7 +96,9 @@ test('a fighter about to be hit may vanish in smoke and reappear away, only whil
   assert.ok(vanished > 0, 'never vanished');
   game.cfg.styles.ninjutsu = false;
   for (let i = 0; i < 400; i++) {
-    Object.assign(e, { state: 'idle', move: null, md: null });
+    // Back at x 500 and visible, as in the first loop: a smoke escape there may have left it
+    // out of the jab's reach, where no warning comes and the check proves nothing
+    Object.assign(e, { state: 'idle', move: null, md: null, x: 500, invis: false });
     a.warn(250, false);
     assert.ok(!e.move || e.move.id !== 'smoke', 'vanished with ninjutsu off');
   }

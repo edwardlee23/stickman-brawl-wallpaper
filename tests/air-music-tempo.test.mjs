@@ -26,6 +26,9 @@ function load() {
 
 // How much of the wait before the next move one step of 0.1 s uses up, on the ground or in the air
 function used(game, where) {
+  // The music counts as heard just now: musicDrive resets it when no frame came for 3 s,
+  // and the listener is never called here, so without this the result depends on how long the process has run
+  game.music.t = performance.now();
   const [f, e] = game.fighters;
   Object.assign(e, { x: 1100, z: 50, alt: 0, va: 0, vx: 0, state: 'hit', st: 0, dur: 99, cool: 99 });
   Object.assign(f, { x: 300, z: 50, alt: where === 'air' ? 200 : 0, va: 0, vx: 0, vz: 0, dash: 0, evade: 0,
