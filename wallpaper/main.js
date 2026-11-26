@@ -971,7 +971,9 @@ class Fighter {
     this.dashed = false; this.dj = false;
     spawnSparks(this.x, groundY(this.z) - this.alt, 'rgba(200,200,200,0.6)', 5, true);
     if (this.state === 'air') { this.state = 'idle'; this.st = 0; this.trailOn = false; }
-    else if (this.state === 'attack' && this.move.type === 'wallrun') this.endMove();
+    // A wall run ends on landing after its leap; its run goes on, as from the middle ledge it
+    // drops to a side ledge or the floor on the way to the wall (#346)
+    else if (this.state === 'attack' && this.move.type === 'wallrun' && this.md.ph !== 'run') this.endMove();
   }
 
   updIdle(dt) {
