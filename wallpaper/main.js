@@ -1600,7 +1600,7 @@ class Fighter {
 
   // A readied substitution: a log takes the hit, and the fighter appears behind the attacker.
   substitute(att) {
-    const gy = groundY(this.z);
+    const gy = groundY(this.z) - this.alt;   // Where its feet are: on a ledge or in the air too (#258)
     addFx({ type: 'log', x: this.x, y: gy, dir: -this.facing, dur: 1.2 });
     puff(this.x, gy - 40, 1);
     sfx('poof', this.x);
