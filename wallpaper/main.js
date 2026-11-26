@@ -2121,7 +2121,12 @@ function applyRoundRules(prev, decided) {
     const k = pick(fighters.filter(f => f.id !== lastKing));
     k.king = true; k.maxHp = k.hp = 200; lastKing = k.id;
   } else if (cfg.rules === 'ladder') {
-    const order = fighters.slice().sort(() => Math.random() - 0.5);
+    // Fisher-Yates: a sort with a random comparator is biased toward the starting order (issue #311)
+    const order = fighters.slice();
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
     const [a, b] = order;
     a.x = worldW * 0.4; b.x = worldW * 0.6; a.facing = 1; b.facing = -1;
     // The rest wait at the sides, alternating left and right, facing the middle. A side's row
