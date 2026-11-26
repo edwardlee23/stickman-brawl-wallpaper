@@ -9,6 +9,7 @@ import vm from 'node:vm';
 const source = readFileSync('wallpaper/main.js', 'utf8');
 const DT = 1 / 60;
 const HEAD = 8;   // L.head
+const W = 1280 / (720 / 540);   // The world is 540 units tall; its width follows the 16:9 window
 
 function load() {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
@@ -23,17 +24,16 @@ function load() {
   vm.runInContext('Math.random = () => 0.99;', context);
   vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
   const game = window.__stickmanBrawl;
-  const W = 1280 / (720 / 540);
   game.fighters.forEach((f, i) => Object.assign(f, { x: W / 2 + (i % 2 ? 1 : -1) * 20, z: 50, alt: 0, va: 0, vx: 0, vz: 0,
     state: 'idle', hp: 1000, cool: 99, retarget: 99 }));
   for (const f of game.fighters) f.W = f.joints();
-  return { game, W, f: game.fighters[0] };
+  return { game, f: game.fighters[0] };
 }
 
 // Knocks f out from x with the given velocity and returns the head's lowest distance to
 // the left wall, the right wall and the ceiling over 600 ragdoll steps
 function fly(x, vx, vy) {
-  const { game, W, f } = load();
+  const { game, f } = load();
   f.x = x; f.W = f.joints();
   f.ko(vx, vy);
   let left = Infinity, right = Infinity, top = Infinity;
@@ -42,7 +42,7 @@ function fly(x, vx, vy) {
     const h = f.rag.pts.head;
     left = Math.min(left, h.x); right = Math.min(right, W - h.x); top = Math.min(top, h.y);
   }
-  return { left, right, top, W };
+  return { left, right, top };
 }
 
 test('a body knocked into the left wall keeps its whole head on screen', () => {
@@ -51,7 +51,6 @@ test('a body knocked into the left wall keeps its whole head on screen', () => {
 });
 
 test('a body knocked into the right wall keeps its whole head on screen', () => {
-  const { W } = load();
   const { right } = fly(W - 60, 720, -260);
   assert.ok(right >= HEAD - 1e-6, `head centre came within ${right.toFixed(2)} of the wall`);
 });
@@ -60,3 +59,20 @@ test('a body knocked up into the ceiling keeps its whole head on screen', () => 
   const { top } = fly(480, 0, -2500);
   assert.ok(top >= HEAD - 1e-6, `head centre came within ${top.toFixed(2)} of the ceiling`);
 });
+
+for (const side of [-1, 1]) {
+  test(`a body knocked out while splatted on the ${side < 0 ? 'left' : 'right'} wall starts with its whole head on screen`, () => {
+    const { game, f } = load();
+    Object.assign(f, { x: side < 0 ? 60 : W - 60, alt: 40, facing: 1 });
+    f.launch(side * 900, 0);
+    for (let i = 0; i < 60 && f.state === 'launched'; i++) { f.update(DT); f.W = f.joints(); }
+    assert.equal(f.state, 'splat');
+    f.update(DT); f.W = f.joints();
+    f.hp = 0; f.koPending = true;
+    game.update(DT);
+    assert.equal(f.state, 'ko');
+    // Made from the splat pose and not stepped yet: the walls have not moved it
+    const h = f.rag.pts.head, d = side < 0 ? h.x : W - h.x;
+    assert.ok(d >= HEAD - 1e-6, `head centre ${d.toFixed(2)} from the wall`);
+  });
+}
