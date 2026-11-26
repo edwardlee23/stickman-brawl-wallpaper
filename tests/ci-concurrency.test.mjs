@@ -21,7 +21,11 @@ test('CI cancels an older run only for pull requests, never on main (#358)', () 
   assert.equal(cancel[1], "${{ github.event_name == 'pull_request' }}");
 });
 
-test('CI still groups runs by ref, so a pull request run replaces its older one (#358)', () => {
+test('CI groups pull request runs by ref and gives every other run a group of its own (#358)', () => {
   const block = concurrencyBlock();
-  assert.match(block, /^\s+group:\s*ci-\$\{\{ github\.ref \}\}\s*$/m);
+  const group = block.match(/^\s+group:\s*(.+?)\s*$/m);
+  assert.ok(group, 'concurrency sets group');
+  // A group keeps at most one pending run: a third push to main would cancel
+  // the one waiting, even with cancel-in-progress off, if main shared a group.
+  assert.equal(group[1], "ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}");
 });
