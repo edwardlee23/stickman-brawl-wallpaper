@@ -106,3 +106,13 @@ test('the score is off by default and draws nothing then', () => {
   assert.equal(game.cfg.showScore, false);
   assert.deepEqual(scoreLine(draw()), []);
 });
+
+// Issue #271: fighters 2 and 3 are red and blue too, so a win by one of them is counted for
+// its team, not at its fighter number past the two-team tally
+test('a teams round won by fighter 2 or 3 counts for that fighter\'s team', () => {
+  const { game } = load('?count=4&mode=teams');
+  finish(game, f => f.id !== 3);
+  assert.deepEqual([...game.score.wins], [0, 1]);
+  finish(game, f => f.id !== 2);
+  assert.deepEqual([...game.score.wins], [1, 1]);
+});
