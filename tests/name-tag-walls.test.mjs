@@ -67,3 +67,52 @@ test('at a jump peak by the right wall the tag does not cover the health bar', (
   const hx = f.W.head.x;
   assert.ok(right <= hx - 13 || left >= hx + 13, `tag ${left.toFixed(1)} to ${right.toFixed(1)} over the bar at ${hx - 13} to ${hx + 13}`);
 });
+
+// Where the tag of the first fighter is drawn with that fighter at x and its tag height hy
+// (the head, or 30 above the hip if lower), as [left, right] and the baseline y
+function tagAtHeight(x, hy, name = 'Alexander') {
+  const { game, we, texts } = load();
+  we.applyUserProperties({ fighternames: { value: name + ',Bo' } });
+  const [f] = game.fighters;
+  Object.assign(f, { x, state: 'air', alt: game.groundY(f.z) - 110, va: 0 });
+  const hyOf = () => { f.W = f.joints(); return Math.min(f.W.head.y, f.W.hip.y - 30); };
+  // The joints move up one for one with the altitude
+  f.alt += hyOf() - hy;
+  assert.ok(Math.abs(hyOf() - hy) < 1e-6, 'could not set the tag height');
+  for (const g of game.fighters.slice(1)) g.W = g.joints();
+  texts.length = 0; game.render();
+  const tag = texts.find(o => o.t === name);
+  assert.ok(tag, 'no tag drawn');
+  const w = textW(name);
+  const left = tag.align === 'center' ? tag.x - w / 2 : tag.align === 'right' || tag.align === 'end' ? tag.x - w : tag.x;
+  return { left, right: left + w, y: tag.y, hx: f.W.head.x, w };
+}
+
+// Issue #321: between 30 and 60 from the right wall the tag fits neither right of the bar nor
+// centred over it, and must go left of the bar
+for (const gap of [30, 40, 60]) {
+  test(`at a jump peak ${gap} from the right wall the tag stays on screen, left of the health bar`, () => {
+    const { left, right, y, hx, w } = tagAtHeight(worldW - gap, -10);
+    assert.ok(left >= 0 && right <= worldW, `tag spans ${left.toFixed(1)} to ${right.toFixed(1)} of ${worldW}`);
+    assert.ok(right <= hx - 13 || left >= hx + 13, `tag ${left.toFixed(1)} to ${right.toFixed(1)} over the bar at ${hx - 13} to ${hx + 13}`);
+    assert.ok(Math.abs(left - (hx - 16 - w)) < 1e-6, `tag starts at ${left}, not 16 left of the head at ${hx}`);
+    assert.equal(y, 9);
+  });
+}
+
+test('away from the walls the tag goes right of the bar at a jump peak, its 9 px text on screen', () => {
+  for (const hy of [-10, 10, 28]) {
+    const { left, y, hx } = tagAtHeight(480, hy);
+    assert.ok(Math.abs(left - (hx + 16)) < 1e-6, `at hy ${hy} the tag starts at ${left}, not 16 right of the head at ${hx}`);
+    assert.ok(Math.abs(y - Math.max(hy - 12, 9)) < 1e-6, `at hy ${hy} the tag baseline is at ${y}`);
+  }
+});
+
+test('from a tag height of 29 the tag sits 20 above it, centred and still on screen', () => {
+  for (const hy of [29, 30, 31, 33, 60]) {
+    const { left, right, y, hx } = tagAtHeight(480, hy);
+    assert.ok(Math.abs(y - (hy - 20)) < 1e-6, `at hy ${hy} the tag baseline is at ${y}`);
+    assert.ok(y - 9 >= 0, `at hy ${hy} the tag top is at ${y - 9}`);
+    assert.ok(Math.abs((left + right) / 2 - hx) < 1e-6, `at hy ${hy} the tag is not centred on the head`);
+  }
+});
