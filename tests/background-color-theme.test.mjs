@@ -43,7 +43,8 @@ function load() {
 
 test('Background color is shown in the settings panel only while the theme is Plain', () => {
   const { condition } = project.general.properties.backgroundcolor;
-  assert.equal(condition, "backgroundtheme.value == 'plain'");
+  // Double quotes, as in Wallpaper Engine's docs for a combo condition (yourproperty.value == "example123")
+  assert.equal(condition, 'backgroundtheme.value == "plain"');
   // Wallpaper Engine reads a condition as a JavaScript expression over the other settings
   const shown = new Function('backgroundtheme', 'return (' + condition + ');');
   for (const theme of THEMES) assert.equal(shown({ value: theme }), theme === 'plain', theme);
