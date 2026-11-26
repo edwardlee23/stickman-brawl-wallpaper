@@ -1106,6 +1106,10 @@ class Fighter {
   startMove(m, surprise) {
     this.state = 'attack'; this.st = 0; this.move = m; this.nextMove = null; this.reachT = 0; this.hover = false;
     this.hitDone = false; this.prevHP = null; this.from = clonePose(this.pose);
+    // A move ends a dash, as a block does (#169), so the dash speed and afterimages do not
+    // carry a shield, a smoke escape or the move's own pose along (#342)
+    if (this.dash > 0) this.vx = 0;
+    this.dash = 0; this.trailOn = false;
     this.md = { ph: INIT_PHASE[m.type], next: 0.05, fired: 0 };
     stats.att[m.id] = (stats.att[m.id] || 0) + 1;
     if (m.staff && this.held) this.held.n--;
