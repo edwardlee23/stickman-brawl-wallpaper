@@ -2573,6 +2573,8 @@ const graphemes = typeof Intl === 'object' && Intl.Segmenter
 const parseNames = s => String(s ?? '').split(/[,，、]/).map(t => graphemes(t.trim()).slice(0, 12).join(''));
 const nameOf = f => cfg.names[f.id] || '';
 const labelOf = f => nameOf(f).toUpperCase() || '#' + (f.id + 1);
+// Where a health bar starts: centred on the head, kept inside the side walls (issue #352)
+const hpBarX = f => clamp(f.W.head.x - 13, 0, worldW - 26);
 function drawNameTags(list) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.font = '700 9px sans-serif';
@@ -2589,7 +2591,8 @@ function drawNameTags(list) {
     if (hy - 29 >= 0) ctx.fillText(name, clamp(hx, w / 2, worldW - w / 2), hy - 20);
     else {
       ctx.textAlign = 'left';
-      const x = hx + 16 + w <= worldW ? hx + 16 : Math.max(0, hx - 16 - w);
+      // Placed from the bar, which a wall may have moved in from the head
+      const bx = hpBarX(f), x = bx + 29 + w <= worldW ? bx + 29 : Math.max(0, bx - 3 - w);
       ctx.fillText(name, x, Math.max(hy - 12, 9)); ctx.textAlign = 'center';
     }
   }
@@ -3052,7 +3055,7 @@ function render() {
       if (!f.alive || !f.W || f.invis) continue;
       const hy = Math.min(f.W.head.y, f.W.hip.y - 30);
       // Kept inside the side walls, so a fighter lying at one shows all its fill (issue #352)
-      const bx = clamp(f.W.head.x - 13, 0, worldW - 26);
+      const bx = hpBarX(f);
       ctx.globalAlpha = 0.25 * f.alpha; ctx.fillStyle = cfg.line; ctx.fillRect(bx, hy - 17, 26, 2.5);
       ctx.globalAlpha = 0.9 * f.alpha; ctx.fillStyle = colorOf(f); ctx.fillRect(bx, hy - 17, 26 * clamp(f.hp / f.maxHp, 0, 1), 2.5);
     }
