@@ -44,15 +44,15 @@ function leap(seed, onLeap, hold) {
   assert.equal(a.md && a.md.ph, 'leap', 'the leap began');
   const alt0 = a.alt;
   onLeap(e);
-  let climb = 0, atTop = 0, steps = 0;
-  for (; i < 600 && a.move && a.move.id === 'wallrun'; i++, steps++) {
+  let climb = 0, atTop = 0;
+  for (; i < 600 && a.move && a.move.id === 'wallrun'; i++) {
     e.cool = 99;
     if (hold) hold(a, e, game);
     game.update(1 / 60);
     climb = Math.max(climb, a.alt - alt0);
     if (a.alt >= game.groundY(a.z) - 110 - 1) atTop += 1 / 60;   // maxAlt(z): the highest a fighter can be (FIG_TOP is 110)
   }
-  return { climb, atTop, steps };
+  return { climb, atTop };
 }
 
 test('a wall-run leap at a target launched out of reach ends instead of climbing to the top (#261)', () => {
