@@ -147,18 +147,28 @@ test('Day and night picks the night sky at 23:00 and the day sky at 12:00', () =
   assert.notDeepEqual([...bg.SKY.day], [...bg.SKY.night]);
 });
 
-test('Day and night repaints once a minute, not every frame', () => {
+// The picture depends only on the time of day's phase, so the cache is built once per phase
+// change, not each minute (issue #266)
+test('Day and night repaints when the phase changes, not every frame or minute', () => {
   const w = load();
   const { bg } = w.game;
   w.we.applyUserProperties({ backgroundtheme: { value: 'daynight' } });
-  bg.now = () => new Date(2026, 0, 1, 12, 0, 5);
+  for (let m = 0; m < 60; m++) {
+    bg.now = () => new Date(2026, 0, 1, 12, m, 5);
+    w.frame();
+  }
+  bg.now = () => new Date(2026, 0, 1, 17, 59, 59);
   w.frame();
-  bg.now = () => new Date(2026, 0, 1, 12, 0, 40);
+  assert.equal(bg.builds, 1, 'repainted within the day phase');
+  bg.now = () => new Date(2026, 0, 1, 18, 0, 0);
   w.frame();
-  assert.equal(bg.builds, 1);
-  bg.now = () => new Date(2026, 0, 1, 12, 1, 0);
+  assert.equal(bg.builds, 2, 'did not repaint at dusk');
+  bg.now = () => new Date(2026, 0, 1, 18, 30, 0);
   w.frame();
-  assert.equal(bg.builds, 2);
+  assert.equal(bg.builds, 2, 'repainted within the dusk phase');
+  bg.now = () => new Date(2026, 0, 1, 20, 30, 0);
+  w.frame();
+  assert.equal(bg.builds, 3, 'did not repaint at night');
 });
 
 test('Plain draws exactly as before: one fill in the background color, no cache', () => {
