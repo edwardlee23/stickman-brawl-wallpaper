@@ -44,8 +44,6 @@ function where(game, f) {
   return { on, aloft: f.aloft() };
 }
 
-const near = (game, f) => game.platforms.find(p => f.x >= p.x0 && f.x <= p.x1 && Math.abs(game.groundY(f.z) - f.alt - p.y) <= 0.5) || null;
-
 for (const side of [-1, 1]) {
   test('a smoke escape on a ledge reappears on the ledge, attacker to the ' + (side > 0 ? 'right' : 'left') + ' (#345)', () => {
     for (let seed = 1; seed <= 40; seed++) {
@@ -61,8 +59,9 @@ for (const side of [-1, 1]) {
       e.md.from = a.x;
       for (let i = 0; i < 60 && e.move && e.move.id === 'smoke'; i++) { a.st = 0; a.cool = 99; e.cool = 99; game.update(1 / 60); }
       assert.notEqual(e.move && e.move.id, 'smoke', 'seed ' + seed + ': the smoke escape ended');
-      assert.equal(near(game, e), p, 'seed ' + seed + ': reappeared at x ' + e.x + ', alt ' + e.alt + ', off the ledge (' + p.x0 + ' to ' + p.x1 + ')');
-      assert.equal(e.aloft(), false, 'seed ' + seed + ': in the air after reappearing');
+      const w = where(game, e);
+      assert.equal(w.on, p, 'seed ' + seed + ': reappeared at x ' + e.x + ', alt ' + e.alt + ', off the ledge (' + p.x0 + ' to ' + p.x1 + ')');
+      assert.equal(w.aloft, false, 'seed ' + seed + ': in the air after reappearing');
     }
   });
 }
@@ -81,7 +80,7 @@ for (const side of [-1, 1]) {
       let seen = 0;
       for (let i = 0; i < 90 && a.move && a.move.id === 'clones'; i++) {
         a.W = a.joints(); e.W = e.joints(); a.update(1 / 60);
-        if (!(a.md && a.md.clones) || !near(game, a)) continue;
+        if (!(a.md && a.md.clones) || !where(game, a).on) continue;
         for (const c of a.md.clones) {
           seen++;
           assert.ok(c.x >= p.x0 && c.x <= p.x1, 'seed ' + seed + ': clone at x ' + c.x + ', phase ' + a.md.ph + ', ledge ' + p.x0 + ' to ' + p.x1);
