@@ -1443,7 +1443,14 @@ class Fighter {
 
   u_teleport(dt) {
     const md = this.md, t = this.target;
-    if (!t || !t.alive) { this.endMove(); return; }
+    if (!t || !t.alive) {
+      // Unseen or fading when the target went down: come back where it vanished, with the ring a teleport ends with (#260)
+      if (this.invis || this.alpha < 1) {
+        this.trail.length = 0;
+        addFx({ type: 'ring', x: this.x, y: groundY(this.z) - this.alt - 45, r0: 2, r1: 40, dur: 0.2, w: 2 });
+      }
+      this.endMove(); return;
+    }
     if (md.ph === 'out') {
       this.alpha = Math.max(0, 1 - this.st / 0.12); this.trailOn = true;
       if (this.st >= 0.12) {
