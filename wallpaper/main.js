@@ -2386,6 +2386,10 @@ Fighter.prototype.u_boomerang = function (dt) {
     if (this.st >= 0.16 && this.W) {
       md.t0 = this.st; this.held = null;
       const s = this.castShot(this.W.hF, 'boomerang', BOOMERANG.speed, 0.02);
+      // Slowing to a stop at 1 s, the outbound flight rises half its upward speed. On the short
+      // world of a large figure size a steep throw at a high target would leave the top of the
+      // screen, where a shot bursts, so it is flattened to turn back 10 px below it (issue #348)
+      s.vy = Math.max(s.vy, -2 * Math.max(0, s.y - 10));
       Object.assign(s, { col: BOOMERANG_COL, life: 2.6, age: 0, v0x: s.vx, v0y: s.vy });
       sfx('toss', this.x);
       this.warn(9999, false);
