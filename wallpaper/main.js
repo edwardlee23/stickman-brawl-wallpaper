@@ -2365,6 +2365,9 @@ function updateItems(dt) {
         spawnSparks(it.x, groundY(it.z) - base, 'rgba(200,200,200,0.6)', 4, true);
       }
     }
+    // Once the round is decided nobody picks one up: Survival would carry a heart taken during
+    // the win banner into the next round, and items vanish with the round (issue #314)
+    if (roundOver) continue;
     const y = groundY(it.z) - it.alt - 6;
     for (const f of fighters) {
       if (!f.alive || f.invis || !f.W || !ITEM_HOLD.has(f.state) || Math.abs(f.z - it.z) > 16) continue;
