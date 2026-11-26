@@ -2841,8 +2841,8 @@ function bgPaint(c, theme, date) {
     c.fillStyle = '#0c0d12'; c.fillRect(0, floorY, SW, SH - floorY);
   }
 }
-// Called from render() for any theme but Plain, after the flat fill
-function drawBackground() {
+// Called from render() for any theme but Plain, after the flat fill; (ox, oy) is the screen shake
+function drawBackground(ox, oy) {
   // Before the window has a real size the cache would be 0 x 0, which drawImage refuses
   if (!(SW > 0 && SH > 0)) return;
   const date = bg.now();
@@ -2852,9 +2852,12 @@ function drawBackground() {
   if (!bg.canvas && typeof document.createElement === 'function') bg.canvas = document.createElement('canvas');
   // The slow-motion finish zooms the backdrop with the world, about the same point, so its
   // painted floor line stays on the world floor (issue #219). Zoomed in about a point on the
-  // screen, the backdrop drawn larger still covers the whole screen.
-  const zm = slowmoZoom();
-  if (zm) ctx.setTransform(dpr * zm.z, 0, 0, dpr * zm.z, zm.cx * (1 - zm.z) * dpr, zm.cy * (1 - zm.z) * dpr);
+  // screen, the backdrop drawn larger still covers the whole screen. Screen shake offsets it
+  // as it does the world, so the painted floor does not slide under the fighters (issue #254);
+  // for the few frames a shake lasts, it can uncover a strip as wide as the shake at an edge.
+  const zm = slowmoZoom(), z = zm ? zm.z : 1;
+  const tx = ox * z + (zm ? zm.cx * (1 - z) : 0), ty = oy * z + (zm ? zm.cy * (1 - z) : 0);
+  if (zm || tx || ty) ctx.setTransform(dpr * z, 0, 0, dpr * z, tx * dpr, ty * dpr);
   if (!bg.canvas) { bgPaint(ctx, cfg.bgTheme, date); return; }   // No offscreen canvas: paint every frame
   if (key !== bg.key) {
     bg.key = key; bg.builds++;
@@ -2869,14 +2872,14 @@ window.__stickmanBrawl.bg = bg;
 function render() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, SW, SH);
-  if (cfg.bgTheme !== 'plain') drawBackground();
+  const sk = cfg.reduceMotion ? 0 : shake;
+  const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
+  if (cfg.bgTheme !== 'plain') drawBackground(ox, oy);
   else if (bg.canvas) {
     // Back to Plain: free the cache's pixels (about 33 MB at 4K) instead of holding them
     bg.canvas.width = bg.canvas.height = 0; bg.canvas = null; bg.key = '';
   }
   headCol = bg.headFill(cfg.bgTheme, bg.now());
-  const sk = cfg.reduceMotion ? 0 : shake;
-  const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
   ctx.setTransform(dpr * S, 0, 0, dpr * S, ox * dpr, oy * dpr);
   view = { z: 1, x: ox, y: oy };
   slowmoView(ox, oy);
