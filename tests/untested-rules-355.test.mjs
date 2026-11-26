@@ -46,11 +46,9 @@ function load(query = '?count=2&mode=ffa') {
   vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   const game = window.__stickmanBrawl;
   const set = p => window.wallpaperPropertyListener.applyUserProperties(p);
-  // An internal the wallpaper exposes for tests, by name
-  const run = name => game[name];
   // Sets the platforms to the given ones, in place of those of the setting
   const ledges = list => { game.platforms.length = 0; game.platforms.push(...list); };
-  return { game, audio, set, run, ledges, context };
+  return { game, audio, set, ledges, context };
 }
 // Flinching in place: a fighter in the hit state neither walks nor attacks
 const hold = (f, o) => { Object.assign(f, { va: 0, vx: 0, vz: 0, state: 'hit', st: 0, dur: 999, hp: 1000, maxHp: 1000, cool: 999 }, o); f.W = f.joints(); };
@@ -110,30 +108,30 @@ test('a fighter in a jump counts a target 120 up as in the air, measured from th
 
 // ---------- Ledges ----------
 test('a shot crossing two ledges stops at the first it comes down on, whatever their order (#355)', () => {
-  const { run, ledges } = load();
+  const { game, ledges } = load();
   for (const order of [[400, 500], [500, 400]]) {
     ledges(order.map(y => ({ x0: 0, x1: 400, y })));
-    const hit = run('ledgeHit')({ x: 100, y: 300 }, { x: 200, y: 600 });
+    const hit = game.ledgeHit({ x: 100, y: 300 }, { x: 200, y: 600 });
     assert.equal(hit.y, 400, 'listed ' + order + ': stopped at ' + hit.y);
     assert.ok(Math.abs(hit.x - 100 / 3 - 100) < 1e-9, 'at x ' + hit.x);
   }
 });
 
 test('a ragdoll point landing on a ledge keeps 30% of its fall as a bounce and 75% of its slide (#355)', () => {
-  const { run, ledges } = load();
+  const { game, ledges } = load();
   ledges([{ x0: 0, x1: 400, y: 500 }]);
   const o = { x: 100, y: 503, px: 98, py: 495, sy: 495 };
-  run('ragPlatform')(o, 'hip');
+  game.ragPlatform(o, 'hip');
   assert.equal(o.y, 498.5, 'put on the top');
   assert.ok(Math.abs((o.y - o.py) - -0.3 * 8) < 1e-9, 'bounce ' + (o.y - o.py));
   assert.ok(Math.abs((o.x - o.px) - 0.75 * 2) < 1e-9, 'slide ' + (o.x - o.px));
 });
 
 test('a bone across a ledge corner is pushed all the way off it, with the corner on the bone (#355)', () => {
-  const { run, ledges } = load();
+  const { game, ledges } = load();
   ledges([{ x0: 100, x1: 300, y: 400 }]);
   const A = { x: 110, y: 398, px: 110, py: 398 }, B = { x: 90, y: 420, px: 90, py: 420 };
-  run('ragCorners')({ pts: { a: A, b: B }, bones: [['a', 'b']] });
+  game.ragCorners({ pts: { a: A, b: B }, bones: [['a', 'b']] });
   const y = A.y + (B.y - A.y) * (100 - A.x) / (B.x - A.x);
   assert.ok(Math.abs(y - 398.5) < 0.01, 'the bone crosses the end at ' + y.toFixed(2) + ', the top is 398.5');
 });
@@ -160,23 +158,23 @@ test('the limiter after the master starts at -10 dB (#355)', () => {
 // ---------- Shots ----------
 // Fires a shot of the kind sideways past e's head, gap px above its edge; returns takeHit's options or null
 function shotPastHead(kind, gap) {
-  const { game, run } = load();
+  const { game } = load();
   const [a, e] = game.fighters;
   hold(a, { x: 200, z: 50, alt: 0 });
   hold(e, { x: 600, z: 50, alt: 0 });
   let got = null;
   e.takeHit = (_by, _m, _zone, _pt, o) => { got = o; };
-  const h = e.W.head, r = run('L').head;
+  const h = e.W.head, r = game.L.head;
   game.shots.push({ x: h.x - 5, y: h.y - r - gap, vx: 600, vy: 0, z: 50, owner: a, m: game.MOVES[0], life: 3, kind, col: '#fff', dmg: 5 });
-  run('updateShots')(1 / 60);
+  game.updateShots(1 / 60);
   return got;
 }
 
 test('a head is hit within 3 px of its edge, not 4.5 (#355)', () => {
-  const { game, run } = load();
+  const { game } = load();
   const e = game.fighters[1];
   hold(e, { x: 600, z: 50, alt: 0 });
-  const h = e.W.head, r = run('L').head, hitTest = run('hitTest');
+  const h = e.W.head, r = game.L.head, hitTest = game.hitTest;
   assert.equal(hitTest({ x: h.x, y: h.y - r - 2 }, { x: h.x, y: h.y - r - 2 }, e.W), 'head');
   assert.equal(hitTest({ x: h.x, y: h.y - r - 4.5 }, { x: h.x, y: h.y - r - 4.5 }, e.W), null);
 });
@@ -192,12 +190,12 @@ test('an ice shard freezes for 1.1 s (#355)', () => {
 });
 
 test('a shot reaching the floor cracks it (#355)', () => {
-  const { game, run } = load();
+  const { game } = load();
   const a = game.fighters[0];
   game.fx.length = 0;
   const gy = game.groundY(50);
   game.shots.push({ x: 900, y: gy - 2, vx: 0, vy: 600, z: 50, owner: a, m: game.MOVES[0], life: 3, kind: 'star', col: '#fff', dmg: 2 });
-  run('updateShots')(1 / 60);
+  game.updateShots(1 / 60);
   assert.equal(game.shots.length, 0);
   assert.ok(game.fx.some(o => o.type === 'crack' && o.kind === 'ground' && o.y === gy), 'no ground crack at the floor');
 });
@@ -226,21 +224,21 @@ function withItems() {
 }
 
 test('the staff reaches at most 8 px past its tip (#355)', () => {
-  const { run } = load();
-  for (const id of run('STAFF_STRIKES')) {
-    const b = run('MOVE_BY')[id], s = run('STAFF_MOVE')[id], tip = run('staffTip'), fk = run('fk');
+  const { game } = load();
+  for (const id of game.STAFF_STRIKES) {
+    const b = game.MOVE_BY[id], s = game.STAFF_MOVE[id], tip = game.staffTip, fk = game.fk;
     const far = Math.max(tip(fk(b.A), b.hit).x, tip(fk(b.W), b.hit).x) + b.lunge * 0.7;
     assert.ok(s.range[1] <= far + 8 + 1e-9, id + ' reaches ' + s.range[1].toFixed(1) + ', its tip ' + far.toFixed(1));
   }
 });
 
 test('a staff stays in hand through its last strike and goes after it (#355)', () => {
-  const { a, run } = withItems();
-  hold(a, { held: { kind: 'staff', n: 0 }, move: run('STAFF_MOVE').jab, state: 'attack' });
-  run('updateItems')(0);
+  const { a, game } = withItems();
+  hold(a, { held: { kind: 'staff', n: 0 }, move: game.STAFF_MOVE.jab, state: 'attack' });
+  game.updateItems(0);
   assert.ok(a.held, 'the staff vanished as its last strike started');
   a.move = null; a.state = 'idle';
-  run('updateItems')(0);
+  game.updateItems(0);
   assert.equal(a.held, null);
 });
 
@@ -251,15 +249,15 @@ test('a boomerang is thrown only from the ground at a hittable target (#355)', (
     const g = withItems();
     g.a.held = { kind: 'boomerang' };
     set(g);
-    g.run('updateItems')(0);
+    g.game.updateItems(0);
     assert.equal(g.a.state === 'attack' && g.a.move.id === 'boomerang', thrown, what);
   }
 });
 
 test('a boomerang leaves the hand by 0.2 s and the thrower recovers within 0.35 s after (#355)', () => {
-  const { game, a, run } = withItems();
+  const { game, a } = withItems();
   Object.assign(a, { held: { kind: 'boomerang' }, retarget: 99, cool: 99 });
-  a.startMove(run('MOVE_BY').boomerang, true);
+  a.startMove(game.MOVE_BY.boomerang, true);
   let start = null, thrown = null, end = null;
   for (let t = 0; t < 3 && end === null; t += 1 / 60) {
     game.update(1 / 60);
@@ -273,9 +271,9 @@ test('a boomerang leaves the hand by 0.2 s and the thrower recovers within 0.35 
 });
 
 test('a thrower keeps turning to its target while it throws (#355)', () => {
-  const { game, a, run } = withItems();
+  const { game, a } = withItems();
   Object.assign(a, { held: { kind: 'boomerang' }, retarget: 99, cool: 99 });
-  a.startMove(run('MOVE_BY').boomerang, true);
+  a.startMove(game.MOVE_BY.boomerang, true);
   game.update(1 / 60);
   assert.equal(a.move.id, 'boomerang');
   a.facing = -1;
@@ -284,20 +282,20 @@ test('a thrower keeps turning to its target while it throws (#355)', () => {
 });
 
 test("a knocked-out thrower's boomerang does not fly back to the body (#355)", () => {
-  const { a, run } = withItems();
+  const { a, game } = withItems();
   a.W = a.joints(); a.state = 'ko';
   const s = { x: 900, y: 300, vx: 0, vy: 0, v0x: 600, v0y: 0, age: 1.2, life: 2, owner: a, kind: 'boomerang' };
-  run('steerBoomerang')(s, 1 / 60);
+  game.steerBoomerang(s, 1 / 60);
   assert.equal(s.life, 0);
 });
 
 test('an item above the head is not picked up; one at the hip is (#355)', () => {
   for (const [over, picked] of [[20, false], [-40, true]]) {
-    const { game, a, run } = withItems();
+    const { game, a } = withItems();
     hold(a, { x: 400, z: 50, alt: 0 });
     const y = a.W.head.y - over, gy = game.groundY(50);
     const it = game.spawnItem('staff', a.W.hip.x, 50, gy - 6 - y);
-    run('updateItems')(1e-6);
+    game.updateItems(1e-6);
     assert.equal(!game.items.includes(it), picked, over + ' over the head');
   }
 });
