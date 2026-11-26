@@ -2405,7 +2405,9 @@ function update(dt) {
     }
   }
   for (const f of fighters) {
-    if (LYING.has(f.state)) f.inWalls();   // After the push apart above, which may move it toward a wall
+    // Here, once for every way into these states (a fall, a landing from a launch or a throw),
+    // and before the joints are taken, so a ragdoll made from them starts where the body lay
+    if (LYING.has(f.state)) f.inWalls();
     f.W = f.rag ? f.rag.pts : f.joints();
     if (f.koPending) { f.koPending = false; f.ko(0, -40); f.W = f.rag.pts; }
     // Afterimages
