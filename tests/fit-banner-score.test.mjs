@@ -78,8 +78,8 @@ test('the win banner keeps its full size where it fits', () => {
   assert.match(winBy(game, texts, 0).font, /\b26px/);
 });
 
-for (const name of ['火柴人格鬥火柴人格鬥火柴', 'MMMMMMMMMMMM']) {
-  test(`a score line of three ${name.length}-character names fits a 1080x1920 screen`, () => {
+for (const [script, name] of [['CJK', '火柴人格鬥火柴人格鬥火柴'], ['Latin', 'MMMMMMMMMMMM']]) {
+  test(`a score line of three 12-character ${script} names fits a 1080x1920 screen`, () => {
     const { game, we, texts } = load('?count=3&mode=ffa', 1080, 1920);
     we.applyUserProperties({ fighternames: { value: [name, name, name].join(',') }, showscore: { value: true } });
     const worldW = 1080 / (1920 / 540);
