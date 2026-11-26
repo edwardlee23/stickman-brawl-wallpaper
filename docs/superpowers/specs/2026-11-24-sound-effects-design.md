@@ -59,7 +59,7 @@ The owner picked approach 1.
   - `poof`: the smoke of shadow clones appearing and vanishing, a smoke
     escape, and a substitution.
   - `shield`: a magic shield going up, a shield stopping a hit or the rest
-    of a shuriken fan, and an item picked up.
+    of a shuriken fan or an energy-blast volley, and an item picked up.
 - At most 6 sounds play at once; the same kind plays at most once per 40 ms.
 - Settings: `soundeffects` (bool, default off; "Sound effects" / 音效 /
   音效) and `soundvolume` (slider 0–100, default 50; "Volume (%)" / 音效音量 (%)
