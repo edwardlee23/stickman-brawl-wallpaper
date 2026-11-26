@@ -2284,10 +2284,17 @@ function spawnItem(kind, x, z = rand(0, DEPTH), alt = groundY(z) + 20) {
   items.push(it);
   return it;
 }
-// Clears the field; with drop, fighters let go of what they hold too
+// Clears the field; with drop, fighters let go of what they hold too. Dropping also stops a
+// boomerang throw still winding up and bursts any boomerang in flight, so none hits once the
+// Items setting is off (issue #349)
 function clearItems(drop) {
   items.length = 0; itemTimer = null;
-  if (drop) for (const f of fighters) f.held = null;
+  if (!drop) return;
+  for (const f of fighters) {
+    f.held = null;
+    if (f.state === 'attack' && f.move && f.move.type === 'boomerang' && !f.md.t0) f.endMove();
+  }
+  for (let i = shots.length - 1; i >= 0; i--) if (shots[i].kind === 'boomerang') { burst(shots[i]); shots.splice(i, 1); }
 }
 // Staff strikes: the punches, reaching farther with the staff tip and hitting harder.
 // A kick, knee or elbow queued while holding a staff becomes one of them.
