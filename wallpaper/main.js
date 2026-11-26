@@ -338,12 +338,17 @@ function resize() {
   redraw = true;
   canvas.style.width = SW + 'px'; canvas.style.height = SH + 'px';
   S = cfg.scale * SH / 540;
+  const oldW = worldW;
   worldW = SW / S; worldH = SH / S;
   floorTop = worldH * 0.74 - DEPTH / 2;
   layoutPlatforms();
   // Fighters placed before the first real size stood on a 0-wide floor; spread them over this one
   if (!laidOut) { laidOut = true; if (fighters.length) { newRound(); return; } }
+  // Under Ladder rules the bout keeps its place across the screen and the waiting rows are laid
+  // out again for the new width, or a narrower screen piles them all at the wall (issue #312)
+  const ladder = ladderQueue.some(f => f.state === 'wait');
   for (const f of fighters) {
+    if (ladder && oldW > 0 && f.state !== 'wait' && !f.rag) f.x *= worldW / oldW;
     f.x = clamp(f.x, 14, worldW - 14);
     // A body at rest no longer simulates, so slide it whole back inside a narrower screen
     if (f.rag) {
@@ -352,6 +357,10 @@ function resize() {
       const dx = hi > worldW - 4 ? Math.max(worldW - 4 - hi, 4 - lo) : lo < 4 ? 4 - lo : 0;
       if (dx) for (const o of Object.values(f.rag.pts)) { o.x += dx; o.px += dx; }
     }
+  }
+  if (ladder) {
+    const wait = ladderQueue.filter(f => f.state === 'wait');
+    layoutWaiting(wait.filter(f => f.facing > 0), wait.filter(f => f.facing < 0));
   }
   // Items on the floor too, or one left past the edge could never be picked up
   for (const it of items) it.x = clamp(it.x, 40, worldW - 40);
@@ -2140,18 +2149,19 @@ function applyRoundRules(prev, decided) {
     }
     const [a, b] = order;
     a.x = worldW * 0.4; b.x = worldW * 0.6; a.facing = 1; b.facing = -1;
-    // The rest wait at the sides, alternating left and right, facing the middle. A side's row
-    // runs from the edge to 30 short of the bout, packed tighter when it would not fit (issue #171).
-    const per = Math.ceil((order.length - 2) / 2), near = Math.max(14, worldW * 0.4 - 30);
-    const from = clamp(near - 24 * (per - 1), 14, 30), step = per > 1 ? Math.min(24, (near - from) / (per - 1)) : 0;
-    order.slice(2).forEach((f, j) => {
-      const side = j % 2, k = Math.floor(j / 2);
-      f.x = side ? worldW - from - k * step : from + k * step;
-      f.facing = side ? -1 : 1;
-      f.state = 'wait';
-      ladderQueue.push(f);
-    });
+    // The rest wait at the sides, alternating left and right, facing the middle
+    const rest = order.slice(2);
+    for (const f of rest) { f.state = 'wait'; ladderQueue.push(f); }
+    layoutWaiting(rest.filter((f, j) => j % 2 === 0), rest.filter((f, j) => j % 2));
   }
+}
+// Ladder's waiting rows, left and right, each listed from its edge inward. A side's row runs from
+// the edge to 30 short of the bout, packed tighter when it would not fit (issue #171).
+function layoutWaiting(left, right) {
+  const per = Math.max(left.length, right.length), near = Math.max(14, worldW * 0.4 - 30);
+  const from = clamp(near - 24 * (per - 1), 14, 30), step = per > 1 ? Math.min(24, (near - from) / (per - 1)) : 0;
+  left.forEach((f, k) => { f.x = from + k * step; f.facing = 1; });
+  right.forEach((f, k) => { f.x = worldW - from - k * step; f.facing = -1; });
 }
 // Who a fighter must target under the round rules, or undefined to pick as usual
 function ruleTarget(me) {
