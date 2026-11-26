@@ -122,6 +122,7 @@ test('screen shake decays to 0.0015 of itself per second', () => {
   w.random.value = 0.75;   // A shake offset of rand(-shake, shake) is then shake / 2
   w.frame(116);
   const tf = w.screen.find(([k, a]) => k === 'setTransform' && Math.abs(a - S) < 1e-9);
+  assert.ok(tf, 'no world transform was set');
   const want = 9 * Math.pow(0.0015, 0.1) / 2;
   assert.ok(Math.abs(tf[5] - want) < 1e-6, `shake offset ${tf[5]}, want ${want}`);
 });
