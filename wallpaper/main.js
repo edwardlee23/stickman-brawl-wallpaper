@@ -1000,7 +1000,7 @@ class Fighter {
 
   updAir(dt) {
     lerpPose(this.pose, AIR, Math.min(1, dt * 10), this.pose);
-    this.cool -= dt;
+    this.cool -= dt * musicTempo();   // Music speeds the wait up as on the ground (#264)
     let t = this.target;
     if (!t || !t.alive) t = this.target = pickTarget(this);
     if (this.dash > 0) { this.dash -= dt; if (this.dash <= 0) this.trailOn = false; return; }
