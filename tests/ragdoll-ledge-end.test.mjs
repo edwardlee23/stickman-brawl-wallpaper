@@ -16,9 +16,10 @@ function load() {
     document: { getElementById: () => canvas, body: { style: {} } },
     requestAnimationFrame() {},
   });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
+  // A seeded generator (an LCG), set before main.js runs, so every run is the same
   context.__seed = 1;
   vm.runInContext('Math.random = () => (__seed = (Math.imul(__seed, 1664525) + 1013904223) >>> 0) / 4294967296', context);
+  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: true } });
   const game = window.__stickmanBrawl;
   // Everyone but the fighter under test stays out of the way, flinching on the floor at the far right
