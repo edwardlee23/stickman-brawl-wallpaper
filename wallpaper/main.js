@@ -490,6 +490,8 @@ function spawnSparks(x, y, col, n, up, speed = 1) {
     sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, col });
   }
 }
+// Ice sparks and the freeze sound at point H, as a frozen fighter's ice breaks
+function shatterIce(H) { spawnSparks(H.x, H.y, ELEMENT.ice, 12); sfx('freeze', H.x); }
 const addFx = o => { o.t = 0; fx.push(o); return o; };
 function crack(x, y, kind, size) {
   // kind: 'ground' floor crack (squashed for perspective) | 'wall' radial wall crack
@@ -1954,7 +1956,7 @@ class Fighter {
     this.hp -= dmg; this.flash = 0.1;
     // Any hit shatters the ice; another ice shard does not freeze again, so nobody is frozen in a loop
     const wasFrozen = this.state === 'frozen';
-    if (wasFrozen) { spawnSparks(H.x, H.y, ELEMENT.ice, 12); sfx('freeze', H.x); }
+    if (wasFrozen) shatterIce(H);
     this.clearMove();
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1;
     let Lv = o.launch;
@@ -3217,6 +3219,7 @@ function clickBlast(e) {
     const c = f.bodyPoint(), dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
     if (d >= BLAST_R) continue;
     const k = 1 - d / BLAST_R, uy = d ? dy / d : 0;
+    if (f.state === 'frozen') shatterIce(c);   // The blast shatters the ice as a hit does (issue #354)
     f.clearMove();
     f.launch(sgn(dx) * (260 + 540 * k), (220 + 480 * k) * clamp(0.5 - uy, 0.3, 1.5));
   }
