@@ -77,7 +77,8 @@ test('an energy blast aims up at a target in the air', () => {
   assert.ok(s.vy < -150, 'the blast flies up: vy ' + s.vy);
 });
 
-for (const [dz, hit] of [[10, true], [40, false]]) {
+// It reaches 22 deep (issue #318): a mutation to 16 or 30 fails at 20 or 24
+for (const [dz, hit] of [[10, true], [20, true], [24, false], [40, false]]) {
   test('an energy beam ' + (hit ? 'hits' : 'misses') + ' a target ' + dz + ' away in depth', () => {
     const { game, a, e } = load();
     place(a, { z: 30 });

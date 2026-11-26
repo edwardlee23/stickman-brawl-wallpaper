@@ -26,11 +26,12 @@ function load() {
 
 // Puts an idle enemy dx to the attacker's right and dz deeper, has the attacker warn of
 // move id as that move does when it strikes or fires, and says whether the enemy blocked.
-function blocks(id, dx, dz) {
+// up puts the enemy that many px above the attacker.
+function blocks(id, dx, dz, up = 0) {
   const game = load();
   const [a, e] = game.fighters;
   Object.assign(a, { x: 300, z: 50, alt: 0, facing: 1, state: 'idle', target: e });
-  Object.assign(e, { x: 300 + dx, z: 50 + dz, alt: 0, facing: -1, state: 'idle', target: a });
+  Object.assign(e, { x: 300 + dx, z: 50 + dz, alt: up, facing: -1, state: 'idle', target: a });
   const m = [...game.MOVES, ...game.SUPER].find(m => m.id === id);
   if (m.type) { a.state = 'attack'; a.move = m; a.warn(9999, false); }
   else a.startMove(m);   // A strike warns as it starts
@@ -51,4 +52,10 @@ test('an enemy 15 depth units from a strike or an energy blast reacts to it, one
   assert.ok(blocks('jab', 30, 15), 'no reaction to a jab at dz 15');
   assert.ok(blocks('blast', 250, 15), 'no reaction to a blast at dz 15');
   assert.ok(!blocks('jab', 30, 17), 'reacted to a jab at dz 17');
+});
+
+// Issue #318: a strike warns an enemy as high above as it reaches (under 35 px), not one higher
+test('an enemy 20 to 30 px above a melee strike reacts to it, one 40 px above does not', () => {
+  for (const up of [20, 25, 30]) assert.ok(blocks('jab', 30, 0, up), 'no reaction ' + up + ' px above');
+  assert.ok(!blocks('jab', 30, 0, 40), 'reacted 40 px above');
 });
