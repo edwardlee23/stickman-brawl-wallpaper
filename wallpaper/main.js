@@ -3078,7 +3078,10 @@ function clickBlast(e) {
   blastAt = now;
   const x = (e.clientX - view.x) / (S * view.z), y = (e.clientY - view.y) / (S * view.z);   // Screen to world, as render() last drew it
   impact(x, y, true);
-  const onFloor = y >= floorTop - 6 && y <= floorTop + DEPTH + 6;
+  // The dojo, rooftop and day-and-night themes paint floor from the floor's back edge to the
+  // bottom of the screen, so there a click anywhere below that edge cracks the floor (issue #257)
+  const paintedFloor = cfg.bgTheme === 'dojo' || cfg.bgTheme === 'rooftop' || cfg.bgTheme === 'daynight';
+  const onFloor = y >= floorTop - 6 && (paintedFloor || y <= floorTop + DEPTH + 6);
   crack(x, y, onFloor ? 'ground' : 'wall', 60);
   for (const f of fighters) {
     if (f.rag) {
