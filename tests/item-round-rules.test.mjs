@@ -72,6 +72,27 @@ test('one heart heals one fighter when two touch it in the same step (#271)', ()
   assert.deepEqual([a.hp, b.hp].sort((x, y) => x - y), [40, 70]);
 });
 
+test('a heart that reaches the winner during the win banner heals nothing (#314)', () => {
+  const { game } = load({ props: { roundrules: { value: 'survival' } } });
+  const [a, e] = duel(game, 300);
+  Object.assign(a, { state: 'hit', st: 0, dur: 99, hp: 40 });
+  a.W = a.joints();
+  e.ko(0, 0);
+  game.update(1 / 60);
+  assert.ok(game.winnerText.endsWith('WINS!'), 'the round was not decided');
+  // A heart lands on the winner's hip while the banner is up
+  a.W = a.joints();
+  const heart = game.spawnItem('heart', a.W.hip.x, a.z, 0);
+  game.update(1 / 60);
+  assert.ok(game.items.includes(heart), 'the heart was picked up');
+  assert.equal(a.hp, 40);
+  // Survival carries the winner's health, untouched by the heart, into the next round
+  const prev = game.fighters;
+  run(game, 6, () => game.fighters !== prev);
+  assert.notEqual(game.fighters, prev, 'no new round');
+  assert.equal(game.fighters[0].hp, 40);
+});
+
 test('a thrown boomerang warns its target, who mostly reacts (#271)', () => {
   let reacted = 0;
   const N = 40;
