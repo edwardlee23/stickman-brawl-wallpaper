@@ -1911,18 +1911,14 @@ class Fighter {
   }
 
   // Moves a splatted fighter out from its wall until no joint of the given pose is closer than
-  // 4 to it, and the head L.head, where a ragdoll's points stop, so a knockout during the splat
-  // leaves the body where it was
+  // 4 to it, where a ragdoll's points stop, so a knockout during the splat leaves the body where it was
   offWall(pose = this.pose) {
     const now = this.pose;
     this.pose = pose;
     const J = this.joints(), side = this.splatSide;
     this.pose = now;
     let d = 0;
-    for (const k in J) {
-      const m = k === 'head' ? L.head : 4;
-      d = Math.max(d, side < 0 ? m - J[k].x : J[k].x - (worldW - m));
-    }
+    for (const k in J) d = Math.max(d, side < 0 ? 4 - J[k].x : J[k].x - (worldW - 4));
     if (d > 0) this.x -= side * d;
   }
 

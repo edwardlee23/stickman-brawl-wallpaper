@@ -59,20 +59,3 @@ test('a body knocked up into the ceiling keeps its whole head on screen', () => 
   const { top } = fly(480, 0, -2500);
   assert.ok(top >= HEAD - 1e-6, `head centre came within ${top.toFixed(2)} of the ceiling`);
 });
-
-for (const side of [-1, 1]) {
-  test(`a body knocked out while splatted on the ${side < 0 ? 'left' : 'right'} wall starts with its whole head on screen`, () => {
-    const { game, f } = load();
-    Object.assign(f, { x: side < 0 ? 60 : W - 60, alt: 40, facing: 1 });
-    f.launch(side * 900, 0);
-    for (let i = 0; i < 60 && f.state === 'launched'; i++) { f.update(DT); f.W = f.joints(); }
-    assert.equal(f.state, 'splat');
-    f.update(DT); f.W = f.joints();
-    f.hp = 0; f.koPending = true;
-    game.update(DT);
-    assert.equal(f.state, 'ko');
-    // Made from the splat pose and not stepped yet: the walls have not moved it
-    const h = f.rag.pts.head, d = side < 0 ? h.x : W - h.x;
-    assert.ok(d >= HEAD - 1e-6, `head centre ${d.toFixed(2)} from the wall`);
-  });
-}
