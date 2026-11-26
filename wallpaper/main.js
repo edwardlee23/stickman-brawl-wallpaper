@@ -1228,6 +1228,21 @@ class Fighter {
   bodyPoint() { return this.W ? mid(this.W.sh, this.W.hip) : { x: this.x, y: groundY(this.z) - this.alt - 50 }; }
 
   // ---- Specials ----
+  // The beam's line at aim: from the hands (O) to where it ends (E), at the screen edge, the
+  // floor (ground) or the first platform top it comes down onto; d is its unit direction
+  beamLine(aim) {
+    const O = mid(this.W.hF, this.W.hB);
+    const d = { x: this.facing * Math.cos(aim), y: Math.sin(aim) };
+    let tt = d.x > 0 ? (worldW - O.x) / d.x : -O.x / d.x, ground = false;
+    const gy = groundY(this.z);
+    if (d.y > 0.01) { const tg = (gy - O.y) / d.y; if (tg < tt) { tt = tg; ground = true; } }
+    if (d.y < -0.01) tt = Math.min(tt, -O.y / d.y);
+    let E = { x: O.x + d.x * tt, y: O.y + d.y * tt };
+    // A beam coming down stops at the first platform top it meets (issue #217)
+    const lh = ledgeHit(O, E);
+    if (lh) { E = { x: lh.x, y: lh.y }; ground = false; }
+    return { O, E, d, ground };
+  }
   u_beam(dt) {
     const md = this.md, m = this.move, t = this.target;
     // Standing on a platform it does not hover, and its recoil and leftover walking speed stop
@@ -1250,7 +1265,9 @@ class Fighter {
           aim = clamp(Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1), -0.7, 0.9);
         }
         md.aim = aim;
-        this.warn(9999, false);
+        // Only opponents along the beam, up to where it ends, react to it (issue #343);
+        // 25 covers its half width and the hit margin (md.w + 8)
+        this.warn(Math.abs(this.beamLine(aim).E.x - this.x) + 25, false);
         addFx({ type: 'flash', dur: 0.15 });
         shake = Math.max(shake, 7);
       }
@@ -1261,17 +1278,8 @@ class Fighter {
       lerpPose(this.pose, p, Math.min(1, dt * 25), this.pose);
       const ft = this.st - md.t0;
       md.w = Math.min(1, ft / 0.08) * (11 + Math.sin(this.time * 70) * 1.8) * (ft > 0.5 ? Math.max(0, 1 - (ft - 0.5) / 0.15) : 1);
-      const O = mid(this.W.hF, this.W.hB);
-      const d = { x: this.facing * Math.cos(md.aim), y: Math.sin(md.aim) };
-      let tt = d.x > 0 ? (worldW - O.x) / d.x : -O.x / d.x, ground = false;
-      const gy = groundY(this.z);
-      if (d.y > 0.01) { const tg = (gy - O.y) / d.y; if (tg < tt) { tt = tg; ground = true; } }
-      if (d.y < -0.01) tt = Math.min(tt, -O.y / d.y);
-      md.O = O; md.E = { x: O.x + d.x * tt, y: O.y + d.y * tt };
-      // A beam coming down stops at the first platform top it meets (issue #217)
-      const lh = ledgeHit(O, md.E);
-      if (lh) { md.E = { x: lh.x, y: lh.y }; ground = false; }
-      md.ground = ground;
+      const { O, E, d, ground } = this.beamLine(md.aim);
+      md.O = O; md.E = E; md.ground = ground;
       this.vx = -this.facing * 25;
       shake = Math.max(shake, 3);
       if (ground && !md.cracked) { md.cracked = true; quake(md.E.x, md.E.y, 110); }
