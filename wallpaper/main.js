@@ -1868,6 +1868,13 @@ class Fighter {
     this.keepOnLedge(ledge, dt);
   }
 
+  // The bolt ends at the floor or at the first platform top over it, which stops it (issue #174)
+  boltEnd() {
+    const md = this.md;
+    md.ledge = null;
+    for (const p of platforms) if (md.x >= p.x0 && md.x <= p.x1 && (!md.ledge || p.y < md.ledge.y)) md.ledge = p;
+    md.gy = md.ledge ? md.ledge.y : groundY(md.z);
+  }
   u_lightning(dt) {
     const md = this.md, m = this.move, t = this.target;
     this.vx = approach(this.vx, 0, 700 * dt);
@@ -1878,10 +1885,7 @@ class Fighter {
         if (!t || !t.alive) { this.endMove(); return; }
         // Mark where the target stands; the bolt falls there a moment later
         md.ph = 'mark'; md.x = clamp(t.x + t.vx * 0.25, 14, worldW - 14); md.z = t.z;
-        // The bolt ends at the floor or at the first platform top over it, which stops it (issue #174)
-        md.ledge = null;
-        for (const p of platforms) if (md.x >= p.x0 && md.x <= p.x1 && (!md.ledge || p.y < md.ledge.y)) md.ledge = p;
-        md.gy = md.ledge ? md.ledge.y : groundY(md.z);
+        this.boltEnd();
         addFx({ type: 'mark', x: md.x, y: md.gy, dur: 0.6, col: ELEMENT.bolt });
       }
     } else if (md.ph === 'mark') {
@@ -1889,6 +1893,8 @@ class Fighter {
       this.aura = 0.8;
       if (this.st >= 0.75) {
         md.ph = 'rec'; md.t0 = this.st;
+        // Found again as it falls: platforms turned off or a resize since the mark move it (issue #390)
+        this.boltEnd();
         const gy = md.gy, pts = [];
         for (let y = 0, x = md.x; y < gy; y += rand(18, 32)) { pts.push([x, y]); x = md.x + rand(-12, 12); }
         pts.push([md.x, gy]);
@@ -2411,13 +2417,15 @@ function spawnItem(kind, x, z = rand(0, DEPTH), alt = groundY(z) + 20) {
 }
 // Clears the field; with drop, fighters let go of what they hold too. Dropping also stops a
 // boomerang throw still winding up and bursts any boomerang in flight, so none hits once the
-// Items setting is off (issue #349)
+// Items setting is off (issue #349), and turns a staff strike under way into the bare move,
+// so it hits from the hand that no longer holds a staff (issue #390)
 function clearItems(drop) {
   items.length = 0; itemTimer = null;
   if (!drop) return;
   for (const f of fighters) {
     f.held = null;
     if (f.state === 'attack' && f.move && f.move.type === 'boomerang' && !f.md.t0) f.endMove();
+    if (f.state === 'attack' && f.move && f.move.staff) f.move = withStaff(f, f.move);
   }
   for (let i = shots.length - 1; i >= 0; i--) if (shots[i].kind === 'boomerang') { burst(shots[i]); shots.splice(i, 1); }
 }
