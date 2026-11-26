@@ -35,7 +35,8 @@ function substitute(place, state) {
   a.W = a.joints(); e.W = e.joints();
   e.subFrom = a; e.subT = 1;
   const feet = game.groundY(z) - e.alt, n0 = game.fx.length;
-  assert.equal(e.surfaceAlt(), state === 'air' ? 0 : alt, 'standing on what it was put on');
+  // On a ledge or the floor it stands on that surface; in the air, no ledge is under it
+  assert.equal(e.surfaceAlt(), state === 'air' ? 0 : alt, state === 'air' ? 'a ledge under the fighter in the air' : 'not standing where it was put');
   assert.equal(e.takeHit(a, game.MOVES.find(m => m.id === 'jab'), 'head', e.bodyPoint()), 'sub', 'the substitution took the hit');
   const added = game.fx.slice(n0);
   return { feet, floor: game.groundY(z), log: added.find(o => o.type === 'log'), puff: added.find(o => o.type === 'puff') };
