@@ -2846,9 +2846,11 @@ function drawBackground(ox, oy) {
   // Before the window has a real size the cache would be 0 x 0, which drawImage refuses
   if (!(SW > 0 && SH > 0)) return;
   const date = bg.now();
-  const minute = cfg.bgTheme === 'daynight' ? date.getHours() * 60 + date.getMinutes() : 0;
+  // Day and night's picture depends only on the phase, so the cache is rebuilt when the phase
+  // changes, not each minute (issue #266)
+  const phase = cfg.bgTheme === 'daynight' ? bg.skyPhase(date) : '';
   // No cfg.bg: every theme paints over the whole backdrop, so the color never shows in it
-  const key = [cfg.bgTheme, SW, SH, dpr, S, minute].join();
+  const key = [cfg.bgTheme, SW, SH, dpr, S, phase].join();
   if (!bg.canvas && typeof document.createElement === 'function') bg.canvas = document.createElement('canvas');
   // The slow-motion finish zooms the backdrop with the world, about the same point, so its
   // painted floor line stays on the world floor (issue #219). Zoomed in about a point on the
