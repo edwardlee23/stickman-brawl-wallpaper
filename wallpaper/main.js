@@ -2517,6 +2517,10 @@ function drawHeld(f) {
   ctx.globalAlpha = 1; ctx.lineCap = 'butt';
 }
 Object.assign(window.__stickmanBrawl, { items, spawnItem, withStaff, newRound });
+// For the tests that pin the rules inside these (issue #355)
+Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKES, staffTip, hitTest, ledgeHit, ragPlatform,
+  ragCorners, updateShots, updateItems, steerBoomerang });
+Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
 function update(dt) {
   roundRulesStep();
