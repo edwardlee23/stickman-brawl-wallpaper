@@ -2976,7 +2976,10 @@ function render() {
     // On the surface under it, the floor or a platform top, as an item's shadow is (issue #173)
     const s = platforms.length ? platformAlt(x, f.z, f.rag ? f.rag.pts.hip.y : groundY(f.z) - f.alt) : 0;
     // A ragdoll's height is that of its lowest point now, since ko() leaves f.alt as it was (issue #218)
-    const h = f.rag ? groundY(f.z) - 1.5 - Math.max(...Object.values(f.rag.pts).map(o => o.y)) : f.alt;
+    // A thrown body's is that of its flying hip, less the 14 a launched hip is drawn above f.alt,
+    // since f.alt is already its landing altitude (issue #353)
+    const h = f.rag ? groundY(f.z) - 1.5 - Math.max(...Object.values(f.rag.pts).map(o => o.y))
+      : f.state === 'thrown' ? Math.max(f.alt, groundY(f.z) - 14 - f.th.hy) : f.alt;
     const k = 1 - Math.min(0.7, Math.max(0, h - s) / 300);
     // Fades with the fighter, as its health bar and crown do (issue #218)
     ctx.globalAlpha = 0.12 * k * f.alpha; ctx.fillStyle = cfg.line;
