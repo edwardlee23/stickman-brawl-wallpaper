@@ -348,8 +348,16 @@ function resize() {
   // out again for the new width, or a narrower screen piles them all at the wall (issue #312)
   const ladder = ladderQueue.some(f => f.state === 'wait');
   for (const f of fighters) {
-    if (ladder && oldW > 0 && f.state !== 'wait' && !f.rag) f.x *= worldW / oldW;
+    // A fighter held to a side wall (splatted on it, running up it) stays against that wall,
+    // or a wider screen leaves it hanging in mid-air (issue #388)
+    const wall = f.state === 'splat' ? f.splatSide : f.md && f.md.ph === 'climb' ? f.md.dir : 0;
+    if (wall > 0 && oldW > 0) f.x += worldW - oldW;
+    else if (ladder && oldW > 0 && !wall && f.state !== 'wait' && !f.rag) f.x *= worldW / oldW;
     f.x = clamp(f.x, 14, worldW - 14);
+    // A thrown fighter is drawn along the throw's path, so that moves the same way (issue #388)
+    if (f.state === 'thrown' && f.th) {
+      for (const k of ['hx0', 'hx1', 'hx']) f.th[k] = clamp(ladder && oldW > 0 ? f.th[k] * worldW / oldW : f.th[k], 14, worldW - 14);
+    }
     // A body at rest no longer simulates, so slide it whole back inside a narrower screen
     if (f.rag) {
       const xs = Object.values(f.rag.pts).map(o => o.x);
@@ -362,8 +370,20 @@ function resize() {
     const wait = ladderQueue.filter(f => f.state === 'wait');
     layoutWaiting(wait.filter(f => f.facing > 0), wait.filter(f => f.facing < 0));
   }
+  // The joints drawn are taken once a step; a frame drawn before the next one (paused, or
+  // in a hit stop) would show the bodies where they stood before the resize (issue #388)
+  for (const f of fighters) if (f.W) f.W = f.rag ? f.rag.pts : f.joints();
   // Items on the floor too, or one left past the edge could never be picked up
   for (const it of items) it.x = clamp(it.x, 40, worldW - 40);
+  // A crack in the right wall moves with that wall, or it floats mid-screen (issue #388)
+  if (oldW > 0 && worldW !== oldW) {
+    for (const o of fx) {
+      if (o.type !== 'crack' || o.kind !== 'wall' || o.x !== oldW) continue;
+      const dx = worldW - oldW;
+      o.x = worldW;
+      for (const pts of o.lines) for (const p of pts) p[0] += dx;
+    }
+  }
 }
 
 const TEAM_COLOR = ['#ff6b6b', '#4dabf7'];
