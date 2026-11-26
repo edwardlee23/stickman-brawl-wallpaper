@@ -651,9 +651,11 @@ function stepRag(r, gy) {
         o.y = fl; o.py = fl + vy * 0.3; o.px = o.x - vx * 0.75;
       }
       if (platforms.length) ragPlatform(o, k);
-      if (o.y < 4) { const vy = o.y - o.py; o.y = 4; o.py = 4 + vy * 0.5; }
-      if (o.x < 4 || o.x > worldW - 4) {
-        const vx = o.x - o.px, w = o.x < 4 ? 4 : worldW - 4;
+      // The head is drawn as a circle round its point, so it stops its radius short (issue #265)
+      const m = k === 'head' ? L.head : 4;
+      if (o.y < m) { const vy = o.y - o.py; o.y = m; o.py = m + vy * 0.5; }
+      if (o.x < m || o.x > worldW - m) {
+        const vx = o.x - o.px, w = o.x < m ? m : worldW - m;
         o.x = w; o.px = w + vx * 0.5;          // Bounce off the wall
       }
     }
