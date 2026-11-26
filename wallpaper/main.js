@@ -1928,6 +1928,7 @@ class Fighter {
 
   applyGrab(e) {
     const m = this.move, af = this.facing;
+    if (e.state === 'frozen') shatterIce(e.bodyPoint());   // A throw shatters the ice as a hit does (#389)
     e.hp -= m.dmg * rand(0.9, 1.1); e.flash = 0.12; e.clearMove();
     e.va = 0; e.vx = 0;   // A victim grabbed while rising must not keep floating up once down
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1; stats.throws++;
@@ -2019,7 +2020,8 @@ class Fighter {
     // Any hit shatters the ice; another ice shard does not freeze again, so nobody is frozen in a loop
     const wasFrozen = this.state === 'frozen';
     if (wasFrozen) shatterIce(H);
-    // A hit that launches a tumbling fighter keeps its spin; only a special's own rotation is dropped (#347)
+    // A hit that launches or freezes a tumbling fighter keeps its spin; only a special's own
+    // rotation is dropped (#347, #389)
     const spin = this.move ? 0 : this.rot;
     this.clearMove();
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1;
@@ -2038,7 +2040,7 @@ class Fighter {
     }
     if (o.freeze && !wasFrozen) {
       this.state = 'frozen'; this.st = 0; this.dur = o.freeze;
-      this.vx = 0; this.vz = 0; this.va = Math.min(this.va, 0);
+      this.vx = 0; this.vz = 0; this.va = Math.min(this.va, 0); this.rot = spin;
       return;
     }
     if (Lv) { this.launch(Lv.vx, Lv.va); this.rot = spin; return; }
