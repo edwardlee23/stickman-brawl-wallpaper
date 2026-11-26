@@ -2088,7 +2088,8 @@ function checkRound(dt) {
   let noBout = false;
   if (ladderQueue.length) {
     noBout = alive.length === 1 && alive[0].state === 'wait';
-    ladderStepIn();
+    // It stays waiting: stepped in, it would strike the victory pose under the DRAW banner (#313)
+    if (!noBout) ladderStepIn();
   }
   const sides = new Set(alive.map(f => (cfg.mode === 'teams' ? f.team : f.id)));
   if (sides.size <= 1) {
@@ -2161,6 +2162,9 @@ function ruleTarget(me) {
 // Ladder: waiting fighters cheer, and the next steps in whenever fewer than two are fighting
 function roundRulesStep() {
   if (!ladderQueue.length) return;
+  // Only a draw ends a round with fighters still waiting (see checkRound): they stand in guard
+  // until the next round, neither cheering nor stepping in (issue #313)
+  if (roundOver) { for (const f of ladderQueue) Object.assign(f.pose, GUARD); return; }
   for (const f of ladderQueue) lerpPose(GUARD, VICTORY, 0.5 + 0.5 * Math.sin(f.time * 5 + f.id), f.pose);
   ladderStepIn();
 }
