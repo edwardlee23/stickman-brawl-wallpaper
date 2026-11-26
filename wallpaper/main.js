@@ -1136,6 +1136,7 @@ class Fighter {
   }
 
   endMove() {
+    this.poofClones();
     if (this.move && !this.move.type && !this.hitDone) { stats.whiff++; sfx('whiff', this.x); }
     this.state = this.aloft() ? 'air' : 'idle'; this.st = 0;
     this.move = null; this.md = null; this.spin = false; this.hover = false; this.ghost = false;
@@ -1851,9 +1852,19 @@ class Fighter {
     }
   }
 
+  // Shadow clones still out when their technique stops early (the caster hit, the target gone)
+  // vanish in a puff each, as they do at its end (#259)
+  poofClones() {
+    const md = this.md;
+    if (!md || !md.clones || !this.move || this.move.type !== 'clones') return;
+    if (md.ph !== 'vanish') for (const c of md.clones) puff(c.x, groundY(this.z) - this.alt - c.alt - 40, 0.8);   // Vanishing ones have puffed
+    md.clones = null;
+  }
+
   // Drops the current move and every visual state a special leaves behind
   // (afterimage fists, fade, invisibility, aura, trail, body rotation).
   clearMove() {
+    this.poofClones();
     this.move = null; this.md = null; this.spin = false; this.hover = false; this.ghost = false;
     this.invis = false; this.alpha = 1; this.aura = 0; this.rot = 0; this.trailOn = false;
   }
