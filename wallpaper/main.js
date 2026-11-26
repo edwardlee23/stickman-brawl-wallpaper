@@ -353,6 +353,8 @@ const TEAM_COLOR = ['#ff6b6b', '#4dabf7'];
 const TEAM_NAME = ['RED', 'BLUE'];
 const HIT_STATES = new Set(['idle', 'air', 'attack', 'hit', 'block', 'launched', 'splat', 'frozen']);
 const SOLID = new Set(['idle', 'attack', 'hit', 'block', 'frozen']);
+// States in which a fighter lies or turns between lying and standing, kept inside the walls (issue #244)
+const LYING = new Set(['fall', 'down', 'getup']);
 const SUB_STATES = new Set(['idle', 'air', 'attack', 'hit', 'block']);   // States a substitution can be made from
 const isEnemy = (a, b) => a !== b && (cfg.mode === 'teams' ? a.team !== b.team : true);
 
@@ -1909,6 +1911,19 @@ class Fighter {
     if (d > 0) this.x -= side * d;
   }
 
+  // Moves a fighter falling, lying or getting up out from the side walls until every joint is at
+  // least 4 inside them, where a ragdoll's points stop, and the head its radius, so it is drawn
+  // whole and a knockout there leaves the body where it lay (issue #244)
+  inWalls() {
+    const J = this.joints();
+    let lo = 0, hi = 0;
+    for (const k in J) {
+      const m = k === 'head' ? L.head : 4;
+      lo = Math.max(lo, m - J[k].x); hi = Math.max(hi, J[k].x - (worldW - m));
+    }
+    this.x += lo - hi;
+  }
+
   updLaunched(dt) {
     const feet = groundY(this.z) - this.alt;
     this.va -= G * dt;
@@ -2390,6 +2405,9 @@ function update(dt) {
     }
   }
   for (const f of fighters) {
+    // Here, once for every way into these states (a fall, a landing from a launch or a throw),
+    // and before the joints are taken, so a ragdoll made from them starts where the body lay
+    if (LYING.has(f.state)) f.inWalls();
     f.W = f.rag ? f.rag.pts : f.joints();
     if (f.koPending) { f.koPending = false; f.ko(0, -40); f.W = f.rag.pts; }
     // Afterimages
