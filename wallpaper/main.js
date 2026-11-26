@@ -2475,7 +2475,13 @@ function colorOf(f) {
 // Names come from the owner as one comma-separated text (an ASCII comma, or the full-width
 // ， or 、 a Chinese keyboard types): trimmed, cut to 12 characters,
 // given to fighters in order; an empty entry leaves that fighter as #n.
-const parseNames = s => String(s ?? '').split(/[,，、]/).map(t => Array.from(t.trim()).slice(0, 12).join(''));
+// A character is what the reader sees as one (a grapheme), so an emoji joined from several code
+// points is never split and a flag counts once (issue #252); code points where there is no
+// Intl.Segmenter.
+const graphemes = typeof Intl === 'object' && Intl.Segmenter
+  ? (seg => t => Array.from(seg.segment(t), s => s.segment))(new Intl.Segmenter(undefined, { granularity: 'grapheme' }))
+  : t => Array.from(t);
+const parseNames = s => String(s ?? '').split(/[,，、]/).map(t => graphemes(t.trim()).slice(0, 12).join(''));
 const nameOf = f => cfg.names[f.id] || '';
 const labelOf = f => nameOf(f).toUpperCase() || '#' + (f.id + 1);
 function drawNameTags(list) {
