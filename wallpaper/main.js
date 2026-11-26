@@ -408,7 +408,7 @@ function hitStop(t) {
   freeze = Math.max(freeze, t);
   freezeGap = Math.max(freezeGap, freeze * FREEZE_GAP);
 }
-let roundOver = false, roundTimer = 0, roundTime = 0, winnerText = '', winnerColor = '#fff';
+let roundOver = false, roundTimer = 0, roundTime = 0, roundWinner = null;   // null: a draw
 // Slow-motion finish (optional, issue #90): the knockout that ends a round runs game time at a
 // quarter for SLOWMO_HOLD s of real time, then eases back to full speed over SLOWMO_EASE s.
 // Unless motion is reduced, the view also zooms in up to 1 + SLOWMO_ZOOM times toward the
@@ -2218,6 +2218,10 @@ function newRound(decided = false) {
   }
   applyRoundRules(prev, decided);
 }
+// The win banner is built from the winner each frame, so a name, Unique colors or Line color
+// changed while it shows is seen at once, as on the name tags and the score (issue #391)
+const winnerText = () => !roundWinner ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[roundWinner.team] + ' WINS!' : labelOf(roundWinner) + ' WINS!';
+const winnerColor = () => (roundWinner ? colorOf(roundWinner) : cfg.line);
 function checkRound(dt) {
   roundTime += dt;
   if (roundOver) { roundTimer -= dt; if (roundTimer <= 0) newRound(true); return; }
@@ -2235,8 +2239,7 @@ function checkRound(dt) {
   if (sides.size <= 1) {
     roundOver = true; roundTimer = 4.5; stats.rounds++; sfx('win', worldW / 2);
     const w = noBout ? null : alive[0];
-    winnerText = !w ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[w.team] + ' WINS!' : labelOf(w) + ' WINS!';
-    winnerColor = w ? colorOf(w) : cfg.line;
+    roundWinner = w;
     scoreWin(w);
     // Nothing may hurt the winners now: shots still in flight, some from fighters already
     // knocked out, burst where they are
@@ -2722,7 +2725,7 @@ function drawNameTags(list) {
 const GEAR = ['headband', 'mask', 'cap', 'topknot'];
 const gearOf = f => GEAR[f.id % GEAR.length];
 Object.assign(window.__stickmanBrawl, { nameOf, gearOf, newRound, render });
-Object.defineProperty(window.__stickmanBrawl, 'winnerText', { get: () => winnerText });
+Object.defineProperty(window.__stickmanBrawl, 'winnerText', { get: winnerText });
 function drawHeadgear(f, J, col, alpha) {
   const h = J.head, r = L.head;
   // u points from the neck up through the head; v points the way the face looks, which is the
@@ -3189,10 +3192,11 @@ function render() {
   if (roundOver) {
     ctx.globalAlpha = clamp(roundTimer, 0, 1);
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    fitFont('900', 26, winnerText, worldW - 28);
+    const text = winnerText();
+    fitFont('900', 26, text, worldW - 28);
     ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000000';
-    ctx.strokeText(winnerText, worldW / 2, worldH * 0.2);
-    ctx.fillStyle = winnerColor; ctx.fillText(winnerText, worldW / 2, worldH * 0.2);
+    ctx.strokeText(text, worldW / 2, worldH * 0.2);
+    ctx.fillStyle = winnerColor(); ctx.fillText(text, worldW / 2, worldH * 0.2);
   }
   ctx.globalAlpha = 1;
 }
