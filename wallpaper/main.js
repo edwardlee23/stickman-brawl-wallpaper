@@ -1092,9 +1092,11 @@ class Fighter {
   // shielded or substituted, but smoke escapes them. An attack that comes round the guard
   // (unguardable, the shadow clones) offers no block or shield, which could not stop it.
   warn(reach, grab, unguardable) {
+    // As deep as the attack hits (issue #263): a beam within 22 (u_beam), strikes and shots within 16 (sweepHit, shots)
+    const depth = this.move.type === 'beam' ? 22 : 16;
     for (const e of fighters) {
       if (!isEnemy(this, e) || e.state !== 'idle') continue;
-      if (Math.abs(e.x - this.x) > reach || Math.abs(e.z - this.z) > 14) continue;
+      if (Math.abs(e.x - this.x) > reach || Math.abs(e.z - this.z) > depth) continue;
       if (sgn(e.x - this.x) !== this.facing) continue;
       // A strike cannot reach an enemy as far above or below as it cannot hit (on another platform, say)
       if (!this.move.type && Math.abs(e.alt - this.alt) >= 35) continue;
