@@ -1432,6 +1432,9 @@ class Fighter {
           // Landed on the floor: one on or over a platform has the platform between it and the
           // shockwave, as the floor is out of reach from a ledge (issue #262)
           if (!ledge && e.surfaceAlt() > 0) continue;
+          // Landed on a platform: only one over its span is on it, not one on another ledge at the
+          // same height across a gap, or in the air past its end (issue #308)
+          if (ledge && (e.x < ledge.x0 || e.x > ledge.x1)) continue;
           const d = Math.abs(e.x - gx);
           if (d > 150) continue;
           // The shockwave spreads both ways: each target is hit from the impact's side, not the slammer's front
