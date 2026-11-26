@@ -119,7 +119,8 @@ export function parseArgs(argv) {
     } else if (a === '--scan') {
       const m = /^(\d+)(?:-(\d+))?$/.exec(v);
       const lo = m && Number(m[1]), hi = m && Number(m[2] ?? m[1]);
-      if (!m || lo > hi) throw new Error('--scan takes a seed or a range such as 1-12');
+      // The same 32-bit limit as --seed: a larger seed would scan another seed's fight.
+      if (!m || lo > hi || hi > 0xFFFFFFFF) throw new Error('--scan takes a seed or a range such as 1-12, from 0 to 4294967295');
       opt.scan = Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
     } else opt.out = path.resolve(v);
   }

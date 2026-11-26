@@ -13,6 +13,14 @@ test('--seed takes 0 to 4294967295, the seeds Math.random can be given', () => {
   assert.throws(() => parseArgs(['--seed', '4294967306']), /--seed/);
 });
 
+test('--scan takes only seeds from 0 to 4294967295, as --seed does (#357)', () => {
+  assert.deepEqual(parseArgs(['--scan', '4294967294-4294967295']).scan, [4294967294, 4294967295]);
+  assert.deepEqual(parseArgs(['--scan', '0']).scan, [0]);
+  for (const v of ['4294967296', '4294967295-4294967297', '1-99999999999']) {
+    assert.throws(() => parseArgs(['--scan', v]), /--scan takes a seed or a range such as 1-12, from 0 to 4294967295/, v);
+  }
+});
+
 test('--seed together with --scan is an error', () => {
   assert.throws(() => parseArgs(['--seed', '5', '--scan', '1-2']), /--seed and --scan/);
   assert.throws(() => parseArgs(['--scan', '1-2', '--seed', '5']), /--seed and --scan/);
