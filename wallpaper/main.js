@@ -2381,7 +2381,8 @@ function updateItems(dt) {
   if (itemTimer === null) itemTimer = rand(8, 15);
   if (!roundOver && (itemTimer -= dt) <= 0) {
     itemTimer = rand(8, 15);
-    if (items.length < 2) spawnItem(pick(ITEM_KINDS), rand(40, worldW - 40));
+    // No staff drops while nobody can use one: it would hold an item slot all round (issue #340)
+    if (items.length < 2) spawnItem(pick(staffUsable() ? ITEM_KINDS : ITEM_KINDS.filter(k => k !== 'staff')), rand(40, worldW - 40));
   }
   for (let i = items.length - 1; i >= 0; i--) {
     const it = items[i];
