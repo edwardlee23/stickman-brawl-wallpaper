@@ -2786,7 +2786,8 @@ function drawBackground() {
   if (!(SW > 0 && SH > 0)) return;
   const date = bg.now();
   const minute = cfg.bgTheme === 'daynight' ? date.getHours() * 60 + date.getMinutes() : 0;
-  const key = [cfg.bgTheme, SW, SH, dpr, S, cfg.bg, minute].join();
+  // No cfg.bg: every theme paints over the whole backdrop, so the color never shows in it
+  const key = [cfg.bgTheme, SW, SH, dpr, S, minute].join();
   if (!bg.canvas && typeof document.createElement === 'function') bg.canvas = document.createElement('canvas');
   // The slow-motion finish zooms the backdrop with the world, about the same point, so its
   // painted floor line stays on the world floor (issue #219). Zoomed in about a point on the

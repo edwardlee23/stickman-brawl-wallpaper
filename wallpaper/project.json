@@ -88,7 +88,7 @@
 			"audioreactive" : { "order" : 26, "text" : "ui_audioreactive", "type" : "bool", "value" : false },
 			"audiostrength" : { "order" : 27, "text" : "ui_audiostrength", "type" : "slider", "min" : 0, "max" : 100, "value" : 50, "condition" : "audioreactive.value" },
 			"clickblast" : { "order" : 28, "text" : "ui_clickblast", "type" : "bool", "value" : false },
-			"backgroundcolor" : { "order" : 30, "text" : "ui_backgroundcolor", "type" : "color", "value" : "0.067 0.075 0.094" },
+			"backgroundcolor" : { "order" : 30, "text" : "ui_backgroundcolor", "type" : "color", "value" : "0.067 0.075 0.094", "condition" : "backgroundtheme.value == 'plain'" },
 			"linecolor" : { "order" : 31, "text" : "ui_linecolor", "type" : "color", "value" : "0.925 0.925 0.925" },
 			"fighternames" : { "order" : 33, "text" : "ui_fighternames", "type" : "textinput", "value" : "" },
 			"headgear" : { "order" : 34, "text" : "ui_headgear", "type" : "bool", "value" : false },
