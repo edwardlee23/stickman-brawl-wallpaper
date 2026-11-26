@@ -2078,14 +2078,28 @@ class Fighter {
   // Moves a fighter falling, lying or getting up out from the side walls until every joint is at
   // least 4 inside them, where a ragdoll's points stop, and the head its radius, so it is drawn
   // whole and a knockout there leaves the body where it lay (issue #244)
+  // A body lying on a ledge that this would push off its end lies the other way round instead,
+  // pointing away from the near wall: on a narrow screen the gap between a side ledge and the
+  // wall is shorter than a lying body, which would otherwise fall to the floor lying (issue #384)
   inWalls() {
-    const J = this.joints();
-    let lo = 0, hi = 0;
-    for (const k in J) {
-      const m = k === 'head' ? L.head : 4;
-      lo = Math.max(lo, m - J[k].x); hi = Math.max(hi, J[k].x - (worldW - m));
+    const shift = () => {
+      const J = this.joints();
+      let lo = 0, hi = 0;
+      for (const k in J) {
+        const m = k === 'head' ? L.head : 4;
+        lo = Math.max(lo, m - J[k].x); hi = Math.max(hi, J[k].x - (worldW - m));
+      }
+      return lo - hi;
+    };
+    let d = shift();
+    const ledge = d && this.alt > 0 ? platformAt(this.x, groundY(this.z) - this.alt) : null;
+    const off = d => this.x + d < ledge.x0 || this.x + d > ledge.x1;
+    if (ledge && off(d)) {
+      this.facing = -this.facing;
+      const d2 = shift();
+      if (off(d2)) this.facing = -this.facing; else d = d2;
     }
-    this.x += lo - hi;
+    this.x += d;
   }
 
   updLaunched(dt) {
