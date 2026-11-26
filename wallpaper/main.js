@@ -910,8 +910,12 @@ class Fighter {
       this.alt += this.va * dt;
       // At the top of the screen, start falling instead of hanging there while still rising
       const top = maxAlt(this.z);
-      if (this.alt > top) { this.alt = top; this.va = Math.min(this.va, 0); }
-      if (this.alt <= base) { this.alt = base; this.va = 0; this.onLand(); }
+      if (this.alt > top) {
+        this.alt = top; this.va = Math.min(this.va, 0);
+        // At large figure sizes the side ledges sit at this height: topping out over one lands
+        // on it (issue #245)
+        if (platformAt(this.x, groundY(this.z) - top)) { this.va = 0; this.onLand(); }
+      } else if (this.alt <= base) { this.alt = base; this.va = 0; this.onLand(); }
     }
   }
   // The altitude of the surface under a fighter whose feet were at the screen height feet before
@@ -920,7 +924,9 @@ class Fighter {
     const h = platformAlt(this.x, this.z, feet);
     if (h > 0 && this.va <= 0 && !this.hover && platformAt(this.x, feet)) {
       this.alt = h;
-      if (this.va < 0) { this.va = 0; this.onLand(); }   // Came down within half a unit of the top
+      // Came down within half a unit of the top, or topped out on it: at large figure sizes the
+      // side ledges sit at the jump ceiling, where a jump stops with va 0 (issue #245)
+      if (this.va < 0 || this.state === 'air') { this.va = 0; this.onLand(); }
     }
     return h;
   }
