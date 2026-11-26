@@ -26,6 +26,9 @@ function ledges([w, h], scale) {
 
 test('a wide screen at 100% has three ledges', () => {
   assert.equal(ledges([1920, 1080]), 3);
+  // Issue #320: worlds between 700 and 900 wide keep the middle ledge
+  assert.equal(ledges([1680, 1050]), 3);   // 16:10, world 864 wide
+  assert.equal(ledges([1920, 1080], 120), 3);   // world 800 wide
 });
 
 test('a narrow world has two ledges, from the screen shape or from a large figure size', () => {
