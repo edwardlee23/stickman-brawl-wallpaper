@@ -36,7 +36,6 @@ function beamAt(bx) {
   Object.assign(b, held, { x: bx, facing: -1, state: 'idle', target: a });
   for (const f of game.fighters) f.W = f.joints();
   a.startMove(game.SUPER.find(m => m.id === 'beam'));
-  let endX = null;
   for (let k = 0; k < 120 && a.md.ph === 'charge'; k++) {
     for (const f of game.fighters) f.W = f.joints();
     a.update(1 / 60);
@@ -45,8 +44,7 @@ function beamAt(bx) {
   const blocked = b.state === 'block';
   for (const f of game.fighters) f.W = f.joints();
   a.update(1 / 60);
-  endX = a.md.E.x;
-  return { endX, blocked };
+  return { endX: a.md.E.x, blocked };
 }
 
 test('an enemy past the end of an energy beam does not react to it (#343)', () => {
