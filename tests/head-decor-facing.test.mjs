@@ -75,7 +75,7 @@ for (const i of [0, 1, 2]) {
     test(`head gear of fighter ${i + 1} points the way the body faces, ${spin ? 'spinning' : 'not spinning'}`, () => {
       const { kind, side, face, f } = gearSide(i, spin);
       assert.equal(face, spin ? -f.facing : f.facing);
-      // p is the face direction for facing +1, as v = p * facing in drawHeadgear
+      // The face points along p times drawFacing(), as v does in drawHeadgear
       assert.equal(side, face, kind + ' points ' + side + ', the body ' + face);
     });
   }
