@@ -186,17 +186,27 @@ test('Survival: a settings change during the win banner restores everyone (#123)
   for (const f of game.fighters) assert.equal(f.hp, 100, '#' + (f.id + 1) + ' starts at ' + f.hp);
 });
 
-test('Ladder: a click with Click to blast on leaves the waiting fighters where they are', () => {
+test('Ladder: a click with Click to blast on leaves the waiting fighters where they are (#341)', () => {
   const window = load();
   window.wallpaperPropertyListener.applyUserProperties({ roundrules: { value: 'ladder' }, clickblast: { value: true } });
   const game = window.__stickmanBrawl;
+  // World units to CSS pixels, as main.js scales the page: figure scale times window height over 540
+  const S = game.cfg.scale * window.innerHeight / 540, worldW = window.innerWidth / S;
+  let t = 1e6;                            // Clicks a second apart, past the blast cooldown
+  const click = c => { t += 1000; for (const fn of window.listeners.pointerdown) fn({ button: 0, timeStamp: t, clientX: c.x * S, clientY: c.y * S }); };
   const waiting = game.fighters.filter(f => f.state === 'wait');
-  assert.ok(waiting.length >= 2);
+  assert.ok(waiting.some(f => f.x < worldW / 2) && waiting.some(f => f.x > worldW / 2), 'waiting fighters on both sides');
   for (const f of waiting) {
-    const c = f.bodyPoint();
-    for (const fn of window.listeners.pointerdown) fn({ button: 0, timeStamp: 1e6 + f.id * 1000, clientX: c.x * game.cfg.scale, clientY: c.y * game.cfg.scale });
+    const before = { x: f.x, z: f.z, alt: f.alt };
+    click(f.bodyPoint());
+    assert.equal(f.state, 'wait', '#' + (f.id + 1) + ' was launched by a click on it');
+    assert.deepEqual({ x: f.x, z: f.z, alt: f.alt }, before, '#' + (f.id + 1) + ' moved');
   }
   assert.equal(game.fighters.filter(f => f.alive && f.state !== 'wait').length, 2, 'still two fighting');
+  // The same clicks reach a fighter that is not waiting, so the ones above landed on their fighters
+  const a = game.fighters.find(f => f.alive && f.state !== 'wait');
+  click(a.bodyPoint());
+  assert.equal(a.state, 'launched', 'a click on a fighting fighter launches it');
 });
 
 test('King: the crown fades with its king during a teleport (#120)', () => {
