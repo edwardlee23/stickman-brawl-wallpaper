@@ -24,8 +24,8 @@ function load() {
   return game;
 }
 
-// Has the attacker warn of move id, as the move does when it strikes or fires, an idle
-// enemy dx to its right and dz deeper, and says whether the enemy blocked.
+// Puts an idle enemy dx to the attacker's right and dz deeper, has the attacker warn of
+// move id as that move does when it strikes or fires, and says whether the enemy blocked.
 function blocks(id, dx, dz) {
   const game = load();
   const [a, e] = game.fighters;
@@ -44,11 +44,11 @@ test('an enemy 15 or 20 depth units from an energy beam it would be hit by react
 });
 
 test('an enemy deeper than an energy beam reaches does not react to it', () => {
-  assert.ok(!blocks('beam', 250, 26), 'reacted at dz 26');
+  assert.ok(!blocks('beam', 250, 23), 'reacted at dz 23');
 });
 
-test('an enemy 15 depth units from a strike or an energy blast reacts to it', () => {
+test('an enemy 15 depth units from a strike or an energy blast reacts to it, one 17 away from a strike does not', () => {
   assert.ok(blocks('jab', 30, 15), 'no reaction to a jab at dz 15');
   assert.ok(blocks('blast', 250, 15), 'no reaction to a blast at dz 15');
-  assert.ok(!blocks('jab', 30, 20), 'reacted to a jab at dz 20');
+  assert.ok(!blocks('jab', 30, 17), 'reacted to a jab at dz 17');
 });
