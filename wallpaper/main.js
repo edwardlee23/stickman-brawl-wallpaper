@@ -1039,7 +1039,8 @@ class Fighter {
         }
         seekItem(this, dt);
       }
-      if (platforms.length && this.chaseSurface(t, dt)) return;
+      // Not while dodging or dashing either, which would turn the dodge into a walk back (#381)
+      if (platforms.length && this.evade <= 0 && this.dash <= 0 && this.chaseSurface(t, dt)) return;
       // Jump at random; jump more often when the opponent is airborne
       if (Math.random() < dt * (t.alt - this.alt > 60 ? 1.2 : 0.22)) {
         this.va = rand(480, 640); this.alt += 1; this.vx = this.facing * rand(100, 260);
