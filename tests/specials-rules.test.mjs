@@ -89,12 +89,11 @@ test('the SPECIALS table: ranges, air and anti-air flags, damage and shot speed'
 const MIN_REACH = { jab: 33, cross: 21.6, hook: 17.5, uppercut: 18.4, teep: 17.3, roundhouse: 4, elbow: 19.7, knee: 11.9,
   lowkick: 4, sidekick: 18.7, backkick: 34.4, axekick: 19.4 };
 
-test('a strike reaches in to 4 px short of the nearest point its fist or foot sweeps', () => {
+test('a strike reaches in to 4 px inside the nearest point it sweeps with 0.7 of its lunge, and at least 4', () => {
   const { game } = load();
   const got = Object.fromEntries(game.MOVES.filter(m => !m.grab).map(m => [m.id, Math.round(m.range[0] * 10) / 10]));
   assert.deepEqual(got, MIN_REACH);
 });
-
 
 test('a barrage lands a punch every 0.08 s while drifting forward, then a 9 damage finisher', () => {
   const { game, a, e } = load();
