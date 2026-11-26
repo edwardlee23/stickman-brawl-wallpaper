@@ -1062,8 +1062,9 @@ class Fighter {
       }
       // Not while dodging or dashing either, which would turn the dodge into a walk back (#381)
       if (platforms.length && this.evade <= 0 && this.dash <= 0 && this.chaseSurface(t, dt)) return;
-      // Jump at random; jump more often when the opponent is airborne
-      if (Math.random() < dt * (t.alt - this.alt > 60 ? 1.2 : 0.22)) {
+      // Jump at random; jump more often when the opponent is airborne. Its height is seen from
+      // this depth, so a target on the same ledge is level whatever its depth (#386)
+      if (Math.random() < dt * (altSeen(this, t) - this.alt > 60 ? 1.2 : 0.22)) {
         this.va = rand(480, 640); this.alt += 1; this.vx = this.facing * rand(100, 260);
         this.state = 'air'; this.st = 0; this.cool = rand(0.1, 0.35);
         return;
@@ -1102,8 +1103,8 @@ class Fighter {
       // Air dash
       this.dashed = true; this.vx = this.facing * 560; this.va = Math.max(this.va, 60);
       this.dash = 0.25; this.trailOn = true; this.cool = rand(0.1, 0.3);
-    } else if (!this.dj && r < 0.45 && t.alt > this.alt - 20) {
-      // Double jump
+    } else if (!this.dj && r < 0.45 && altSeen(this, t) > this.alt - 20) {
+      // Double jump, at a target not below; its height is seen from this depth, as above (#386)
       this.dj = true; this.va = 560; this.cool = rand(0.1, 0.3);
       addFx({ type: 'ring', x: this.x, y: groundY(this.z) - this.alt, r0: 3, r1: 22, dur: 0.2, w: 1.5, flat: true });
     } else {
