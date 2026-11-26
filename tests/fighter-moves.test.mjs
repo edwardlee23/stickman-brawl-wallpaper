@@ -89,6 +89,7 @@ test('in the air, a special starts only at about the target depth', () => {
     rig.force = 0.9;
     a.update(DT);
     assert.equal(a.state === 'attack', starts, 'depth gap ' + dz + ': state ' + a.state + (a.move ? ' ' + a.move.id : ''));
+    if (starts) assert.ok(a.move.type && a.move.air, a.move.id + ' is not an air special');
   }
 });
 
@@ -144,7 +145,8 @@ test('in reach of its move, a fighter shuffles its feet', () => {
   const { game, a, e, rig } = load();
   const jab = move(game, 'jab'), d = (jab.range[0] + jab.range[1]) / 2;
   hold(e, { x: 400 + d, z: 60 });
-  hold(a, { x: 400, z: 60, state: 'idle', facing: 1, target: e, retarget: 99, nextMove: jab, time: (Math.PI / 2 - 0) / 2.3 });
+  hold(a, { x: 400, z: 60, state: 'idle', facing: 1, target: e, retarget: 99, nextMove: jab });
+  a.time = (Math.PI / 2 - a.id) / 2.3;   // The shuffle at its forward peak: sin(time * 2.3 + id) is 1
   rig.force = 0.99;
   for (let i = 0; i < 6; i++) a.update(DT);
   assert.ok(a.vx > 20 && a.vx <= 0.35 * 110 + 1e-9, 'vx ' + a.vx);
