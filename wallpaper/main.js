@@ -2896,8 +2896,8 @@ function render() {
     ctx.beginPath(); ctx.ellipse(x, groundY(f.z) - s, 14 * k, 2.5 * k, 0, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
-  for (const f of list) drawFighter(f);
-  for (const f of list) drawHeld(f);
+  // A held item is drawn with its holder, so a fighter in front covers it (issue #251)
+  for (const f of list) { drawFighter(f); drawHeld(f); }
 
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
