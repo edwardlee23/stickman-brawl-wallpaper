@@ -776,6 +776,26 @@ function altFits(me, m, t) {
   const d = altSeen(me, t) - me.alt;
   return m.sameAlt ? Math.abs(d) < 35 : m.notBelow ? d > -35 : m.maxUp ? d < m.maxUp : true;
 }
+// Whether me's beam at t would come down on the ledge me stands on: it stops at the first ledge
+// top it meets (#217), so from there it cannot reach a target below, past the ledge's end (#387)
+function beamOnOwnLedge(me, t) {
+  if (!platforms.length || !me.W || !t.W || me.alt <= 0 || me.aloft()) return false;
+  const p = platformAt(me.x, groundY(me.z) - me.alt);
+  if (!p) return false;
+  // The hands as they will be: still in the charge pose when it aims, then pointing along the aim
+  // as it fires, where the recoil (25 a second, see u_beam) pushes them back up to the ledge's end.
+  // Only a beam that comes down on the ledge, or within 4 of its ends (as good as grazing a corner),
+  // both as it starts and as it stops firing cannot hit.
+  const f = sgn(t.x - me.x), feet = groundY(me.z) - me.alt;
+  const hands = (pose, x) => { const J = fk(pose); return { x: x + f * (J.hF.x + J.hB.x) / 2, y: feet + (J.hF.y + J.hB.y) / 2 }; };
+  const aim = me.beamAim(t, hands(CHARGE, me.x)), fire = clonePose(FIRE), dy = Math.sin(aim);
+  if (dy <= 0.01) return false;
+  fire.aF = 1.57 - aim; fire.aB = 1.52 - aim;
+  return [me.x, clamp(me.x - f * 25 * BEAM_FIRE, p.x0, p.x1)].every(x => {
+    const O = hands(fire, x), cx = O.x + f * Math.cos(aim) * (p.y - O.y) / dy;
+    return cx >= p.x0 - 4 && cx <= p.x1 + 4;
+  });
+}
 function pickMove(me, t, dist) {
   let items = [];
   // Height is measured from the surface the fighter stands on, so a ledge is not the air
@@ -787,6 +807,7 @@ function pickMove(me, t, dist) {
   for (const m of SPECIALS) {
     if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air) || (t && !altFits(me, m, t))) continue;
     if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
+    if (m.type === 'beam' && t && beamOnOwnLedge(me, t)) continue;
     items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1) * musicSpecial()]);
   }
   // Every style turned off: fight with all the martial-arts moves rather than stand still (see README)
@@ -1295,6 +1316,12 @@ class Fighter {
     const { E, ground } = lineEnd(O, d, this.z);
     return { O, E, d, ground };
   }
+  // The beam's aim from the hands (H) at t's body, as it is set when the charge ends
+  beamAim(t, H = mid(this.W.hF, this.W.hB)) {
+    if (!t || !t.W) return 0;
+    const c = mid(t.W.sh, t.W.hip);
+    return clamp(Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1), -0.7, 0.9);
+  }
   u_beam(dt) {
     const md = this.md, m = this.move, t = this.target;
     // Standing on a platform it does not hover, and its recoil and leftover walking speed stop
@@ -1310,13 +1337,7 @@ class Fighter {
 
       if (this.st >= 0.75) {
         md.ph = 'fire'; md.t0 = this.st; sfx('fire', this.x, 1.5); md.hit = new Set();
-        const H = mid(this.W.hF, this.W.hB);
-        let aim = 0;
-        if (t && t.W) {
-          const c = mid(t.W.sh, t.W.hip);
-          aim = clamp(Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1), -0.7, 0.9);
-        }
-        md.aim = aim;
+        const aim = md.aim = this.beamAim(t);
         // Only opponents along the beam, up to where it ends, react to it (issue #343);
         // 25 covers its half width and the hit margin (md.w + 8). Those far above or
         // below its line do not either (#382)
