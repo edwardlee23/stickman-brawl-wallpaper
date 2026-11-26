@@ -160,7 +160,7 @@ const MOVES = [
 const SUPER = [
   { id: 'beam', type: 'beam', range: [90, 9999], w: 3, air: true, dmg: 22, antiAir: true },
   { id: 'blast', type: 'blast', range: [100, 9999], w: 2.5, air: true, dmg: 4, antiAir: true, speed: 540 },
-  { id: 'barrage', type: 'barrage', range: [14, 40], w: 3, dmg: 1.4, sameAlt: true },
+  { id: 'barrage', type: 'barrage', range: [14, 40], w: 3, dmg: 1.4, finDmg: 9, sameAlt: true },   // dmg per punch, finDmg for the finisher
   { id: 'rising', type: 'rising', range: [8, 42], w: 3, dmg: 10, antiAir: true, notBelow: true },
   { id: 'dive', type: 'dive', range: [60, 480], w: 3, air: true, dmg: 12, antiAir: true },
   { id: 'slam', type: 'slam', range: [30, 240], w: 2, air: true, dmg: 12 },
@@ -1281,7 +1281,7 @@ class Fighter {
         const e = this.frontEnemy(48);
         if (e) {
           const pt = e.bodyPoint();
-          e.takeHit(this, m, 'body', pt, { dmg: 1.4, hold: true });
+          e.takeHit(this, m, 'body', pt, { dmg: m.dmg, hold: true });
           spawnSparks(pt.x, pt.y, '#ffe28a', 4);
         }
       }
@@ -1289,7 +1289,7 @@ class Fighter {
       md.fin = true; this.ghost = false;
       this.pose = clonePose(MOVE_BY.cross.A);
       const e = this.frontEnemy(56);
-      if (e) e.takeHit(this, m, 'head', e.bodyPoint(), { dmg: 9, launch: { vx: this.facing * 720, va: 260 }, big: true });
+      if (e) e.takeHit(this, m, 'head', e.bodyPoint(), { dmg: m.finDmg, launch: { vx: this.facing * 720, va: 260 }, big: true });
     } else {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 8), this.pose);
       if (this.st > 1.3) this.endMove();
