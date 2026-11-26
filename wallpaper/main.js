@@ -1621,6 +1621,8 @@ class Fighter {
     this.W = this.joints();   // So the other stars of a fan, tested this same step, miss the log
     puff(this.x, groundY(this.z) - this.alt - 40, 0.6);
     this.startMove(MOVE_BY.substitute, true);
+    // Hidden until u_substitute fades it in: render() may draw it before its next update (#310)
+    this.alpha = 0;
   }
 
   u_wallrun(dt) {
