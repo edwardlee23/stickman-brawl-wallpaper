@@ -162,7 +162,7 @@ const SUPER = [
   { id: 'blast', type: 'blast', range: [100, 9999], w: 2.5, air: true, dmg: 4, antiAir: true, speed: 540 },
   { id: 'barrage', type: 'barrage', range: [14, 40], w: 3, dmg: 1.4, finDmg: 9, sameAlt: true },   // dmg per punch, finDmg for the finisher
   { id: 'rising', type: 'rising', range: [8, 42], w: 3, dmg: 10, antiAir: true, notBelow: true },
-  { id: 'dive', type: 'dive', range: [60, 480], w: 3, air: true, dmg: 12, antiAir: true },
+  { id: 'dive', type: 'dive', range: [60, 480], w: 3, air: true, dmg: 12, antiAir: true, maxUp: 140 },
   { id: 'slam', type: 'slam', range: [30, 240], w: 2, air: true, dmg: 12 },
   { id: 'teleport', type: 'teleport', range: [110, 9999], w: 2 },
   { id: 'wallrun', type: 'wallrun', range: [0, 9999], w: 2.5, needWall: true },
@@ -723,16 +723,23 @@ function pickTarget(me) {
   }
   return best;
 }
-// Whether a special can reach the target's height: a sameAlt move only on its own level, and the
-// rising uppercut (notBelow) not a target below it, as on the floor under a ledge
+// The target's altitude seen from me's depth: its height above the surface it stands on or
+// would land on, plus that surface's altitude at me's depth. A ledge top is at one screen height
+// at every depth, so two fighters on one ledge are level whatever their depths (#350).
+function altSeen(me, t) {
+  return platforms.length && platformAlt(t.x, t.z, groundY(t.z) - t.alt) > 0 ? t.alt + me.z - t.z : t.alt;
+}
+// Whether a special can reach the target's height: a sameAlt move only on its own level, the
+// rising uppercut (notBelow) not a target below it, as on the floor under a ledge, and the dive
+// (maxUp) not a target higher than its jump rises, about 148, as on a high ledge (#339)
 function altFits(me, m, t) {
-  const d = t.alt - me.alt;
-  return m.sameAlt ? Math.abs(d) < 35 : m.notBelow ? d > -35 : true;
+  const d = altSeen(me, t) - me.alt;
+  return m.sameAlt ? Math.abs(d) < 35 : m.notBelow ? d > -35 : m.maxUp ? d < m.maxUp : true;
 }
 function pickMove(me, t, dist) {
   let items = [];
   // Height is measured from the surface the fighter stands on, so a ledge is not the air
-  const tAir = t && t.alt - me.surfaceAlt() > 50, meAir = me.aloft();
+  const tAir = t && altSeen(me, t) - me.surfaceAlt() > 50, meAir = me.aloft();
   for (const m of MOVES) {
     if (!cfg.styles[m.style] || meAir) continue;
     items.push([m, m.w * (tAir ? 0.15 : 1)]);
