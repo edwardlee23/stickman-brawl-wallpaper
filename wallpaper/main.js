@@ -3053,7 +3053,16 @@ const SUBSTEP = 1 / 60, MAX_SUBSTEPS = 36;
 let paused = false, last = performance.now(), next = 0;
 function frame(now) {
   requestAnimationFrame(frame);
-  if (paused) { last = now; next = 0; if (redraw) render(); return; }
+  if (paused) {
+    last = now; next = 0;
+    if (redraw) {
+      // A round started while paused (a setting, or the first frame) has fighters no step has
+      // posed yet: take their joints, as update() would, so they are drawn standing (issue #351)
+      for (const f of fighters) if (!f.W) f.W = f.joints();
+      render();
+    }
+    return;
+  }
   if (cfg.fps > 0) {
     // Draw on the first refresh at or after the due time, then move the due time on by one
     // interval rather than from now, so the time a refresh lands late is not lost each frame
