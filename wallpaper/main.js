@@ -2282,10 +2282,11 @@ function updateShots(dt) {
     if (boom) { burst(s); shots.splice(i, 1); }
   }
 }
-// Whether more shots of fan are still coming at f: one still being fired, or one in flight towards it
+// Whether more shots of fan are still coming at f: one still being fired, or one in flight towards it.
+// f itself is left out: a shield the fan broke keeps the fan in its own md.fan.
 function fanComing(fan, f) {
   if (!fan) return false;
-  if (fighters.some(x => x.state === 'attack' && x.md && x.md.fan === fan)) return true;
+  if (fighters.some(x => x !== f && x.state === 'attack' && x.md && x.md.fan === fan)) return true;
   return shots.some(s => s.fan === fan && sgn(f.x - s.x) === sgn(s.vx));
 }
 // The small ring and sparks of a shot that ends
