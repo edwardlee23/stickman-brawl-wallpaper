@@ -320,8 +320,9 @@ function drawPlatforms() {
   ctx.globalAlpha = 1;
 }
 let laidOut = false;         // Whether the world has had a real (non-zero) size yet
-// Set when resize() clears the canvas; a paused frame then draws once, so a resize while
-// Wallpaper Engine has the wallpaper paused does not leave the screen blank (issue #256)
+// Set when resize() clears the canvas, or when a setting changes; a paused frame then draws
+// once, so a resize while Wallpaper Engine has the wallpaper paused does not leave the screen
+// blank (issue #256), and a setting changed while paused shows at once (issue #307)
 let redraw = false;
 function resize() {
   // A window that is 0 in either dimension (a page opened hidden, a 0-size frame) has no
@@ -3093,6 +3094,7 @@ window.wallpaperPropertyListener = {
     // A readied substitution is unseen until the hit, so it goes too
     if (styles && !cfg.styles.ninjutsu) for (const f of fighters) f.subFrom = null;
     if (reset) newRound();
+    redraw = true;   // A paused frame draws once to show the change (issue #307)
   },
   applyGeneralProperties(p) { if (p.fps !== undefined) cfg.fps = p.fps; },
   setPaused(v) { paused = v; soundSetPaused(v); },

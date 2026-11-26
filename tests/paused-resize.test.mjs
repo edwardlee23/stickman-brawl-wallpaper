@@ -1,6 +1,7 @@
 // A resize while Wallpaper Engine has the wallpaper paused draws one frame (issue #256):
 // setting canvas.width clears the canvas, and paused frames draw nothing, so without it the
-// screen stayed blank until the wallpaper resumed.
+// screen stayed blank until the wallpaper resumed. A setting changed while paused draws one
+// frame too (issue #307), so the screen does not keep showing the old colors or round.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -63,4 +64,24 @@ test('a paused frame drawn after a resize does not move the fight (#256)', () =>
   const placed = snap();   // resize() may keep fighters inside the new walls; the frame must not
   w.frames(30);
   assert.equal(snap(), placed);
+});
+
+test('each setting change while paused draws exactly one frame, then nothing more (#307)', () => {
+  const w = load();
+  assert.equal(w.frames(30), 30);
+  w.we.setPaused(true);
+  assert.equal(w.frames(5), 0, 'a paused frame drew');
+  const changes = [
+    { linecolor: { value: '1 0 0' } },
+    { fightercount: { value: 8 } },
+    { backgroundtheme: { value: 'dojo' } },
+  ];
+  for (const p of changes) {
+    w.we.applyUserProperties(p);
+    assert.equal(w.frames(30), 1, 'after ' + Object.keys(p)[0] + ' while paused, not exactly one frame drew');
+  }
+  assert.equal(w.game.fighters.length, 8);
+  assert.equal(w.frames(60), 0, 'paused frames drew again with no change');
+  w.we.setPaused(false);
+  assert.equal(w.frames(5), 5);
 });
