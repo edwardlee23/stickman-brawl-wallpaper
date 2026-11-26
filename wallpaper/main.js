@@ -430,6 +430,13 @@ function scoreRound(n) {
   if (key !== score.key) { score.key = key; score.wins = new Array(cfg.mode === 'teams' ? 2 : n).fill(0); }
 }
 function scoreWin(w) { if (w) score.wins[cfg.mode === 'teams' ? w.team : w.id]++; }
+// Sets ctx.font to the text font at size px, or smaller where the text would be wider than max
+function fitFont(weight, px, text, max) {
+  const font = n => weight + ' ' + n + 'px "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
+  ctx.font = font(px);
+  const w = ctx.measureText(text).width;   // A test's stub canvas may give no number
+  if (typeof w === 'number' && w > max) ctx.font = font(px * max / w);
+}
 // Draws the score line in the top left corner: "RED 5 : 3 BLUE" in teams mode, the top three
 // fighters by wins ("#3 ×4  #1 ×2") in free-for-all. Text stays language-neutral.
 function drawScore() {
@@ -447,7 +454,8 @@ function drawScore() {
   if (!parts.length) return;
   ctx.globalAlpha = 0.85;
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  ctx.font = '700 14px "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
+  // Shrunk to fit between the margins on a narrow screen with long names (issue #249)
+  fitFont('700', 14, parts.map(p => p[0]).join(''), worldW - 28);
   ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000000';
   let x = 14;
   for (const [text, col] of parts) {
@@ -2945,7 +2953,7 @@ function render() {
   if (roundOver) {
     ctx.globalAlpha = clamp(roundTimer, 0, 1);
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.font = '900 26px "Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif';
+    fitFont('900', 26, winnerText, worldW - 28);
     ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000000';
     ctx.strokeText(winnerText, worldW / 2, worldH * 0.2);
     ctx.fillStyle = winnerColor; ctx.fillText(winnerText, worldW / 2, worldH * 0.2);
