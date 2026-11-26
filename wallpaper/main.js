@@ -2771,8 +2771,9 @@ function drawFx(o, layer) {
 // ---------- Background themes ----------
 // Drawn in code with a few dark, low-contrast shapes, so the figures stay readable. A theme
 // is painted once into an offscreen canvas and copied each frame; the copy is repainted only
-// when the size, the theme or (for Day and night) the minute changes. Plain is the flat
-// background color, as before, and makes no canvas.
+// when the size, the device pixel ratio, the figure size, the theme or (for Day and night)
+// the time-of-day phase changes. Plain is the flat background color, as before, and makes
+// no canvas.
 const bg = {
   now: () => new Date(),   // Replaced in tests to set the clock
   builds: 0,               // Times the cache was painted, for tests
