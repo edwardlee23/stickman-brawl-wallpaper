@@ -86,14 +86,15 @@ test('the SPECIALS table: ranges, air and anti-air flags, damage and shot speed'
   ]);
 });
 
+const MIN_REACH = { jab: 33, cross: 21.6, hook: 17.5, uppercut: 18.4, teep: 17.3, roundhouse: 4, elbow: 19.7, knee: 11.9,
+  lowkick: 4, sidekick: 18.7, backkick: 34.4, axekick: 19.4 };
+
 test('a strike reaches in to 4 px short of the nearest point its fist or foot sweeps', () => {
   const { game } = load();
   const got = Object.fromEntries(game.MOVES.filter(m => !m.grab).map(m => [m.id, Math.round(m.range[0] * 10) / 10]));
   assert.deepEqual(got, MIN_REACH);
 });
 
-const MIN_REACH = { jab: 33, cross: 21.6, hook: 17.5, uppercut: 18.4, teep: 17.3, roundhouse: 4, elbow: 19.7, knee: 11.9,
-  lowkick: 4, sidekick: 18.7, backkick: 34.4, axekick: 19.4 };
 
 test('a barrage lands a punch every 0.08 s while drifting forward, then a 9 damage finisher', () => {
   const { game, a, e } = load();
@@ -271,13 +272,11 @@ test('a wall run turns the body on the wall, leaps at 700, hits for 12 and rebou
 
 test('a wall-run leap flies at 700 and ends after 1.6 s in the air', () => {
   const { game, a, e } = load();
-  hold(e, { x: 600, z: 60, alt: 0 });
-  begin(game, a, e, 'wallrun', { x: 300, z: 60, facing: 1 });
-  Object.assign(a.md, { ph: 'leap', dir: -1, t0: 0, prev: null });
-  Object.assign(a, { hover: true, alt: 250, vx: 700, va: 0, st: 0 });
   // The target is well off the leap's depth, so the leap never connects
   hold(e, { x: 600, z: 120 });
-  a.z = 0;
+  begin(game, a, e, 'wallrun', { x: 300, z: 0, facing: 1 });
+  Object.assign(a.md, { ph: 'leap', dir: -1, t0: 0, prev: null });
+  Object.assign(a, { hover: true, alt: 250, vx: 700, va: 0, st: 0 });
   let speed = 0;
   for (let i = 0; i < 6; i++) { a.update(DT); a.W = a.joints(); speed = Math.hypot(a.vx, a.va); }
   assert.ok(Math.abs(speed - 700) < 1e-6, 'speed ' + speed);
