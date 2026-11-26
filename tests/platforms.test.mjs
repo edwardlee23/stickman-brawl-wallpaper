@@ -65,6 +65,9 @@ test('turning platforms on lays out two or three at every figure size, all below
         assert.ok(p.y >= 110, `platform top ${p.y} above the headroom ${at}`);
         assert.ok(p.y <= game.groundY(0) - 25, `platform top ${p.y} too close to the floor ${at}`);
         assert.ok(p.x0 >= 0 && p.x1 > p.x0, 'platform span');
+        // Issue #320: no ledge runs on past the right wall
+        const worldW = size[0] / (game.cfg.scale * size[1] / 540);
+        assert.ok(p.x1 <= worldW, `platform ${p.x0}-${p.x1} past the right wall at ${worldW} ${at}`);
       }
     }
   }
@@ -344,16 +347,29 @@ function koDrop(game, a, x, p, vx) {
 // Points inside a platform's span, below its top and above the floor: hanging through it
 const hanging = (game, pts, p) => pts.filter(([, o]) => o.x >= p.x0 && o.x <= p.x1 && o.y > p.y + 3 && o.y < game.groundY(60) - 20);
 
+// Issue #320: from either end, and no point is thrown more than 40 in one ragdoll step (about 23 at most
+// now), as one put out past the far end of the platform instead of the nearer one would be
 test('a knocked-out body dropped near a platform end never rests hanging through it', () => {
-  const bad = [];
-  for (let dx = -10; dx <= 230; dx += 10) for (const vx of [-200, 0, 200]) {
+  const bad = [], jumps = [];
+  for (const end of ['x0', 'x1']) for (let dx = -10; dx <= 230; dx += 10) for (const vx of [-200, 0, 200]) {
     const { game, a } = load();
     const p = game.platforms[0];
-    const pts = koDrop(game, a, p.x0 + dx, p, vx);
-    const h = hanging(game, pts, p);
-    if (h.length) bad.push(`x ${p.x0 + dx} vx ${vx}: ${h.map(([k, o]) => k + '@' + o.y.toFixed(0)).join(' ')}`);
+    const x = end === 'x0' ? p.x0 + dx : p.x1 - dx;
+    dropAbove(game, a, x, p, 80);
+    a.W = a.joints(); a.hp = 0; a.ko(vx, 0);
+    const P = Object.values(a.rag.pts);
+    let jump = 0, prev = P.map(o => ({ x: o.x, y: o.y }));
+    // One ragdoll step an update
+    for (let t = 0; t < 8; t += 1 / 120) {
+      game.update(1 / 120);
+      P.forEach((o, i) => { jump = Math.max(jump, Math.hypot(o.x - prev[i].x, o.y - prev[i].y)); prev[i] = { x: o.x, y: o.y }; });
+    }
+    if (jump > 40) jumps.push(`x ${x} vx ${vx}: ${jump.toFixed(1)}`);
+    const h = hanging(game, Object.entries(a.rag.pts), p);
+    if (h.length) bad.push(`x ${x} vx ${vx}: ${h.map(([k, o]) => k + '@' + o.y.toFixed(0)).join(' ')}`);
   }
   assert.deepEqual(bad, [], `top at ${load().game.platforms[0].y}`);
+  assert.deepEqual(jumps, [], 'points thrown in one step');
 });
 
 test('a body resting on a platform falls when platforms are turned off', () => {
