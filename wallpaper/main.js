@@ -1331,9 +1331,21 @@ class Fighter {
     if (ledge) this.vx = clamp(this.vx, (ledge.x0 - this.x) / dt, (ledge.x1 - this.x) / dt);
   }
 
+  // A caster in the air hovers through its cast. One standing on a platform does not, and the
+  // ledge returned lets the move stop its leftover walking speed at the platform's ends instead
+  // of carrying it past them into mid-air (issue #383, as the beam does for #344)
+  castFooting() {
+    const ledge = this.alt > 0 && !this.aloft() ? platformAt(this.x, groundY(this.z) - this.alt) : null;
+    if (this.alt > 0 && !ledge) { this.hover = true; this.va = 0; }
+    return ledge;
+  }
+  keepOnLedge(ledge, dt) {
+    if (ledge) this.vx = clamp(this.vx, (ledge.x0 - this.x) / dt, (ledge.x1 - this.x) / dt);
+  }
+
   u_blast(dt) {
     const md = this.md, t = this.target, N = BLAST_SHOTS, gap = BLAST_GAP;
-    if (this.alt > 0) { this.hover = true; this.va = 0; }
+    const ledge = this.castFooting();
     if (t && t.alive) this.facing = sgn(t.x - this.x);
     this.vx = approach(this.vx, 0, 600 * dt);
     const k = Math.floor(this.st / gap);
@@ -1368,6 +1380,7 @@ class Fighter {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 10), this.pose);
       if (this.st > N * gap + 0.25) this.endMove();
     }
+    this.keepOnLedge(ledge, dt);
   }
 
   u_barrage(dt) {
@@ -1569,7 +1582,7 @@ class Fighter {
   // ---- Ninjutsu ----
   u_shuriken(dt) {
     const md = this.md, t = this.target;
-    if (this.alt > 0) { this.hover = true; this.va = 0; }
+    const ledge = this.castFooting();
     if (t && t.alive) this.facing = sgn(t.x - this.x);
     this.vx = approach(this.vx, 0, 700 * dt);
     if (md.ph === 'cast') {
@@ -1590,6 +1603,7 @@ class Fighter {
       lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
       if (this.st - md.t0 > 0.3) this.endMove();
     }
+    this.keepOnLedge(ledge, dt);
   }
 
   u_clones(dt) {
@@ -1791,7 +1805,7 @@ class Fighter {
 
   u_fireball(dt) {
     const md = this.md, t = this.target;
-    if (this.alt > 0) { this.hover = true; this.va = 0; }
+    const ledge = this.castFooting();
     if (t && t.alive) this.facing = sgn(t.x - this.x);
     this.vx = approach(this.vx, 0, 700 * dt);
     if (md.ph === 'charge') {
@@ -1808,11 +1822,12 @@ class Fighter {
       lerpPose(this.pose, FIRE, Math.min(1, dt * 20), this.pose);
       if (this.st - md.t0 > 0.35) this.endMove();
     }
+    this.keepOnLedge(ledge, dt);
   }
 
   u_ice(dt) {
     const md = this.md, t = this.target;
-    if (this.alt > 0) { this.hover = true; this.va = 0; }
+    const ledge = this.castFooting();
     if (t && t.alive) this.facing = sgn(t.x - this.x);
     this.vx = approach(this.vx, 0, 700 * dt);
     if (md.ph === 'cast') {
@@ -1827,6 +1842,7 @@ class Fighter {
       lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
       if (this.st - md.t0 > 0.3) this.endMove();
     }
+    this.keepOnLedge(ledge, dt);
   }
 
   u_lightning(dt) {
