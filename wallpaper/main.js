@@ -2995,8 +2995,10 @@ function frame(now) {
   }
   // Real time per frame follows the actual frame interval, so game time keeps up with real
   // time at any frame rate, slow machines included. Only a stall (or a page coming back from a
-  // hidden tab) is capped, at 0.2 s, so it does not jump the fight ahead.
-  const real = Math.min(0.2, (now - last) / 1000);
+  // hidden tab) is capped, at 0.2 s, so it does not jump the fight ahead. A step is never
+  // negative: in Chrome the first frame's timestamp can be a few ms earlier than the
+  // performance.now() read at load, which would run every timer backwards (issue #255).
+  const real = clamp((now - last) / 1000, 0, 0.2);
   last = now;
   shake = shake > 0.3 ? shake * Math.pow(0.0015, real) : 0;
   // Split the simulated time into equal substeps of at most about 1/60 s, so blasts,
