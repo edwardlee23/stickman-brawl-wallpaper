@@ -1412,6 +1412,9 @@ class Fighter {
         for (const e of fighters) {
           const h = ledge ? ledge.y - (groundY(e.z) - e.alt) : e.alt;   // Height above the slammed surface
           if (!isEnemy(this, e) || !e.hittable || h > 40 || h < -1 || Math.abs(e.z - this.z) > 50) continue;
+          // Landed on the floor: one on or over a platform has the platform between it and the
+          // shockwave, as the floor is out of reach from a ledge (issue #262)
+          if (!ledge && e.surfaceAlt() > 0) continue;
           const d = Math.abs(e.x - gx);
           if (d > 150) continue;
           // The shockwave spreads both ways: each target is hit from the impact's side, not the slammer's front
