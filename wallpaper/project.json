@@ -6,7 +6,11 @@
 	"preview" : "preview.jpg",
 	"tags" : [ "Cartoon" ],
 	"contentrating" : "Everyone",
+	"ratingsex" : "none",
+	"ratingviolence" : "none",
+	"visibility" : "public",
 	"workshopid" : "3845187060",
+	"workshopurl" : "steam://url/CommunityFilePage/3845187060",
 	"general" :
 	{
 		"supportsaudioprocessing" : true,
