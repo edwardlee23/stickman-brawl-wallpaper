@@ -276,7 +276,7 @@ function ragPlatform(o, k) {
   }
 }
 // A ragdoll lying on a platform does not hang through it. A bone across a platform's end, with
-// its end on the platform side on or above the top, is lifted over the corner. While any point
+// its end on the platform side on or above the top, is pushed off the corner. While any point
 // of the body rests on the top, a point under the platform with a bone up to the top, or one
 // that swings in under it from past an end, is put back out past the nearer end. Without this a
 // body tipping off an end could swing in under the platform with its legs still on top.
@@ -301,8 +301,11 @@ function ragCorners(r) {
         if (y <= top) continue;                                   // Over the corner
         const inner = (A.x - cx) * (q.x0 + q.x1 - 2 * cx) > 0 ? A : B;
         if (inner.y > top + 0.5) continue;                        // Under the platform, clear of it
-        const d = (y - top) / ((1 - s) * (1 - s) + s * s);
-        A.y -= d * (1 - s); B.y -= d * s;
+        // Push the bone off the corner along its normal, the shortest way: a steep bone hanging
+        // past the end moves sideways, not up by the whole depth it reaches below the top
+        const l = Math.hypot(B.x - A.x, B.y - A.y) || 1e-6, nx = -(B.y - A.y) / l, ny = (B.x - A.x) / l;
+        const m = (top - y) * ny / ((1 - s) * (1 - s) + s * s), mx = nx * m, my = ny * m;
+        A.x += mx * (1 - s); A.y += my * (1 - s); B.x += mx * s; B.y += my * s;
       }
     }
     if (on) for (const k in P) {
