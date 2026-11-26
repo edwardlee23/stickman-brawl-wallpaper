@@ -3050,9 +3050,11 @@ function render() {
   if (cfg.showHP) {
     for (const f of list) {
       if (!f.alive || !f.W || f.invis) continue;
-      const hx = f.W.head.x, hy = Math.min(f.W.head.y, f.W.hip.y - 30);
-      ctx.globalAlpha = 0.25 * f.alpha; ctx.fillStyle = cfg.line; ctx.fillRect(hx - 13, hy - 17, 26, 2.5);
-      ctx.globalAlpha = 0.9 * f.alpha; ctx.fillStyle = colorOf(f); ctx.fillRect(hx - 13, hy - 17, 26 * clamp(f.hp / f.maxHp, 0, 1), 2.5);
+      const hy = Math.min(f.W.head.y, f.W.hip.y - 30);
+      // Kept inside the side walls, so a fighter lying at one shows all its fill (issue #352)
+      const bx = clamp(f.W.head.x - 13, 0, worldW - 26);
+      ctx.globalAlpha = 0.25 * f.alpha; ctx.fillStyle = cfg.line; ctx.fillRect(bx, hy - 17, 26, 2.5);
+      ctx.globalAlpha = 0.9 * f.alpha; ctx.fillStyle = colorOf(f); ctx.fillRect(bx, hy - 17, 26 * clamp(f.hp / f.maxHp, 0, 1), 2.5);
     }
   }
   drawNameTags(list);
