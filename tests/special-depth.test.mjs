@@ -58,5 +58,6 @@ test('a barrage started at the largest depth gap lands every punch while walking
   assert.ok(hits(still) >= 10, 'standing still the barrage lands ' + hits(still));
   assert.equal(hits(moving), hits(still), 'punches landed');
   assert.ok(Math.abs(1000 - moving.e.hp - (1000 - still.e.hp)) < 1e-9, 'damage ' + (1000 - moving.e.hp) + ' vs ' + (1000 - still.e.hp));
-  assert.equal(moving.e.state, still.e.state, 'the finisher launched the target');
+  assert.equal(still.e.state, 'launched', 'standing still the finisher launches the target');
+  assert.equal(moving.e.state, 'launched', 'the finisher launched the target');
 });
