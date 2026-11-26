@@ -1477,10 +1477,14 @@ class Fighter {
       this.followUp();
     }
   }
-  // Moves right behind t, facing it; with its back to a wall there is no room behind, so in front
+  // Moves right behind t, facing it; with its back to a wall there is no room behind, so in front.
+  // On a ledge, with its back to the drop, behind is in mid-air, so in front too (#309).
   appearBehind(t) {
+    const ledge = t.alt > 0 ? platformAt(t.x, groundY(t.z) - t.alt) : null;
+    const off = x => x < 14 || x > worldW - 14 || (ledge && (x < ledge.x0 || x > ledge.x1));
     let x = t.x - t.facing * 28;
-    if (x < 14 || x > worldW - 14) x = t.x + t.facing * 28;
+    if (off(x)) x = t.x + t.facing * 28;
+    if (ledge) x = clamp(x, ledge.x0, ledge.x1);
     this.x = clamp(x, 14, worldW - 14);
     this.z = t.z; this.alt = t.alt; this.va = 0;
     this.facing = this.x !== t.x ? sgn(t.x - this.x) : -t.facing;
