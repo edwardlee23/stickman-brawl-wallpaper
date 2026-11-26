@@ -205,6 +205,7 @@ test('Ladder: a click with Click to blast on leaves the waiting fighters where t
   assert.equal(game.fighters.filter(f => f.alive && f.state !== 'wait').length, 2, 'still two fighting');
   // The same clicks reach a fighter that is not waiting, so the ones above landed on their fighters
   const a = game.fighters.find(f => f.alive && f.state !== 'wait');
+  assert.notEqual(a.state, 'launched', 'a click on a waiting fighter launched #' + (a.id + 1));
   click(a.bodyPoint());
   assert.equal(a.state, 'launched', 'a click on a fighting fighter launches it');
 });
