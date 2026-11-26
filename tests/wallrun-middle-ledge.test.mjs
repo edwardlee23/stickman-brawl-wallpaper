@@ -28,7 +28,7 @@ function load(seed, w, h, scale) {
 }
 const byId = (game, id) => [...game.MOVES, ...game.SUPER, ...game.MAGIC, ...game.NINJA].find(m => m.id === id);
 
-// a stands on the middle ledge at fraction f of its span; e flinches far away on the floor.
+// a stands on the middle ledge at fraction f of its span; e flinches on the floor under the ledge.
 // Steps a alone through its wall run and returns the phases it went through.
 function wallrunOnLedge(seed, w, h, scale, f) {
   const game = load(seed, w, h, scale);
