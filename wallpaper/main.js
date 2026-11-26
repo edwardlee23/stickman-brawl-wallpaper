@@ -1352,13 +1352,14 @@ class Fighter {
     if (md.ph === 'jump') {
       if (!md.jumped) {
         md.jumped = true;
+        md.base = this.surfaceAlt();   // The 230 cap below is measured from here, the floor or a ledge (#315)
         if (!this.aloft()) {
           this.va = 660; this.alt += 1;
           this.vx = this.facing * Math.min(260, (t ? Math.abs(t.x - this.x) : 100) * 0.6);
         }
       }
       lerpPose(this.pose, AIR, Math.min(1, dt * 12), this.pose);
-      if (this.va < 120 || this.alt > 230) {
+      if (this.va < 120 || this.alt - md.base > 230) {
         md.ph = 'dive'; this.hover = true; md.prev = null;
         let a = 0.8;
         if (t) {
