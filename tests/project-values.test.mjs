@@ -112,7 +112,8 @@ test('every condition names a setting of the right type (#392)', () => {
   for (const [key, p] of Object.entries(properties)) {
     if (!p.condition) continue;
     const bare = /^(\w+)\.value$/.exec(p.condition);
-    const eq = /^(\w+)\.value == '(\w+)'$/.exec(p.condition);
+    // A combo value in double quotes, the form Wallpaper Engine's docs give
+    const eq = /^(\w+)\.value == "(\w+)"$/.exec(p.condition);
     assert.ok(bare || eq, key + ': condition "' + p.condition + '" has an unknown form');
     const ref = properties[(bare || eq)[1]];
     assert.ok(ref, key + ': condition names no setting: ' + p.condition);
