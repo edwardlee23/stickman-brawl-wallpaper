@@ -86,4 +86,8 @@ test('an ice shard that freezes a tumbling fighter keeps its spin (#389)', () =>
   b.takeHit(a, move('ice'), 'body', b.bodyPoint(), { dmg: 4, freeze: 1.1 });
   assert.equal(b.state, 'frozen');
   assert.equal(b.rot, rot);
+  // and breaks out of the ice upright, not tilted for good
+  for (let i = 0; i < 120 && b.state === 'frozen'; i++) b.update(DT);
+  assert.notEqual(b.state, 'frozen', 'the ice never broke');
+  assert.equal(b.rot, 0);
 });

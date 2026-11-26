@@ -901,7 +901,8 @@ class Fighter {
       case 'frozen':
         // Held in its pose inside the ice; it still falls if frozen in the air
         if (this.st >= this.dur) {
-          this.state = this.aloft() ? 'air' : 'idle'; this.st = 0; this.cool = rand(0.1, 0.3);
+          // It breaks out upright: a spin kept through the ice (#389) ends with it
+          this.state = this.aloft() ? 'air' : 'idle'; this.st = 0; this.cool = rand(0.1, 0.3); this.rot = 0; this.rotV = 0;
           spawnSparks(this.x, groundY(this.z) - this.alt - 40, ELEMENT.ice, 10);
           sfx('freeze', this.x, 0.5);
         }
