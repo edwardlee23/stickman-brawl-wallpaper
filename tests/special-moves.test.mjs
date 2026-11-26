@@ -140,10 +140,9 @@ test('a dive that hits rebounds up and back from the target', () => {
   assert.ok(a.vx * Math.sign(e.x - a.x) < 0, 'rebound vx ' + a.vx + ' away from the target');
 });
 
-test('a dive turns downward once it is 230 above the floor, even while still rising fast', () => {
+test('a dive turns downward once it is 230 above the surface it started from, even while still rising fast', () => {
   const { game, a } = load();
   a.startMove(byId(game, 'dive'));
-  Object.assign(a.md, { jumped: true });
   place(a, { alt: 240, va: 500 });
   a.u_dive(DT);
   assert.equal(a.md.ph, 'dive');
