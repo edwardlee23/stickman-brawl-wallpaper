@@ -112,11 +112,15 @@ test('a body rising through a ledge from below is not pushed out past its end (#
   const mid = (p.x0 + p.x1) / 2;
   Object.assign(f, { x: mid, z: 60, alt: 0, state: 'hit', st: 0, dur: 999 }); f.W = f.joints();
   f.ko(0, -900);
-  let jump = 0;
+  let jump = 0, through = false;
   const before = new Map(pts(f.rag).map(o => [o, o.x]));
   run(game, 1, () => {
-    for (const o of pts(f.rag)) { jump = Math.max(jump, Math.abs(o.x - before.get(o))); before.set(o, o.x); }
+    for (const o of pts(f.rag)) {
+      jump = Math.max(jump, Math.abs(o.x - before.get(o))); before.set(o, o.x);
+      if (o.x > p.x0 && o.x < p.x1 && o.y < p.y - 2) through = true;
+    }
   });
+  assert.ok(through, 'the body never rose above the ledge');
   assert.ok(jump < 15, 'a point jumped ' + jump.toFixed(0) + ' sideways in one frame');
 });
 
