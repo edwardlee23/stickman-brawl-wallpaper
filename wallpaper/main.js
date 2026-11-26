@@ -1230,7 +1230,10 @@ class Fighter {
   // ---- Specials ----
   u_beam(dt) {
     const md = this.md, m = this.move, t = this.target;
-    if (this.alt > 0) { this.hover = true; this.va = 0; }
+    // Standing on a platform it does not hover, and its recoil and leftover walking speed stop
+    // at the platform's ends instead of carrying it past them into mid-air (issue #344)
+    const ledge = this.alt > 0 && !this.aloft() ? platformAt(this.x, groundY(this.z) - this.alt) : null;
+    if (this.alt > 0 && !ledge) { this.hover = true; this.va = 0; }
     this.vx = approach(this.vx, 0, 800 * dt);
     if (md.ph === 'charge') {
       this.aura = 1;
@@ -1287,6 +1290,7 @@ class Fighter {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 8), this.pose);
       if (this.st - md.t0 > 0.3) this.endMove();
     }
+    if (ledge) this.vx = clamp(this.vx, (ledge.x0 - this.x) / dt, (ledge.x1 - this.x) / dt);
   }
 
   u_blast(dt) {
