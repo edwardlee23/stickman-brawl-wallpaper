@@ -17,8 +17,8 @@ function shieldAgainst(id) {
     document: { getElementById: () => canvas, body: { style: {} } },
     requestAnimationFrame() {},
   });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   vm.runInContext('{ let s = 7; Math.random = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }', context);
+  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   const game = window.__stickmanBrawl;
   const [a, e] = game.fighters;
   const all = [...game.MOVES, ...game.SUPER, ...game.MAGIC, ...game.NINJA];
