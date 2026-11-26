@@ -24,8 +24,8 @@ function load() {
   return window.__stickmanBrawl;
 }
 
-// The victim stands at x near the right end of the left side ledge, at depth 0, at altitude alt;
-// the slammer comes down on the floor 50 to its right, at depth 30, and lands its shockwave
+// The victim stands near the right end of the left side ledge, at depth 0, at the altitude
+// alt(game, p) returns; the slammer comes down on the floor 50 to its right, at depth 30, and lands its shockwave
 function slamBeside(alt) {
   const game = load();
   const [a, e] = game.fighters;
