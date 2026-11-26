@@ -2130,12 +2130,17 @@ function ladderStepIn() {
     roundTime = 0;   // Each bout gets the full time before the round times out
   }
 }
-// Drawn at the king's alpha, so it fades with the body in a teleport or smoke escape
+// Drawn at the king's alpha, so it fades with the body in a teleport or smoke escape. It sits
+// on top of the head as the head is turned, along the neck, so an upside-down king (launched
+// or thrown) wears it below the head rather than over the neck (issue #250)
 function drawCrown(J, alpha) {
-  const x = J.head.x, y = J.head.y - L.head - 1;
+  const h = J.head, dx = h.x - J.sh.x, dy = h.y - J.sh.y, d = Math.hypot(dx, dy) || 1;
+  const ux = dx / d, uy = dy / d;   // From the neck up through the head
+  const x = h.x + ux * (L.head + 1), y = h.y + uy * (L.head + 1);
   ctx.globalAlpha = alpha; ctx.fillStyle = '#ffd43b'; ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1;
   ctx.beginPath();
-  for (const [dx, dy] of [[-7, 0], [-7, -7], [-3.5, -3], [0, -8], [3.5, -3], [7, -7], [7, 0]]) ctx.lineTo(x + dx, y + dy);
+  // a across the head, b up it: on an upright head, along x and against y as before
+  for (const [a, b] of [[-7, 0], [-7, -7], [-3.5, -3], [0, -8], [3.5, -3], [7, -7], [7, 0]]) ctx.lineTo(x - uy * a - ux * b, y + ux * a - uy * b);
   ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.globalAlpha = 1;
 }
@@ -2502,9 +2507,10 @@ Object.assign(window.__stickmanBrawl, { nameOf, gearOf, newRound, render });
 Object.defineProperty(window.__stickmanBrawl, 'winnerText', { get: () => winnerText });
 function drawHeadgear(f, J, col, alpha) {
   const h = J.head, r = L.head;
-  // u points from the neck up through the head; v points the way the face looks
-  const dx = h.x - J.sh.x, dy = h.y - J.sh.y, d = Math.hypot(dx, dy) || 1;
-  const ux = dx / d, uy = dy / d, vx = -uy * f.facing, vy = ux * f.facing;
+  // u points from the neck up through the head; v points the way the face looks, which is the
+  // way the body is drawn, reversed in a spinning move (issue #250)
+  const dx = h.x - J.sh.x, dy = h.y - J.sh.y, d = Math.hypot(dx, dy) || 1, fac = f.drawFacing();
+  const ux = dx / d, uy = dy / d, vx = -uy * fac, vy = ux * fac;
   const at = (a, b) => ({ x: h.x + (vx * a + ux * b) * r, y: h.y + (vy * a + uy * b) * r });
   const wave = Math.sin(f.time * 9) * 0.25;
   ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
