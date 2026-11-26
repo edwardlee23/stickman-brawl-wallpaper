@@ -1560,15 +1560,18 @@ class Fighter {
     // Lost the target before the strike lands: stop. Once it has landed (a knockout included),
     // the clones still vanish in their smoke.
     if ((!t || !t.alive) && !md.hit) { this.endMove(); return; }
+    // The clones stand at the caster's altitude, so on a ledge they keep within its ends (#345)
+    const ledge = this.alt > 0 ? platformAt(this.x, groundY(this.z) - this.alt) : null;
+    const place = x => clamp(ledge ? clamp(x, ledge.x0, ledge.x1) : x, 14, worldW - 14);
     if (md.ph === 'split') {
       if (!md.clones) {
         // Two faded copies step out to either side
         md.clones = [{ x: this.x, off: -40, alt: 0, fac: 1, a: 0 }, { x: this.x, off: 40, alt: 0, fac: 1, a: 0 }];
-        for (const c of md.clones) puff(clamp(this.x + c.off, 14, worldW - 14), groundY(this.z) - this.alt - 40, 0.8);
+        for (const c of md.clones) puff(place(this.x + c.off), groundY(this.z) - this.alt - 40, 0.8);
         sfx('poof', this.x);
       }
       lerpPose(this.pose, SEAL, Math.min(1, dt * 20), this.pose);
-      for (const c of md.clones) { c.x = clamp(this.x + c.off, 14, worldW - 14); c.a = Math.min(1, this.st / 0.15); }
+      for (const c of md.clones) { c.x = place(this.x + c.off); c.a = Math.min(1, this.st / 0.15); }
       this.vx = approach(this.vx, 0, 700 * dt);
       if (this.st >= 0.25) {
         md.ph = 'rush'; md.t0 = this.st;
@@ -1588,7 +1591,7 @@ class Fighter {
       const goals = [[t.x + this.facing * 26, 0, -1], [t.x - this.facing * 6, 34, 1]];
       md.clones.forEach((c, i) => {
         const [gx, ga, gf] = goals[i];
-        c.x = c.x0 + (clamp(gx, 14, worldW - 14) - c.x0) * u; c.alt = ga * Math.sin(Math.PI / 2 * u);
+        c.x = c.x0 + (place(gx) - c.x0) * u; c.alt = ga * Math.sin(Math.PI / 2 * u);
         c.fac = u > 0.5 ? gf : 1;
       });
       if (this.st - md.t0 >= 0.35) { md.ph = 'strike'; md.t0 = this.st; this.vx = 0; }
@@ -1631,10 +1634,14 @@ class Fighter {
       }
       this.vx = 0;
       if (this.st >= (md.hold || SMOKE_OUT)) {
-        // Reappear a short way off, away from the attacker; at a wall, the other way
+        // Reappear a short way off, away from the attacker; at a wall, the other way. On a ledge,
+        // past its end is in mid-air, so the other way too, and never past its ends (#345).
+        const ledge = this.alt > 0 ? platformAt(this.x, groundY(this.z) - this.alt) : null;
+        const off = x => x < 14 || x > worldW - 14 || (ledge && (x < ledge.x0 || x > ledge.x1));
         const away = md.from === undefined ? -this.facing : sgn(this.x - md.from);
         let x = this.x + away * rand(70, 110);
-        if (x < 14 || x > worldW - 14) x = this.x - away * rand(70, 110);
+        if (off(x)) x = this.x - away * rand(70, 110);
+        if (ledge) x = clamp(x, ledge.x0, ledge.x1);
         this.x = clamp(x, 14, worldW - 14);
         this.invis = false;
         if (md.from !== undefined && Math.abs(md.from - this.x) > 1) this.facing = sgn(md.from - this.x);
