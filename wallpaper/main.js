@@ -651,9 +651,11 @@ function stepRag(r, gy) {
         o.y = fl; o.py = fl + vy * 0.3; o.px = o.x - vx * 0.75;
       }
       if (platforms.length) ragPlatform(o, k);
-      if (o.y < 4) { const vy = o.y - o.py; o.y = 4; o.py = 4 + vy * 0.5; }
-      if (o.x < 4 || o.x > worldW - 4) {
-        const vx = o.x - o.px, w = o.x < 4 ? 4 : worldW - 4;
+      // The head is drawn as a circle round its point, so it stops its radius short (issue #265)
+      const m = k === 'head' ? L.head : 4;
+      if (o.y < m) { const vy = o.y - o.py; o.y = m; o.py = m + vy * 0.5; }
+      if (o.x < m || o.x > worldW - m) {
+        const vx = o.x - o.px, w = o.x < m ? m : worldW - m;
         o.x = w; o.px = w + vx * 0.5;          // Bounce off the wall
       }
     }
@@ -1909,14 +1911,18 @@ class Fighter {
   }
 
   // Moves a splatted fighter out from its wall until no joint of the given pose is closer than
-  // 4 to it, where a ragdoll's points stop, so a knockout during the splat leaves the body where it was
+  // 4 to it, and the head L.head, where a ragdoll's points stop, so a knockout during the splat
+  // leaves the body where it was
   offWall(pose = this.pose) {
     const now = this.pose;
     this.pose = pose;
     const J = this.joints(), side = this.splatSide;
     this.pose = now;
     let d = 0;
-    for (const k in J) d = Math.max(d, side < 0 ? 4 - J[k].x : J[k].x - (worldW - 4));
+    for (const k in J) {
+      const m = k === 'head' ? L.head : 4;
+      d = Math.max(d, side < 0 ? m - J[k].x : J[k].x - (worldW - m));
+    }
     if (d > 0) this.x -= side * d;
   }
 
