@@ -1056,7 +1056,8 @@ class Fighter {
     } else {
       const m = pickMove(this, t);
       const dist = Math.abs(dx);
-      if (m && m.type && m.air && dist >= m.range[0] && dist <= m.range[1] && Math.abs(t.z - this.z) < 20) this.startMove(m);
+      // As on the ground, no move starts at a target that cannot be hit (#338)
+      if (m && m.type && m.air && t.hittable && dist >= m.range[0] && dist <= m.range[1] && Math.abs(t.z - this.z) < 20) this.startMove(m);
       else this.cool = rand(0.15, 0.4);
     }
   }
