@@ -48,6 +48,18 @@ The owner picked approach 1.
   (ground boom), wall `crack` (crash), `makeRag` (knockout thud), blast
   charge and release, wall-run steps, and the round-end sting (three short
   notes) where `winnerText` is set.
+- Hooks added with the magic and ninjutsu styles and the items, after this
+  spec was first written, so every kind in `SFX` in `main.js` is listed:
+  - `charge` and `fire` also play for a fireball's wind-up and throw, and
+    `fire` for each shot of an energy-blast volley.
+  - `zap`: a lightning bolt striking the ground.
+  - `freeze`: an ice shard thrown, a frozen fighter breaking free, and the
+    ice shattering when a frozen fighter is hit.
+  - `toss`: a shuriken fan and a boomerang thrown.
+  - `poof`: the smoke of shadow clones appearing and vanishing, a smoke
+    escape, and a substitution.
+  - `shield`: a magic shield going up, a shield stopping a hit or the rest
+    of a shuriken fan, and an item picked up.
 - At most 6 sounds play at once; the same kind plays at most once per 40 ms.
 - Settings: `soundeffects` (bool, default off; "Sound effects" / 音效 /
   音效) and `soundvolume` (slider 0–100, default 50; "Volume (%)" / 音效音量 (%)
