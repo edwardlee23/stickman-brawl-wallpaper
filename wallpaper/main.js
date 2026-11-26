@@ -1125,7 +1125,12 @@ class Fighter {
 
   updAttack(dt) {
     const m = this.move;
-    if (m.type) { this['u_' + m.type](dt); return; }
+    if (m.type) {
+      // A special holds its depth as a strike does, instead of gliding on at the walking speed
+      // (#246); the dive and the wall run steer their depth themselves
+      if (m.type !== 'dive' && m.type !== 'wallrun') this.vz = approach(this.vz, 0, 300 * dt);
+      this['u_' + m.type](dt); return;
+    }
     const st = this.st, T1 = m.wind, T2 = T1 + m.act, T3 = T2 + m.rec;
     if (st < T1) lerpPose(this.from, m.W, ease(st / T1), this.pose);
     else if (st < T2) lerpPose(m.W, m.A, easeOut(Math.min(1, (st - T1) / (m.act * 0.5))), this.pose);
