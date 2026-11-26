@@ -1641,6 +1641,11 @@ class Fighter {
       // With its target gone there is nothing to steer at: fall like any airborne fighter
       if (!t || !t.alive) { this.endMove(); return; }
       this.homeTo(t, 700, 3, dt);
+      // Steering upward at a target that cannot be hit, or at the top of the screen, means the
+      // leap has missed (#261, as #215 for the dive): stop climbing and fall like any airborne fighter
+      if (this.va > 0 && (!t.hittable || this.alt >= maxAlt(this.z) - 1)) {
+        this.va = 0; this.hover = false; this.vz = 0; this.endMove(); return;
+      }
       if (Math.abs(this.vx) > 1) this.facing = sgn(this.vx);
       // End on landing, hitting the other wall, or flying too long
       if (!this.aloft() || this.st - md.t0 > 1.6 ||
