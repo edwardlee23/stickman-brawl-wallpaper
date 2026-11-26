@@ -320,6 +320,9 @@ function drawPlatforms() {
   ctx.globalAlpha = 1;
 }
 let laidOut = false;         // Whether the world has had a real (non-zero) size yet
+// Set when resize() clears the canvas; a paused frame then draws once, so a resize while
+// Wallpaper Engine has the wallpaper paused does not leave the screen blank (issue #256)
+let redraw = false;
 function resize() {
   // A window that is 0 in either dimension (a page opened hidden, a 0-size frame) has no
   // world to lay out: dividing by it would put every fighter at NaN or Infinity. Keep the
@@ -328,6 +331,7 @@ function resize() {
   dpr = window.devicePixelRatio || 1;
   SW = window.innerWidth; SH = window.innerHeight;
   canvas.width = Math.round(SW * dpr); canvas.height = Math.round(SH * dpr);
+  redraw = true;
   canvas.style.width = SW + 'px'; canvas.style.height = SH + 'px';
   S = cfg.scale * SH / 540;
   worldW = SW / S; worldH = SH / S;
@@ -2897,6 +2901,7 @@ function drawBackground(ox, oy) {
 }
 window.__stickmanBrawl.bg = bg;
 function render() {
+  redraw = false;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, SW, SH);
   const sk = cfg.reduceMotion ? 0 : shake;
@@ -3009,7 +3014,7 @@ const SUBSTEP = 1 / 60, MAX_SUBSTEPS = 36;
 let paused = false, last = performance.now(), next = 0;
 function frame(now) {
   requestAnimationFrame(frame);
-  if (paused) { last = now; next = 0; return; }
+  if (paused) { last = now; next = 0; if (redraw) render(); return; }
   if (cfg.fps > 0) {
     // Draw on the first refresh at or after the due time, then move the due time on by one
     // interval rather than from now, so the time a refresh lands late is not lost each frame
