@@ -2477,7 +2477,7 @@ function drawNameTags(list) {
     // there it moves beside the bar instead, its 9 px text kept below the top edge
     // Either way it is kept inside the side walls (issue #248): centred on the head but moved in,
     // or by the right wall put left of the bar instead of right of it
-    const w = ctx.measureText(name).width || 0;
+    const m = ctx.measureText(name).width, w = typeof m === 'number' ? m : 0;   // A test's stub canvas may give no number
     if (hy - 29 >= 0) ctx.fillText(name, clamp(hx, w / 2, worldW - w / 2), hy - 20);
     else {
       ctx.textAlign = 'left';
