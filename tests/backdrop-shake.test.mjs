@@ -63,10 +63,10 @@ function transforms(screen, game) {
 }
 
 // Checks each frame that the backdrop is offset exactly as the world is, at the world's zoom;
-// returns the largest offset seen
+// returns the largest offset and the largest zoom seen
 function follow(w, frames) {
   const S = 720 / 540;
-  let most = 0;
+  let most = 0, zoom = 1;
   for (let i = 0; i < frames; i++) {
     w.frame();
     const { backdrop: b, world: v } = transforms(w.screen, w.game);
@@ -74,8 +74,9 @@ function follow(w, frames) {
       `frame ${i}: the world is offset by (${v[4].toFixed(2)}, ${v[5].toFixed(2)}), the backdrop by (${b[4].toFixed(2)}, ${b[5].toFixed(2)})`);
     assert.ok(Math.abs(b[0] * S - v[0]) < 1e-9, `frame ${i}: the backdrop is drawn at scale ${b[0]}, the world at ${v[0] / S}`);
     most = Math.max(most, Math.abs(v[4]), Math.abs(v[5]));
+    zoom = Math.max(zoom, v[0] / S);
   }
-  return most;
+  return { most, zoom };
 }
 
 test('the themed backdrop shakes with the world after a click blast (#254)', () => {
@@ -83,7 +84,7 @@ test('the themed backdrop shakes with the world after a click blast (#254)', () 
   w.we.applyUserProperties({ backgroundtheme: { value: 'dojo' }, reducemotion: { value: false }, clickblast: { value: true } });
   w.frame();
   w.click(640, 300);
-  const most = follow(w, 20);
+  const { most } = follow(w, 20);
   assert.ok(most > 1, `the screen only shook by ${most.toFixed(2)} px`);
 });
 
@@ -95,6 +96,7 @@ test('the themed backdrop shakes with the world during the slow-motion zoom (#25
   f.hp = 0; f.ko(0, -40);
   w.frame();
   w.click(640, 300);
-  const most = follow(w, 20);
+  const { most, zoom } = follow(w, 20);
   assert.ok(most > 1, `the screen only shook by ${most.toFixed(2)} px`);
+  assert.ok(zoom > 1.05, `the view only zoomed to ${zoom.toFixed(3)}x`);
 });
