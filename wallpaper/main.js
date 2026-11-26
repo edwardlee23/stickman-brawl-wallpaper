@@ -1166,6 +1166,8 @@ class Fighter {
   // ready a substitution for this attacker's hit (ninjutsu). Throws cannot be blocked,
   // shielded or substituted, but smoke escapes them. An attack that comes round the guard
   // (unguardable, the shadow clones) offers no block or shield, which could not stop it.
+  // Every attack is dodged at the same rate (12%): where a block or shield cannot be had,
+  // its share of the roll brings no reaction (#385).
   // With paths (segments {O, E}: a beam's line, the flight of shots), only an enemy whose body
   // comes within 25 of one reacts (issue #382): a beam or shot aimed high passes over the rest.
   warn(reach, grab, unguardable, paths) {
@@ -1195,7 +1197,7 @@ class Fighter {
         if (e.dash > 0) e.vx = 0;
         e.dash = 0; e.trailOn = false;
         e.facing = sgn(this.x - e.x);
-      } else if (r < 0.37) {
+      } else if (r >= 0.25 && r < 0.37) {
         e.evade = 0.3; e.vx = sgn(e.x - this.x) * rand(160, 230);
       } else if (guard && r < 0.47 && cfg.styles.magic) {
         e.facing = sgn(this.x - e.x);
