@@ -1966,7 +1966,7 @@ class Fighter {
     // Any hit shatters the ice; another ice shard does not freeze again, so nobody is frozen in a loop
     const wasFrozen = this.state === 'frozen';
     if (wasFrozen) shatterIce(H);
-    // A launch keeps the tumble it interrupts; clearMove resets only a special's own rotation (#347)
+    // A hit that launches a tumbling fighter keeps its spin; only a special's own rotation is dropped (#347)
     const spin = this.move ? 0 : this.rot;
     this.clearMove();
     stats.hits[m.id] = (stats.hits[m.id] || 0) + 1;

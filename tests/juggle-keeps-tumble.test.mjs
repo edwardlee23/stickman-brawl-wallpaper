@@ -60,8 +60,9 @@ test('after the juggle hit the head moves only a few units on the next frame (#3
 
 test("a hit during a wall run still resets the special's own rotation (#347)", () => {
   const { game, a, e } = load(), jab = game.MOVES.find(m => m.id === 'jab');
-  // Stand-in for the wall run's sideways body: a special in progress with its rotation
-  Object.assign(e, { state: 'attack', move: { id: 'wallrun', type: 'wallrun' }, md: { ph: 'run' }, rot: -Math.PI / 2 });
+  // Stand-in for the wall run's sideways body: a special in progress, up in the air, with its rotation
+  Object.assign(e, { state: 'attack', move: { id: 'wallrun', type: 'wallrun' }, md: { ph: 'run' }, alt: 120, rot: -Math.PI / 2 });
   e.takeHit(a, jab, 'body', e.bodyPoint());
+  assert.equal(e.state, 'launched', 'a hit in the air launches it');
   assert.equal(e.rot, 0);
 });
