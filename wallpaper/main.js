@@ -700,6 +700,24 @@ function segDist(px, py, a, b) {
   const t = l ? clamp(((px - a.x) * vx + (py - a.y) * vy) / l, 0, 1) : 0;
   return Math.hypot(px - a.x - vx * t, py - a.y - vy * t);
 }
+// Where a straight line from O in unit direction d at depth z ends: at the screen edge, the
+// floor (ground) or the first platform top it comes down onto
+function lineEnd(O, d, z) {
+  let tt = d.x > 0 ? (worldW - O.x) / d.x : -O.x / d.x, ground = false;
+  const gy = groundY(z);
+  if (d.y > 0.01) { const tg = (gy - O.y) / d.y; if (tg < tt) { tt = tg; ground = true; } }
+  if (d.y < -0.01) tt = Math.min(tt, -O.y / d.y);
+  let E = { x: O.x + d.x * tt, y: O.y + d.y * tt };
+  // A beam or shot coming down stops at the first platform top it meets (issue #217)
+  const lh = ledgeHit(O, E);
+  if (lh) { E = { x: lh.x, y: lh.y }; ground = false; }
+  return { E, ground };
+}
+// The path of shot s, from where it is to where it bursts, as a segment for warn()
+function shotPath(s) {
+  const v = Math.hypot(s.vx, s.vy) || 1, O = { x: s.x, y: s.y };
+  return { O, E: lineEnd(O, { x: s.vx / v, y: s.vy / v }, s.z).E };
+}
 function hitTest(P0, P1, J, pad = 0) {
   for (let i = 0; i <= 4; i++) {
     const u = i / 4, x = P0.x + (P1.x - P0.x) * u, y = P0.y + (P1.y - P0.y) * u;
@@ -800,6 +818,8 @@ if (typeof window.wallpaperRegisterAudioListener === 'function') window.wallpape
 
 // ---------- Stickman ----------
 const TMP = clonePose(GUARD);
+// The joints warn() measures against a beam's line and a shot's path: those each hit test checks
+const WARN_BEAM_PARTS = ['head', 'sh', 'hip'], WARN_SHOT_PARTS = ['head', 'sh', 'hip', 'kF', 'kB', 'fF', 'fB'];
 // Attacks made right after appearing next to a target (teleport, substitution)
 const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 'rising', 'barrage', 'clones'];
 const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run',
@@ -1124,7 +1144,9 @@ class Fighter {
   // ready a substitution for this attacker's hit (ninjutsu). Throws cannot be blocked,
   // shielded or substituted, but smoke escapes them. An attack that comes round the guard
   // (unguardable, the shadow clones) offers no block or shield, which could not stop it.
-  warn(reach, grab, unguardable) {
+  // With paths (segments {O, E}: a beam's line, the flight of shots), only an enemy whose body
+  // comes within 25 of one reacts (issue #382): a beam or shot aimed high passes over the rest.
+  warn(reach, grab, unguardable, paths) {
     // As deep as the attack hits (issue #263): a beam within 22 (u_beam), strikes and shots within 16 (sweepHit, shots)
     const depth = this.move.type === 'beam' ? 22 : 16;
     for (const e of fighters) {
@@ -1133,6 +1155,14 @@ class Fighter {
       if (sgn(e.x - this.x) !== this.facing) continue;
       // A strike cannot reach an enemy as far above or below as it cannot hit (on another platform, say)
       if (!this.move.type && Math.abs(e.alt - this.alt) >= 35) continue;
+      // The shadow clones strike only within 45 above or below the caster (u_clones, #382)
+      if (this.move.type === 'clones' && Math.abs(e.alt - this.alt) >= 45) continue;
+      // 25 covers a beam's half width and hit margin (md.w + 8), and a shot's pad on the
+      // parts it hits: the beam hits the head, shoulders and hips, a shot the legs too
+      if (paths && e.W) {
+        const parts = this.move.type === 'beam' ? WARN_BEAM_PARTS : WARN_SHOT_PARTS;
+        if (!paths.some(p => parts.some(k => segDist(e.W[k].x, e.W[k].y, p.O, p.E) < 25))) continue;
+      }
       // A projectile is thrown as it warns and needs time to fly; a block, shield, smoke
       // escape or substitution lasts that much longer, so it is still up when the shot arrives
       const fly = this.move.speed ? Math.abs(e.x - this.x) / this.move.speed : 0;
@@ -1237,14 +1267,7 @@ class Fighter {
   beamLine(aim) {
     const O = mid(this.W.hF, this.W.hB);
     const d = { x: this.facing * Math.cos(aim), y: Math.sin(aim) };
-    let tt = d.x > 0 ? (worldW - O.x) / d.x : -O.x / d.x, ground = false;
-    const gy = groundY(this.z);
-    if (d.y > 0.01) { const tg = (gy - O.y) / d.y; if (tg < tt) { tt = tg; ground = true; } }
-    if (d.y < -0.01) tt = Math.min(tt, -O.y / d.y);
-    let E = { x: O.x + d.x * tt, y: O.y + d.y * tt };
-    // A beam coming down stops at the first platform top it meets (issue #217)
-    const lh = ledgeHit(O, E);
-    if (lh) { E = { x: lh.x, y: lh.y }; ground = false; }
+    const { E, ground } = lineEnd(O, d, this.z);
     return { O, E, d, ground };
   }
   u_beam(dt) {
@@ -1270,8 +1293,10 @@ class Fighter {
         }
         md.aim = aim;
         // Only opponents along the beam, up to where it ends, react to it (issue #343);
-        // 25 covers its half width and the hit margin (md.w + 8)
-        this.warn(Math.abs(this.beamLine(aim).E.x - this.x) + 25, false);
+        // 25 covers its half width and the hit margin (md.w + 8). Those far above or
+        // below its line do not either (#382)
+        const line = this.beamLine(aim);
+        this.warn(Math.abs(line.E.x - this.x) + 25, false, false, [line]);
         addFx({ type: 'flash', dur: 0.15 });
         shake = Math.max(shake, 7);
       }
@@ -1327,8 +1352,16 @@ class Fighter {
         if (!md.fan) md.fan = {};
         shots.push({ x: H.x, y: H.y, vx: this.facing * Math.cos(a) * sp, vy: Math.sin(a) * sp, z: this.z, owner: this, m: this.move, dmg: this.move.dmg, life: 3, col: colorOf(this), fan: md.fan }); sfx('fire', H.x, 0.5);
         spawnSparks(H.x, H.y, '#ffffff', 3);
-        // The first shot warns: a guard raised then lasts until it can arrive
-        if (k === 0) this.warn(9999, false);
+        // The first shot warns: a guard raised then lasts until it can arrive. The rest aim
+        // at the target again, each turned up to 0.12 either way, so the warning covers
+        // the first shot's path turned by up to 0.24 either way (#382)
+        if (k === 0) {
+          const paths = [-0.24, -0.12, 0, 0.12, 0.24].map(o => {
+            const O = { x: H.x, y: H.y }, b = a + o;
+            return { O, E: lineEnd(O, { x: this.facing * Math.cos(b), y: Math.sin(b) }, this.z).E };
+          });
+          this.warn(9999, false, false, paths);
+        }
       }
     } else {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 10), this.pose);
@@ -1544,10 +1577,13 @@ class Fighter {
         // A fan of three stars, spread a little above and below the aim. They share one
         // fan token, so a shield takes the whole fan as one hit.
         md.ph = 'throw'; md.t0 = this.st;
-        const fan = {};
-        for (const off of [-0.16, 0, 0.16]) this.castShot(this.W.hF, 'star', this.move.speed, 0.02, off).fan = fan;
+        const fan = {}, paths = [];
+        for (const off of [-0.16, 0, 0.16]) {
+          const s = this.castShot(this.W.hF, 'star', this.move.speed, 0.02, off);
+          s.fan = fan; paths.push(shotPath(s));
+        }
         sfx('toss', this.x);
-        this.warn(9999, false);
+        this.warn(9999, false, false, paths);
       }
     } else {
       lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
@@ -1763,9 +1799,9 @@ class Fighter {
       if (!md.chargeSfx) { md.chargeSfx = true; sfx('charge', this.x, 0.6); }
       if (this.st >= 0.4 && this.W) {
         md.ph = 'throw'; md.t0 = this.st;
-        this.castShot(mid(this.W.hF, this.W.hB), 'fire', this.move.speed, 0.05);
+        const s = this.castShot(mid(this.W.hF, this.W.hB), 'fire', this.move.speed, 0.05);
         sfx('fire', this.x);
-        this.warn(9999, false);
+        this.warn(9999, false, false, [shotPath(s)]);
       }
     } else {
       lerpPose(this.pose, FIRE, Math.min(1, dt * 20), this.pose);
@@ -1782,9 +1818,9 @@ class Fighter {
       lerpPose(this.pose, FLING, Math.min(1, dt * 18), this.pose);
       if (this.st >= 0.2 && this.W) {
         md.ph = 'throw'; md.t0 = this.st;
-        this.castShot(this.W.hF, 'ice', this.move.speed, 0.04);
+        const s = this.castShot(this.W.hF, 'ice', this.move.speed, 0.04);
         sfx('freeze', this.x, 0.7);
-        this.warn(9999, false);
+        this.warn(9999, false, false, [shotPath(s)]);
       }
     } else {
       lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
