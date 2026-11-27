@@ -980,12 +980,18 @@ class Fighter {
     const d = {}, v = {}, v0 = {}, lag = {};
     for (const k of KEYS) { d[k] = 0; v[k] = 0; v0[k] = 0; }
     for (const k in LAG_PARENT) lag[k] = { x: 0, y: 0, vx: 0, vy: 0 };
-    this.look = { d, v, p0: clonePose(this.pose), v0, lag, par: null, bvx: this.vx, bva: this.va };
+    this.look = { d, v, p0: clonePose(this.pose), v0, lag, par: null, bvx: this.vx, bva: this.va, carry: 0 };
   }
   // Moves the spring offset and the lag on by dt. A frozen or ragdoll body is drawn as it is.
   stepLook(dt) {
-    if (this.state === 'frozen' || this.rag || dt <= 0) { this.resetLook(); return; }
-    const look = this.look, { d, v, p0, v0 } = look, { w, z, g } = LOOK;
+    if (this.state === 'frozen' || this.rag) { this.resetLook(); return; }
+    // A step shorter than a sub-step (the sliver frame() can leave as a hit stop ends) is
+    // carried into the next one: speeds taken over a sliver would kick the springs wildly
+    const look = this.look;
+    look.carry += dt;
+    if (look.carry < LOOK_STEP) return;
+    dt = look.carry; look.carry = 0;
+    const { d, v, p0, v0 } = look, { w, z, g } = LOOK;
     const n = Math.ceil(dt / LOOK_STEP), h = dt / n;
     for (const k of KEYS) {
       const vel = (this.pose[k] - p0[k]) / dt, acc = (vel - v0[k]) / dt;

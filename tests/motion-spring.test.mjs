@@ -79,6 +79,21 @@ test('a strike\'s impact is drawn within 4 px', () => {
   }
 });
 
+test('a very short step does not blow the spring up', () => {
+  // frame() can hand update() a sliver of a step when a hit stop ends; a pose that snaps in
+  // that sliver must not kick the offset by the change over that sliver's length
+  const game = load();
+  const f = game.fighters[0];
+  hold(f);
+  for (let i = 0; i < 10; i++) f.stepLook(DT);
+  f.pose.aF += 1;
+  f.stepLook(1e-5);
+  for (let i = 0; i < 30; i++) {
+    f.stepLook(DT);
+    for (const k in f.look.d) assert.ok(Math.abs(f.look.d[k]) < 1, k + ' offset ' + f.look.d[k]);
+  }
+});
+
 test('at rest the drawn body is the game body', () => {
   const game = load();
   const f = game.fighters[0];
