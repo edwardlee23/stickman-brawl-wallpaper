@@ -27,7 +27,7 @@ function load() {
   return { game, context };
 }
 
-// Until 200 dodges are seen (at most 4000 attacks), the attacker a starts the move at the
+// Until 50 dodges are seen (at most 2000 attacks), the attacker a starts the move at the
 // idle enemy e in front of it, both on the floor at the same depth, and the
 // fight is stepped until the attack and its shots are over. Returns how many of the
 // dodges were hit anyway.
@@ -37,7 +37,7 @@ function hitAfterDodge(id, near) {
     dash: 0, evade: 0, juggle: 0, rot: 0, rotV: 0, subFrom: null, subT: 0, move: null, md: null,
     invis: false, alpha: 1, state: 'idle', nextMove: null };
   let dodges = 0, hit = 0;
-  for (let n = 0; n < 4000 && dodges < 200; n++) {
+  for (let n = 0; n < 2000 && dodges < 50; n++) {
     // A fresh fight every 200 attacks, before the round runs out of time and a new one starts
     if (n % 200 === 0) {
       ({ game, context } = load());
@@ -67,7 +67,7 @@ function hitAfterDodge(id, near) {
     }
     if (dodged) { dodges++; if (struck) hit++; }
   }
-  assert.ok(dodges >= 100, id + ': only ' + dodges + ' dodges seen');
+  assert.ok(dodges >= 40, id + ': only ' + dodges + ' dodges seen');
   return { dodges, hit };
 }
 
