@@ -129,7 +129,7 @@ const DESIGNED = [
   "sfx('zap', md.x, 1.3)", "sfx('shield', this.x, 0.6)", "sfx('hit', H.x)",
   "sfx('shield', H.x, 0.4)", "sfx('shield', H.x)", "sfx('block', H.x)",
   "sfx('freeze', H.x)", "sfx('ko', this.x)", "sfx('win', worldW / 2)",
-  "sfx('toss', this.x)", "sfx('shield', it.x, 0.4)",
+  "sfx('toss', this.x)", "sfx('shield', it.x, 0.4)", "sfx('hitBig', M.x, 0.8)", "sfx('block', H.x, 1.4)",
 ];
 
 test('sound: main.js still makes every sound call it was designed with', () => {

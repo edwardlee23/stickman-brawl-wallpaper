@@ -522,7 +522,7 @@ function slowmoView(ox, oy) {
   view = { z, x: ox * z + cx * (1 - z), y: oy * z + cy * (1 - z) };
   ctx.setTransform(dpr * S * z, 0, 0, dpr * S * z, view.x * dpr, view.y * dpr);
 }
-const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, combos: 0, splats: 0, sfx: {} };
+const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, combos: 0, splats: 0, clashes: 0, parries: 0, counters: 0, sfx: {} };
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove, pickTarget,
   render: () => render(),
   get fighters() { return fighters; } };
@@ -613,6 +613,27 @@ function impact(x, y, big) {
   hitStop(big ? 0.09 : 0.035);
   if (big) addFx({ type: 'focus', x, y, dur: 0.28 });
 }
+// Two strikes meeting in mid-air at Ha and Hb: neither lands, both fighters are knocked back
+// off balance, and the meeting point bursts in white
+function clash(a, b, Ha, Hb) {
+  const M = mid(Ha, Hb);
+  for (const f of [a, b]) {
+    f.hitDone = true; f.chain = null; f.combo = 0; f.clearMove();
+    f.state = 'hit'; f.st = 0; f.dur = CLASH_STAGGER; f.vx = -f.facing * 220; f.dash = 0;
+    if (!f.aloft()) dust(f.x, groundY(f.z) - f.alt, 3, -f.facing, 0.8);
+  }
+  addFx({ type: 'ring', x: M.x, y: M.y, r0: 4, r1: 46, dur: 0.3, w: 3 });
+  spawnSparks(M.x, M.y, '#ffffff', 16, false, 1.4);
+  sfx('hitBig', M.x, 0.8);
+  shake = Math.max(shake, 6); hitStop(0.08);
+  stats.clashes++;
+}
+// Clashes and parries: two strikes that meet knock both fighters back for CLASH_STAGGER s; a
+// block parries PARRY_CHANCE of the martial-arts strikes it meets, which leaves the attacker
+// off balance for PARRY_STAGGER s while the blocker strikes back. Strikes meet when an enemy
+// warned of one answers it with its own (warn, MEET_CHANCE)
+const CLASH_DIST = 16, CLASH_STAGGER = 0.3, PARRY_CHANCE = 0.35, PARRY_STAGGER = 0.4;
+const MEET_CHANCE = 0.25;   // Share of martial-arts strikes an enemy warned of meets with a strike of its own (warn)
 // A cloud of smoke: a few grey balls that swell and fade
 function puff(x, y, size) {
   const balls = [];
@@ -1569,6 +1590,14 @@ class Fighter {
           + (this.move.type === 'clones' ? CLONES_RUSH : 0);
       } else if (!grab && r >= 0.55 && r < 0.63 && cfg.styles.ninjutsu) {
         e.subFrom = this; e.subT = (this.move.wind || 0.3) + (this.move.act || 0.4) + 0.3 + fly;
+      } else if (guard && !this.move.type && r >= 0.63 && r < 0.63 + MEET_CHANCE) {
+        // Meets the strike with one of its own, thrown with the same kind of limb (fist, foot,
+        // elbow or knee) so the two can clash: a strike of a style that is on, quick enough
+        // to be out as soon as the other, reaching across the gap the two lunges close
+        const d = Math.abs(e.x - this.x), kind = this.move.hit[0];
+        const fits = MOVES.filter(n => cfg.styles[n.style] && !n.grab && n.hit[0] === kind && n.wind <= this.move.wind + 0.02 &&
+          d <= n.range[1] + 20);
+        if (fits.length) { e.facing = sgn(this.x - e.x); e.target = this; e.startMove(withStaff(e, pick(fits)), true); }
       }
     }
   }
@@ -2334,6 +2363,8 @@ class Fighter {
     const H = m.staff ? staffTip(this.W, m.hit) : this.W[m.hit], P0 = this.prevHP || H;
     this.prevHP = { x: H.x, y: H.y };
     const r = this.sweepHit(P0, H);
+    const c = this.clashWith(P0, H, r && r[0]);
+    if (c) { clash(this, c[0], H, c[1]); return; }
     if (r) {
       this.hitDone = true;
       const e = r[0];
@@ -2342,6 +2373,43 @@ class Fighter {
       // Only a target still reeling on its feet can be caught by the next strike
       if (e.state === 'hit' && this.combo < COMBO_MAX && COMBO_NEXT[(m.bare || m).id] && !this.aloft() && Math.random() < COMBO_CHANCE) this.chain = e;
     }
+  }
+
+  // An enemy striking back at this one whose fist or foot (or staff tip) is within CLASH_DIST
+  // of this strike's point as it moved from P0 to H, or struck, the enemy it is landing on, as
+  // [enemy, its point]: the two strikes meet
+  clashWith(P0, H, struck) {
+    for (const e of fighters) {
+      const n = e.move;
+      if (!isEnemy(this, e) || e.state !== 'attack' || !n || n.type || n.grab || e.hitDone || !e.W) continue;
+      if (e.st < n.wind || e.st > n.wind + n.act * 0.85 || e.facing !== -this.facing) continue;
+      if (Math.abs(e.z - this.z) > 16 || Math.abs(e.alt - this.alt) >= 35) continue;
+      // Measured against this step's sweep of the point, P0 to H: fists closing at speed pass
+      // each other between two steps
+      const E = n.staff ? staffTip(e.W, n.hit) : e.W[n.hit];
+      // or the enemy this strike is about to land on strikes back with the same kind of limb
+      if (segDist(E.x, E.y, P0, H) < CLASH_DIST || (e === struck && n.hit[0] === this.move.hit[0])) return [e, E];
+    }
+    return null;
+  }
+
+  // A block made in time turns att's strike aside at H: no damage, the attacker thrown off
+  // balance, and this fighter strikes straight back with a martial-arts strike that reaches it
+  parry(att, H) {
+    stats.parries++;
+    addFx({ type: 'ring', x: H.x, y: H.y, r0: 3, r1: 30, dur: 0.2, w: 2.5 });
+    spawnSparks(H.x, H.y, '#ffffff', 10);
+    sfx('block', H.x, 1.4); hitStop(0.06);
+    att.clearMove(); att.chain = null; att.combo = 0;
+    att.state = 'hit'; att.st = 0; att.dur = PARRY_STAGGER; att.vx = -att.facing * 90;
+    this.state = 'idle'; this.st = 0;
+    const dist = Math.abs(att.x - this.x);
+    const fits = MOVES.filter(n => cfg.styles[n.style] && !n.grab && dist >= n.range[0] && dist + 10 <= n.range[1]);
+    if (!fits.length) return;
+    if (dist > 1) this.facing = sgn(att.x - this.x);
+    this.target = att; stats.counters++;
+    // A surprise: the staggered attacker gets no warning to block it
+    this.startMove(withStaff(this, pick(fits)), true);
   }
 
   // Starts the next strike of a combo at this.chain, from those of this strike's chain whose
@@ -2462,6 +2530,8 @@ class Fighter {
       return;
     }
     if (!o.unblockable && this.state === 'block' && this.facing === -dir) {
+      // A martial-arts strike blocked in time is parried, from the attacker itself (not a shot)
+      if (!m.type && att === src && att.state === 'attack' && att.move === m && Math.random() < PARRY_CHANCE) { this.parry(att, H); return; }
       this.hp -= (o.dmg ?? m.dmg) * 0.15;
       this.vx = dir * (o.launch ? Math.abs(o.launch.vx) * 0.5 : (m.push || 30) * 1.2 + 60);
       spawnSparks(H.x, H.y, '#9fd4ff', 8); stats.blocked++; sfx('block', H.x);

@@ -11,7 +11,9 @@ specials (energy blasts, wall running, and hits that slam them into walls),
 magic (fireballs, lightning strikes, ice shards that freeze the target, and
 shields that stop a hit) and ninjutsu: shuriken, shadow clones, smoke escapes,
 and a log left behind to take a hit. A punch or kick that lands can run
-straight on into the next, in combos of two or three strikes. A knockout turns
+straight on into the next, in combos of two or three strikes. Two strikes that
+meet in mid-air knock both fighters back, and a block made in time turns a
+strike aside and hits straight back. A knockout turns
 the loser into a ragdoll, and a new round starts when one side is left.
 
 ![Six fighters brawling in free-for-all mode](demo.gif)
