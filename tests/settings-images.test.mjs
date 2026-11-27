@@ -27,11 +27,11 @@ test('each README shows every picture in the list, once, and in the same order',
 });
 
 test('README.md shows the pictures in the order of the list (#471)', () => {
-  assert.deepEqual(images(readFileSync('README.md', 'utf8')), SHOTS.map(fileOf));
+  assert.deepEqual(images(readFileSync(new URL('../README.md', import.meta.url), 'utf8')), SHOTS.map(fileOf));
 });
 
 test('each README has its language-switch line in the same place (#471)', () => {
-  const at = READMES.map(f => readFileSync(f, 'utf8').split('\n')
+  const at = READMES.map(f => readFileSync(new URL('../' + f, import.meta.url), 'utf8').split('\n')
     .findIndex(l => l.includes('English') && l.includes('繁體中文') && l.includes('简体中文')));
   for (const [k, i] of at.entries()) assert.ok(i >= 0, READMES[k] + ' has no language-switch line');
   for (const k of [1, 2]) assert.equal(at[k], at[0], READMES[k] + ' has its language-switch line elsewhere than README.md');
