@@ -79,6 +79,27 @@ test('a strike\'s impact is drawn within 4 px', () => {
   }
 });
 
+test('every strike is drawn within 4 px on the frame it lands, at mid-range', () => {
+  // Real strikes land before the nominal wind + act * 0.5, while the limb moves fastest, so this
+  // runs each move at a target in reach and reads the frame the hit registers (#463)
+  const far = [];
+  for (const m of loadMain().game.MOVES.filter(m => m.hit && m.range)) {
+    const { game } = loadMain({ random: lcg(1) });
+    const [a, e] = game.fighters;
+    hold(e, { x: 600 + (m.range[0] + m.range[1]) / 2, facing: -1 });
+    hold(a, { state: 'idle', facing: 1 });
+    a.target = e;
+    for (const f of game.fighters) f.W = f.joints();
+    a.startMove(m);
+    let t = 0;
+    while (!a.hitDone && a.state === 'attack' && t < 2) { game.update(DT); t += DT; }
+    assert.ok(a.hitDone, m.id + ': never landed');
+    const d = dist(a.V[m.hit], a.W[m.hit]);
+    if (d > 4) far.push(m.id + ' ' + d.toFixed(2) + ' px');
+  }
+  assert.deepEqual(far, [], 'drawn this far from the hit as it lands');
+});
+
 test('a very short step does not blow the spring up', () => {
   // frame() can hand update() a sliver of a step when a hit stop ends; a pose that snaps in
   // that sliver must not kick the offset by the change over that sliver's length

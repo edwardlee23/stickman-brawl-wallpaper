@@ -969,7 +969,8 @@ const LOOK_STEP = 1 / 240;   // Longest spring sub-step, so a slow frame rate st
 // point, at most max px from where the pose puts it, and the joint each point hangs from
 const LAG = { w: 22, z: 0.45, max: { head: 3, hand: 5 } };
 const LAG_PARENT = { head: 'sh', hF: 'eF', hB: 'eB' };
-const LEAD_ARM = { hF: ['aF', 'eF'], hB: ['aB', 'eB'] };   // The pose keys of the arm each hand ends
+// The pose keys of the limb that leads each joint a strike can land with
+const LEAD_LIMB = { hF: ['aF', 'eF'], hB: ['aB', 'eB'], eF: ['aF'], eB: ['aB'], fF: ['lF', 'kF'], fB: ['lB', 'kB'], kF: ['lF'], kB: ['lB'] };
 class Fighter {
   constructor(id, x, z, team, hue) {
     Object.assign(this, { id, x, z, team, hue });
@@ -1015,9 +1016,9 @@ class Fighter {
     const { d, v, p0, v0 } = look, { w, z, g } = LOOK;
     const n = Math.ceil(dt / LOOK_STEP), h = dt / n;
     // The point a strike lands with leads it, so it is drawn where it hits: until the strike is
-    // over, a striking hand has no lag and its arm no offset (a staff would magnify either)
+    // over, a striking hand has no lag and its limb no offset (a staff would magnify either)
     const m = this.state === 'attack' ? this.move : null, lead = m && !m.type && this.st < m.wind + m.act ? m.hit : null;
-    const still = LEAD_ARM[lead] || [];
+    const still = LEAD_LIMB[lead] || [];
     for (const k of KEYS) {
       const vel = (this.pose[k] - p0[k]) / dt, acc = (vel - v0[k]) / dt;
       p0[k] = this.pose[k]; v0[k] = vel;
