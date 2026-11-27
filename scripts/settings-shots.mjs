@@ -28,7 +28,7 @@ export const SHOTS = [
   { name: 'styles-ninjutsu', seed: 1, query: '?count=4&mode=ffa', skip: 2, secs: 5, props: { ...ALL_STYLES_OFF, styleninjutsu: v(true) } },
   { name: 'reduce-motion-off', seed: 1, query: '?count=6&mode=ffa', skip: 2, secs: 5, props: { reducemotion: v(false) } },
   { name: 'show-score', seed: 1, query: '?count=4&mode=teams', skip: 90, props: { showscore: v(true) } },
-  { name: 'names-headgear', seed: 1, query: '?count=4&mode=ffa', skip: 3,
+  { name: 'names-headgear', seed: 1, query: '?count=4&mode=ffa', skip: 2,
     props: { fighternames: v('Ann, Bo, Cy, Dee'), headgear: v(true), figurescale: v(160) } },
   { name: 'backgrounds', seed: 1, query: '?count=4&mode=ffa', skip: 3, hour: 21,
     tiles: [{ props: { backgroundtheme: v('dojo') } }, { props: { backgroundtheme: v('rooftop') } },

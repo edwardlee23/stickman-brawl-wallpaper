@@ -64,6 +64,8 @@ test('a staff lengthens the next strike, and is gone after three strikes', () =>
     const jab = game.MOVES.find(m => m.id === 'jab');
     const [a, e] = duel(game, jab.range[1] + 8);
     if (staff) handTo(game, a, 'staff');
+    // One strike at a time: no combo runs on from it, which would use the staff up sooner
+    a.chainOn = () => false;
     const m = staff ? game.withStaff(a, jab) : jab;
     a.startMove(m);
     run(game, 1, () => a.state !== 'attack');

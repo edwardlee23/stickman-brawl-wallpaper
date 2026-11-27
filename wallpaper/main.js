@@ -425,6 +425,8 @@ function resize() {
 
 const TEAM_COLOR = ['#ff6b6b', '#4dabf7'];
 const TEAM_NAME = ['RED', 'BLUE'];
+// The states a strike that got through leaves its target in, rather than blocked or shielded
+const LANDED = new Set(['hit', 'launched', 'frozen', 'ko']);
 const HIT_STATES = new Set(['idle', 'air', 'attack', 'hit', 'block', 'launched', 'splat', 'frozen']);
 const SOLID = new Set(['idle', 'attack', 'hit', 'block', 'frozen']);
 // States in which a fighter lies or turns between lying and standing, kept inside the walls (issue #244)
@@ -486,7 +488,7 @@ function slowmoView(ox, oy) {
   view = { z, x: ox * z + cx * (1 - z), y: oy * z + cy * (1 - z) };
   ctx.setTransform(dpr * S * z, 0, 0, dpr * S * z, view.x * dpr, view.y * dpr);
 }
-const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, splats: 0, sfx: {} };
+const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, combos: 0, splats: 0, sfx: {} };
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove, pickTarget,
   render: () => render(),
   get fighters() { return fighters; } };
@@ -937,6 +939,23 @@ const WARN_BEAM_PARTS = ['head', 'sh', 'hip'], WARN_SHOT_PARTS = ['head', 'sh', 
 const SIDESTEP = new Set(['beam', 'blast', 'fireball', 'ice', 'shuriken', 'clones']);
 // Attacks made right after appearing next to a target (teleport, substitution)
 const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 'rising', 'barrage', 'clones'];
+// Combos: a strike that lands and leaves its target reeling may run straight on into the next
+// strike of a chain, cancelling the rest of its recovery. Each strike lists what it can lead on
+// to; the uppercut, back kick and axe kick end a chain, as they launch or knock down.
+const COMBO_NEXT = {
+  jab: ['jab', 'cross', 'hook', 'lowkick'],
+  cross: ['hook', 'uppercut', 'lowkick', 'roundhouse'],
+  hook: ['uppercut', 'cross', 'elbow', 'roundhouse'],
+  elbow: ['knee', 'uppercut', 'hook'],
+  knee: ['elbow', 'uppercut'],
+  lowkick: ['roundhouse', 'cross', 'sidekick'],
+  teep: ['roundhouse', 'sidekick', 'backkick'],
+  roundhouse: ['backkick', 'axekick', 'cross'],
+  sidekick: ['backkick', 'axekick'],
+};
+const COMBO_MAX = 4;        // Strikes at most in one combo
+const COMBO_CHANCE = 0.7;   // Chance that a strike which lands leads on to the next
+window.__stickmanBrawl.COMBO_NEXT = COMBO_NEXT; window.__stickmanBrawl.COMBO_MAX = COMBO_MAX;
 const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run',
   fireball: 'charge', lightning: 'cast', ice: 'cast', shield: 'up',
   shuriken: 'cast', clones: 'split', smoke: 'out', substitute: 'in' };
@@ -961,6 +980,7 @@ class Fighter {
     this.target = null; this.retarget = 0; this.cool = rand(0.4, 1.4); this.evade = 0; this.dash = 0;
     this.rot = 0; this.rotV = 0; this.fallSign = -1; this.walk = 0; this.spin = false; this.hover = false;
     this.flash = 0; this.hitDone = false; this.prevHP = null; this.juggle = 0; this.dashed = false; this.dj = false;
+    this.combo = 0; this.chain = null;    // Strikes landed in the running combo, and the target it runs on at
     this.th = null; this.rag = null; this.hipH = 44; this.W = null; this.downDur = 1; this.koPending = false;
     this.aura = 0; this.alpha = 1; this.invis = false; this.ghost = false;
     this.trail = []; this.trailOn = false; this.trailT = 0;
@@ -1343,7 +1363,10 @@ class Fighter {
     return platforms.length ? platformAlt(this.x, this.z, groundY(this.z) - this.alt) : 0;
   }
 
-  startMove(m, surprise) {
+  // chained: the move runs on from a strike that landed, as the next strike of a combo
+  startMove(m, surprise, chained) {
+    if (!chained) this.combo = 0;
+    this.chain = null;
     this.state = 'attack'; this.st = 0; this.move = m; this.nextMove = null; this.reachT = 0; this.hover = false;
     this.hitDone = false; this.prevHP = null; this.from = clonePose(this.pose);
     // A move ends a dash, as a block does (#169), so the dash speed and afterimages do not
@@ -1451,6 +1474,8 @@ class Fighter {
       this['u_' + m.type](dt); return;
     }
     const st = this.st, T1 = m.wind, T2 = T1 + m.act, T3 = T2 + m.rec;
+    // Once the impact has carried through, a combo cuts the recovery short with its next strike
+    if (this.chain && st >= T2 + m.rec * FOLLOW && this.chainOn()) return;
     if (st < T1) lerpPose(this.from, m.W, ease(st / T1), this.pose);
     else if (st < T2) lerpPose(m.W, m.A, easeOut(Math.min(1, (st - T1) / (m.act * 0.5))), this.pose);
     else if (st < T2 + m.rec * FOLLOW) lerpPose(m.A, m.F, easeOut((st - T2) / (m.rec * FOLLOW)), this.pose);
@@ -2182,7 +2207,42 @@ class Fighter {
     const H = m.staff ? staffTip(this.W, m.hit) : this.W[m.hit], P0 = this.prevHP || H;
     this.prevHP = { x: H.x, y: H.y };
     const r = this.sweepHit(P0, H);
-    if (r) { this.hitDone = true; r[0].takeHit(this, m, r[1], H); }
+    if (r) {
+      this.hitDone = true;
+      const e = r[0];
+      if (e.takeHit(this, m, r[1], H) === 'sub' || !LANDED.has(e.state)) return;
+      this.combo++;
+      // Only a target still reeling on its feet can be caught by the next strike
+      if (e.state === 'hit' && this.combo < COMBO_MAX && COMBO_NEXT[(m.bare || m).id] && !this.aloft() && Math.random() < COMBO_CHANCE) this.chain = e;
+    }
+  }
+
+  // Starts the next strike of a combo at this.chain, from those of this strike's chain whose
+  // style is on and that reach the target; false when none can be thrown, which ends the combo
+  chainOn() {
+    const e = this.chain, m = this.move;
+    this.chain = null;
+    if (!e.alive || !e.hittable || Math.abs(e.z - this.z) > 16 || Math.abs(e.alt - this.alt) >= 35) return false;
+    const dx = e.x - this.x, dist = Math.abs(dx);
+    // A reeling target slides on, slowing at 520 a second each second (update()), so a strike is
+    // aimed at where it will be when the strike lands, halfway through its active time
+    const away = e.vx * sgn(dx), slide = T => Math.abs(away) / 520 < T ? away * Math.abs(away) / 1040 : away * T - 260 * T * T;
+    const ids = COMBO_NEXT[(m.bare || m).id].filter(id => {
+      const n = MOVE_BY[id], T = n.wind + n.act * 0.5, d = dist + slide(T);
+      // In the far half of the reach, short of its very end: thrown from closer, the fist or foot
+      // sweeps past the target's body between two frames, and at its farthest it can fall short
+      const span = n.range[1] - n.range[0];
+      return cfg.styles[n.style] && d >= n.range[0] + span * 0.5 && d <= n.range[1] - span * 0.1;
+    });
+    if (!ids.length) return false;
+    if (dist > 1) this.facing = sgn(e.x - this.x);
+    this.target = e; stats.combos++;
+    const n = withStaff(this, MOVE_BY[pick(ids)]);
+    // The combo keeps its target reeling until the next strike lands, or it would be back on
+    // guard and walk out of reach of a slower strike
+    e.dur = Math.max(e.dur, e.st + n.wind + n.act * 0.5 + 0.05);
+    this.startMove(n, false, true);
+    return true;
   }
 
   applyGrab(e) {
