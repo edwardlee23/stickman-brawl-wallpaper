@@ -825,6 +825,13 @@ function shotsOnOwnLedge(me, t, type) {
     return cx >= p.x0 + 2 && cx <= p.x1 - 2;
   });
 }
+// Whether a bolt called down at t would stop on a ledge above t's feet, where it cannot hit t:
+// it falls where t will be a moment later and stops at the first ledge top over it (see
+// u_lightning and boltEnd), so it is wasted on a target under a ledge (#421)
+function boltOverhead(t) {
+  const x = clamp(t.x + t.vx * 0.25, 14, worldW - 14), feet = groundY(t.z) - t.alt;
+  return platforms.some(p => x >= p.x0 && x <= p.x1 && p.y < feet - 0.5);
+}
 function pickMove(me, t, dist) {
   let items = [];
   // Height is measured from the surface the fighter stands on, so a ledge is not the air
@@ -838,6 +845,7 @@ function pickMove(me, t, dist) {
     if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
     if (m.type === 'beam' && t && beamOnOwnLedge(me, t)) continue;
     if (t && shotsOnOwnLedge(me, t, m.type)) continue;
+    if (m.type === 'lightning' && t && boltOverhead(t)) continue;
     items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1) * musicSpecial()]);
   }
   // Every style turned off: fight with all the martial-arts moves rather than stand still (see README)
