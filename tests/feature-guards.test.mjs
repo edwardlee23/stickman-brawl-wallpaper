@@ -4,8 +4,8 @@
 // Ladder and Survival round rules; name tags; and Click to blast.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // 1280 x 720 at figure size 100%: one world unit is 720 / 540 screen pixels
 const S = 720 / 540;
@@ -19,21 +19,12 @@ function load(search = '?count=2&mode=ffa') {
     get: (_, k) => (...a) => { calls.push([k, ...a]); return grad; },
     set: (_, k, v) => { calls.push(['=' + String(k), v]); return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
+  const { context, game, window } = loadMain({ search, ctx,
+    window: { addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } } });
   const sandboxMath = vm.runInContext('Math', context);
   const realRandom = sandboxMath.random;
   const random = fn => { sandboxMath.random = fn ?? realRandom; };
-  const game = window.__stickmanBrawl;
   const we = window.wallpaperPropertyListener;
   // A click at a world point, as a browser reports it: in CSS pixels of the window
   let clock = 0;

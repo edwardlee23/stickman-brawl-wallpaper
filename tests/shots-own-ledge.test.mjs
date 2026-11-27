@@ -6,27 +6,12 @@
 // shooter. Math.random is seeded, so each run is the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
-const source = readFileSync('wallpaper/main.js', 'utf8');
 const DT = 1 / 60;
 
 function load(seed) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  context.__seed = seed >>> 0;
-  vm.runInContext('Math.random = () => (__seed = (Math.imul(__seed, 1664525) + 1013904223) >>> 0) / 4294967296', context);
-  vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: true } });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ seed, properties: { platforms: { value: true } } });
   game.cfg.items = true;
   return game;
 }

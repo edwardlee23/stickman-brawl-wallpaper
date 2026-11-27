@@ -5,28 +5,15 @@
 // landing, splats, thawing, aura, whiffs and walking off a ledge.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain, lcg } from './load-main.mjs';
 
 const DT = 1 / 60;
 // Loads the wallpaper with a seeded Math.random. Setting rig.force to a number makes every
 // Math.random() return it, so a test can pick which branch a random choice takes.
 function load(props = {}) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
   const rig = { force: null };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams, rig,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  context.__seed = 269;
-  vm.runInContext('Math.random = () => rig.force ?? (__seed = (Math.imul(__seed, 1664525) + 1013904223) >>> 0) / 4294967296', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties(props);
-  const game = window.__stickmanBrawl;
+  const seeded = lcg(269);
+  const { game } = loadMain({ random: () => rig.force ?? seeded(), properties: props });
   for (const f of game.fighters) hold(f, { x: 900, z: 60 });
   const [a, e] = game.fighters;
   a.target = e; e.target = a;

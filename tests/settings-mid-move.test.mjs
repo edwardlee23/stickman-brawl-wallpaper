@@ -4,26 +4,13 @@
 // fall to the floor instead of stopping at the ledge that is gone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 const DT = 1 / 60;
 function load(props = {}) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A fixed Math.random of 0.99 turns off the random jumps, dashes and blocks
-  vm.runInContext('Math.random = () => 0.99;', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
+  const { game, window } = loadMain({ random: 0.99, properties: props });
   const listener = window.wallpaperPropertyListener;
-  listener.applyUserProperties(props);
-  const game = window.__stickmanBrawl;
   const [a, e] = game.fighters;
   return { game, listener, a, e };
 }

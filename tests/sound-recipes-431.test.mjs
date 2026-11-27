@@ -3,8 +3,7 @@
 // win jingle's notes (issue #431).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain, mulberry32 } from './load-main.mjs';
 
 // An AudioParam that records its automation calls.
 const param = v => ({
@@ -48,19 +47,11 @@ class FakeAudioContext {
 // run draws the same numbers and two draws differ.
 function load() {
   FakeAudioContext.last = null;
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {}, AudioContext: FakeAudioContext };
-  const context = vm.createContext({
-    window, console, URLSearchParams, performance: { now: () => 0 },
-    location: { search: '?count=2&mode=ffa&sound=1' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('{ let s = 7; Math.random = () => { s = (s + 0x6d2b79f5) >>> 0; let r = Math.imul(s ^ (s >>> 15), 1 | s);' +
-    ' r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r; return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return window.__stickmanBrawl;
+  return loadMain({
+    search: '?count=2&mode=ffa&sound=1', random: mulberry32(7),
+    window: { AudioContext: FakeAudioContext },
+    globals: { performance: { now: () => 0 } },
+  }).game;
 }
 
 const KINDS = ['hit', 'hitBig', 'block', 'whiff', 'boom', 'wall', 'ko', 'charge', 'fire', 'step', 'zap', 'freeze', 'shield', 'toss', 'poof', 'win'];

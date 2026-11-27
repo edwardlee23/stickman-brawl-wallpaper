@@ -3,25 +3,15 @@
 // (issue #11).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 function load(query) {
   const ctx = new Proxy(function () {}, { get: () => ctx, set: () => true, apply: () => ctx });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search: query },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame() {},
-    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search: query, ctx,
+    globals: { performance: { now: () => 0 }, Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
+    random: null,
   });
-  vm.runInNewContext(source, window);
   return window.__stickmanBrawl;
 }
 

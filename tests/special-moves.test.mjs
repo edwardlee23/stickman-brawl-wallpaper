@@ -7,27 +7,12 @@
 // each run is the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper with Math.random fixed at 0.99: no random jumps, dashes or reactions.
 // With platforms, the floating ledges are turned on.
 function load(platforms) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('Math.random = () => 0.99;', context);
-  vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
-  if (platforms) window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: true } });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ random: 0.99, properties: platforms ? { platforms: { value: true } } : undefined });
   const [a, e] = game.fighters;
   // a attacks from the left; e stands still in hitstun, so it neither moves nor blocks
   Object.assign(a, { x: 300, z: 50, alt: 0, va: 0, vx: 0, vz: 0, facing: 1, state: 'idle', hp: 1000, cool: 99, retarget: 99, target: e });

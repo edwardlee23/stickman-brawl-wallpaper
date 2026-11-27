@@ -4,14 +4,11 @@
 // motion, the health bar of a King, and the fades of name tags and the win banner.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain, source } from './load-main.mjs';
 
 // A copy of main.js that hands its screen shake and impact() to the test as window.__in
 const END = /requestAnimationFrame\(frame\);\s*\}\)\(\);\s*$/;
-const hooked = source.replace(END, m => 'window.__in = { get shake() { return shake; }, set shake(v) { shake = v; }, impact };\n' + m);
+const hook = src => src.replace(END, m => 'window.__in = { get shake() { return shake; }, set shake(v) { shake = v; }, impact };\n' + m);
 
 // Loads the wallpaper with a seeded Math.random (an LCG, issue #161). calls records every
 // canvas method called, with its arguments and the globalAlpha last assigned before it.
@@ -23,22 +20,11 @@ function load(search = '?count=2&mode=ffa') {
     get: (_, k) => k === 'globalAlpha' ? alpha : (...a) => { calls.push({ k, a, alpha }); return grad; },
     set: (_, k, v) => { if (k === 'globalAlpha') alpha = v; return true; },
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   let next = null;
-  const M = Object.create(Math);
-  let s = 1;
-  M.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: M, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search, ctx, patch: hook,
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; } },
   });
-  vm.runInNewContext(hooked, window);
   const game = window.__stickmanBrawl;
   return {
     game, calls,

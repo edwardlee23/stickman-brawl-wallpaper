@@ -3,10 +3,7 @@
 // shows on the next frame, as the name tags and the score already do.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper; log records every canvas method called as [name, ...args] and every
 // property set as ['=name', value]
@@ -16,16 +13,7 @@ function load(search = '?count=2&mode=ffa') {
     get: (_, k) => (k === 'measureText' ? () => ({ width: 40 }) : (...a) => { log.push([k, ...a]); return { addColorStop() {} }; }),
     set: (_, k, v) => { log.push(['=' + String(k), v]); return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game, window } = loadMain({ search, ctx });
   return {
     game, we: window.wallpaperPropertyListener,
     // Draws one frame and gives the banner: its text and the fill color it was drawn in

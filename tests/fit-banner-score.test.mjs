@@ -2,8 +2,7 @@
 // score line are shrunk to fit a narrow (portrait) screen with long names (issue #249)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // Text width from the font size in ctx.font: 0.86 em per Latin character, 1 em per CJK one,
 // about what Chrome measures for the banner's 900 26px "Microsoft JhengHei"
@@ -24,16 +23,8 @@ function load(search, w, h) {
     },
     set: (_, k, v) => { state[k] = v; return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: w, innerHeight: h, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, texts };
+  const { game, window } = loadMain({ search, width: w, height: h, ctx });
+  return { game, we: window.wallpaperPropertyListener, texts };
 }
 const span = o => {
   const w = textW(o.t, o.font);

@@ -5,9 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain, source } from './load-main.mjs';
 
 // A copy of main.js that adds up, in window.__sim, the game time each frame hands
 // to its substeps, hit stops included
@@ -18,7 +16,6 @@ const counted = source.replace(SIM_ANCHOR, 'window.__sim += sim; ' + SIM_ANCHOR)
 // function that runs one animation frame at the given time in ms, the game time
 // simulated so far, and the scale of the last world transform drawn
 function load(search) {
-  const noop = () => {};
   let scale = 0, most = 0, textScale = 0;
   const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
   const ctx = new Proxy({}, {
@@ -27,19 +24,13 @@ function load(search) {
       : k === 'measureText' ? t => ({ width: String(t).length * 8 }) : stub,
     set: () => true,
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: noop };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math, __sim: 0, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search, ctx, patch: () => counted,
+    window: { __sim: 0 },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
+    random: null,
   });
-  vm.runInNewContext(counted, window);
   return {
     game: window.__stickmanBrawl,
     we: window.wallpaperPropertyListener,

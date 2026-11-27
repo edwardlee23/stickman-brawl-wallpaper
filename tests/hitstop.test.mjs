@@ -3,47 +3,25 @@
 // stop ends in simulates the rest of its time.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain, source, mulberry32 } from './load-main.mjs';
 
 // A copy of main.js that adds up, in window.__upd, the game time update() simulates,
 // and exposes hitStop as window.__hitStop
 const UPDATE_ANCHOR = 'function update(dt) {';
-const END_ANCHOR = 'requestAnimationFrame(frame);\n})();';
-assert.ok(source.includes(UPDATE_ANCHOR) && source.includes(END_ANCHOR), 'anchors not found in main.js');
-const counted = source
-  .replace(UPDATE_ANCHOR, UPDATE_ANCHOR + ' window.__upd += dt;')
-  .replace(END_ANCHOR, 'requestAnimationFrame(frame);\nwindow.__hitStop = hitStop;\n})();');
+assert.ok(source.includes(UPDATE_ANCHOR), 'anchor not found in main.js');
+const count = src => src.replace(UPDATE_ANCHOR, UPDATE_ANCHOR + ' window.__upd += dt;');
 
 // Loads the wallpaper with a seeded Math.random and returns its debug hook, a
 // function that runs one animation frame at the given time in ms, hitStop, and
 // the game time simulated so far
 function load(search, seed = 1) {
-  let s = seed >>> 0;
-  const random = () => {   // mulberry32
-    s = (s + 0x6d2b79f5) >>> 0;
-    let r = Math.imul(s ^ (s >>> 15), 1 | s);
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-  const noop = () => {};
   const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
-  const canvas = { getContext: () => stub, style: {}, width: 0, height: 0 };
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: noop };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: Object.assign(Object.create(Math), { random }), __upd: 0,
-    Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search, ctx: stub, random: mulberry32(seed), window: { __upd: 0 },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
+    patch: count, expose: 'window.__hitStop = hitStop;',
   });
-  vm.runInNewContext(counted, window);
   return { game: window.__stickmanBrawl, frame: now => next(now), hitStop: t => window.__hitStop(t), upd: () => window.__upd };
 }
 

@@ -3,25 +3,11 @@
 // and passes one farther away. Math.random is stubbed, so each run is the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper with Math.random fixed at 0.99: no random jumps, dashes or reactions
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('Math.random = () => 0.99;', context);
-  vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
-  return window.__stickmanBrawl;
+  return loadMain({ random: 0.99 }).game;
 }
 
 // Holds a fighter in a long flinch at a place, so it neither moves nor attacks

@@ -3,10 +3,7 @@
 // every paused redraw would otherwise move the picture by a new random amount.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // A 2D context that logs every method call as [name, ...args]
 function recorder(log) {
@@ -21,22 +18,14 @@ function recorder(log) {
 function load() {
   const screen = [];
   const listeners = {};
-  const canvas = { getContext: () => recorder(screen), style: {}, width: 0, height: 0 };
-  const document = {
-    getElementById: () => canvas, body: { style: {} },
-    createElement: () => { const c = { log: [], width: 0, height: 0, style: {} }; c.getContext = () => recorder(c.log); return c; },
-  };
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: (k, f) => { (listeners[k] ??= []).push(f); } };
-  Object.assign(window, {
-    window, document, URLSearchParams,
-    location: { search: '?count=2&reducemotion=0' },
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
+  const { window } = loadMain({
+    search: '?count=2&reducemotion=0',
+    canvas: { getContext: () => recorder(screen), style: {}, width: 0, height: 0 },
+    document: { createElement: () => { const c = { log: [], width: 0, height: 0, style: {} }; c.getContext = () => recorder(c.log); return c; } },
+    window: { addEventListener: (k, f) => { (listeners[k] ??= []).push(f); } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; } },
   });
-  const context = vm.createContext(window);
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(source, context);
   let t = 0;
   return {
     screen, we: window.wallpaperPropertyListener,

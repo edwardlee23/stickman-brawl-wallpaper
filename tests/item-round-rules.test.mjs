@@ -6,10 +6,8 @@
 // cooldown and its targeting. The teams score by team is in score.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
-const SRC = readFileSync('wallpaper/main.js', 'utf8');
 const BOOMERANG_COL = '#d9a066', HEART_COL = '#ff6b8a';
 
 // Loads the wallpaper. random is a fixed Math.random (0.99 turns off random jumps and dashes),
@@ -21,19 +19,8 @@ function load({ search = '?count=2&mode=ffa', random, seed = 1, props = {}, item
     get: (_, k) => (...a) => { calls.push([k, ...a]); return k === 'measureText' ? { width: 8 } : { addColorStop() {} }; },
     set: (_, k, v) => { calls.push(['=' + String(k), v]); return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  if (random) vm.runInContext('Math.random = () => ' + random + ';', context);
-  else vm.runInContext(`{ let s = ${seed}; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }`, context);
-  vm.runInContext(SRC, context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties(props);
-  const game = window.__stickmanBrawl;
+  // A falsy random (none given) seeds the LCG instead
+  const { game } = loadMain({ search, ctx, random: random || undefined, seed, properties: props });
   game.cfg.items = items;
   return { game, calls };
 }

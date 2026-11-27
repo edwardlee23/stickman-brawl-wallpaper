@@ -4,26 +4,18 @@
 // right wall, one running up it, and the wall's crack kept their old x, in mid-screen.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper at the given size with a seeded Math.random (an LCG, as the other tests
 // seed it), and returns its debug hook, the window, its resize listener and a frame runner
 function load(search, width, height) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
   let next = null, t = 0;
-  const window = { innerWidth: width, innerHeight: height, devicePixelRatio: 1, addEventListener: (k, f) => { listeners[k] = f; } };
-  const context = vm.createContext({
-    window, console, URLSearchParams,
-    performance: { now: () => 0 },
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame: cb => { next = cb; },
+  const { window } = loadMain({
+    search, width, height, seed: 1,
+    window: { addEventListener: (k, f) => { listeners[k] = f; } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; } },
   });
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   return {
     window, game: window.__stickmanBrawl, we: window.wallpaperPropertyListener,
     resize: (w, h) => { window.innerWidth = w; window.innerHeight = h; listeners.resize(); },

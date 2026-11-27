@@ -3,30 +3,19 @@
 // with the bout pushed into the same pile. After a resize they are laid out again.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper in a window of the given size with a seeded Math.random, and returns its
 // debug hook, the window, its resize listener and a function that runs one animation frame.
 function load(width, height) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
   let next = null;
-  const window = {
-    innerWidth: width, innerHeight: height, devicePixelRatio: 1,
-    addEventListener: (type, cb) => { listeners[type] = cb; },
-  };
-  const context = vm.createContext({
-    window, console, URLSearchParams,
-    performance: { now: () => 0 },
-    location: { search: '?count=8&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame: cb => { next = cb; },
+  const { game, window } = loadMain({
+    search: '?count=8&mode=ffa', width, height,
+    window: { addEventListener: (type, cb) => { listeners[type] = cb; } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; } },
   });
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, window, resize: () => listeners.resize(), frame: now => next(now) };
+  return { game, we: window.wallpaperPropertyListener, window, resize: () => listeners.resize(), frame: now => next(now) };
 }
 
 function assertLaidOut(game, worldW, when) {

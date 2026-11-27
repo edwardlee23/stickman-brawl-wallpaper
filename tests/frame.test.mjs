@@ -5,10 +5,7 @@
 // Speed while hit stops come often (issue #61).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain, source } from './load-main.mjs';
 
 // A copy of main.js that adds up, in window.__sim, the game time handed to update()
 const SIM_ANCHOR = 'freezeGap -= dt;';
@@ -32,7 +29,6 @@ function seeded(seed) {
 // function that runs one animation frame at the given time in ms, and a count
 // of frames drawn (each draw clears the whole 1280 x 720 screen once).
 function load({ search = '?count=2', code = source, math = Math } = {}) {
-  const noop = () => {};
   let draws = 0;
   const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
   const ctx = new Proxy({}, {
@@ -41,19 +37,13 @@ function load({ search = '?count=2', code = source, math = Math } = {}) {
       : stub,
     set: () => true,
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: noop };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: math, __sim: 0, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search, ctx, patch: () => code,
+    window: { __sim: 0 },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Math: math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
+    random: null,
   });
-  vm.runInNewContext(code, window);
   return {
     game: window.__stickmanBrawl,
     we: window.wallpaperPropertyListener,

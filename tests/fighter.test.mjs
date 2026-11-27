@@ -2,26 +2,14 @@
 // fighter state after grabs, knockouts, landings and resizes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load() {
-  // A canvas context that accepts every call and property write.
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = {
-    innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    listeners: {},
-    addEventListener(type, f) { this.listeners[type] = f; },
-  };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=4&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
+  // The default canvas context accepts every call and property write.
+  const { game, window } = loadMain({
+    search: '?count=4&mode=ffa',
+    window: { listeners: {}, addEventListener(type, f) { this.listeners[type] = f; } },
   });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
   const [a, e] = game.fighters;
   e.W = e.joints();
   return { game, a, e, window };

@@ -4,25 +4,11 @@
 // each run is the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // 0.99: no random jumps, dashes, blocks or launches
-  vm.runInContext('Math.random = () => 0.99;', context);
-  vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
-  return window.__stickmanBrawl;
+  return loadMain({ random: 0.99 }).game;
 }
 
 const DT = 1 / 60;

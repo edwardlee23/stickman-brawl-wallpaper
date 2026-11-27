@@ -5,27 +5,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // 1280 x 720 at figure size 100%: one world unit is 720 / 540 screen pixels
 const S = 720 / 540;
 
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A seeded generator (an LCG) for Math.random, so every run is the same (issue #161)
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game, window } = loadMain({ window: { addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } } });
   const [a, b] = game.fighters;
   Object.assign(a, { x: 300, z: 50, alt: 0, facing: 1, state: 'idle', vx: 0, va: 0 });
   Object.assign(b, { x: 900, z: 50, alt: 0, facing: -1, state: 'idle', vx: 0, va: 0 });
@@ -119,22 +107,18 @@ test('during the slow-motion finish zoom, a click on a fighter as drawn launches
       : k === 'measureText' ? t => ({ width: String(t).length * 8 }) : stub,
     set: () => true,
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   const listeners = {};
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search: '?count=2&mode=ffa&reducemotion=0' },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  // The outer realm's Math is the sandbox's, so Math.random is the real one
+  const { game, window } = loadMain({
+    search: '?count=2&mode=ffa&reducemotion=0', ctx, random: null,
+    window: { addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } },
+    globals: {
+      performance: { now: () => 0 },
+      requestAnimationFrame: cb => { next = cb; },
+      Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+    },
   });
-  vm.runInNewContext(readFileSync('wallpaper/main.js', 'utf8'), window);
-  const game = window.__stickmanBrawl;
   window.wallpaperPropertyListener.applyUserProperties({ slowmofinish: { value: true }, clickblast: { value: true } });
   const [a, b] = game.fighters;
   const hold = () => { if (b.state !== 'launched') Object.assign(b, { state: 'hit', st: 0, dur: 999, alt: 0, va: 0, vx: 0 }); };

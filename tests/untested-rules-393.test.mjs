@@ -6,15 +6,7 @@
 // bounce, the item cap, head gear and a click during screen shake.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
-// A copy of main.js that also exposes, as window.__in, the internals these tests read or set
-const END_ANCHOR = 'requestAnimationFrame(frame);\n})();';
-assert.ok(source.includes(END_ANCHOR), 'anchor not found in main.js');
-const exposed = source.replace(END_ANCHOR, 'requestAnimationFrame(frame);\nwindow.__in = { altFits, MOVE_BY,' +
-  ' get view() { return view; }, set shake(v) { shake = v; } };\n})();');
+import { loadMain, lcg } from './load-main.mjs';
 
 // 1280 x 720 at figure size 100%: one world unit is 720 / 540 screen pixels
 const S = 720 / 540;
@@ -23,22 +15,18 @@ const DT = 1 / 60;
 // Loads the wallpaper with a seeded Math.random (an LCG), or context.__rnd when a test sets it.
 // Every fighter flinches on the floor at the far right, out of the way, until a test moves it.
 function load(props = {}, count = 2) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=' + count + '&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  context.__seed = 393; context.__rnd = null;
-  vm.runInContext('Math.random = () => __rnd ?? (__seed = (Math.imul(__seed, 1664525) + 1013904223) >>> 0) / 4294967296', context);
-  vm.runInContext(exposed, context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties(props);
-  const game = window.__stickmanBrawl;
+  const seeded = lcg(393);
+  let context = null;
+  const l = loadMain({ search: '?count=' + count + '&mode=ffa',
+    window: { addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } },
+    random: () => context?.__rnd ?? seeded(),
+    // main.js also exposes, as window.__in, the internals these tests read or set
+    expose: 'window.__in = { altFits, MOVE_BY, get view() { return view; }, set shake(v) { shake = v; } };',
+    properties: props });
+  ({ context } = l);
+  context.__rnd = null;
+  const { game, window } = l;
   for (const [i, f] of game.fighters.entries()) {
     Object.assign(f, { x: 900 - i * 5, z: 60, alt: 0, va: 0, vx: 0, vz: 0, state: 'hit', st: 0, dur: 999, hp: 1000, cool: 999 });
     f.W = f.joints();

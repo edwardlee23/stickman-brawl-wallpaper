@@ -3,8 +3,7 @@
 // is drawn on the platform's top, like an item's, and on the floor everywhere else.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load() {
   const ellipses = [];
@@ -12,19 +11,9 @@ function load() {
     get: (_, k) => k === 'ellipse' ? (...a) => ellipses.push(a) : () => ({ addColorStop() {} }),
     set: () => true,
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A seeded generator (an LCG), so every run draws the same frame (issue #161)
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: true } });
-  return { game: window.__stickmanBrawl, ellipses };
+  const { game } = loadMain({ ctx, properties: { platforms: { value: true } } });
+  return { game, ellipses };
 }
 
 // Places f at x, depth 60, with its feet at the screen height feet, in a flinch that runs no AI

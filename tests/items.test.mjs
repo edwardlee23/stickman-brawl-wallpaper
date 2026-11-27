@@ -5,28 +5,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
 
 function load(random) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: (k, f) => { listeners[k] = f; } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A fixed Math.random of 0.99 turns off the random jumps and dashes. Without one, a seeded
   // generator (an LCG) stands in, so a fighter's random jumps and dashes are the same on every
   // run and cannot carry it out of reach at random (issue #161).
-  if (random) vm.runInContext('Math.random = () => ' + random + ';', context);
-  else vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, window, listeners };
+  const { game, window } = loadMain({ random: random || undefined, window: { addEventListener: (k, f) => { listeners[k] = f; } } });
+  return { game, we: window.wallpaperPropertyListener, window, listeners };
 }
 
 // Two fighters on one line: a attacks, e stands still and can be hit without reacting

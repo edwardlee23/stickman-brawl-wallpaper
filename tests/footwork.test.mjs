@@ -2,25 +2,13 @@
 // a fighter does not hold on to a queued move it cannot reach (issue #35).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // A fixed Math.random of 0.99 turns off the random jumps and dashes, so the
 // fighter's footwork, and with it the time until a move is swapped, is the same
 // every run.
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('Math.random = () => 0.99;', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ random: 0.99 });
   const [a, e] = game.fighters;
   // The target stays in a long flinch, so it neither attacks nor moves on its own.
   Object.assign(e, { z: 50, alt: 0, state: 'hit', st: 0, dur: 99, hp: 1000, cool: 99, target: a });

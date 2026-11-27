@@ -4,22 +4,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load(search = '?count=6&mode=ffa') {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, listeners,
-    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return window;
+  return loadMain({ search, window: { listeners,
+    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); } } }).window;
 }
 
 // Sets the round rules through the settings panel, which starts a new round
@@ -217,17 +207,7 @@ test('King: the crown fades with its king during a teleport (#120)', () => {
     get: (s, k) => (k in s ? s[k] : (...a) => { if (k === 'fill') fills.push({ style: s.fillStyle, alpha: s.globalAlpha }); return { addColorStop() {} }; }),
     set: (s, k, v) => { s[k] = v; return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=3&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties({ roundrules: { value: 'king' } });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ search: '?count=3&mode=ffa', ctx, properties: { roundrules: { value: 'king' } } });
   const king = game.fighters.find(f => f.king);
   for (const f of game.fighters) f.W = f.joints();
   king.alpha = 0.1;

@@ -4,8 +4,7 @@
 // hit does (#347).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 const DT = 1 / 60;
 
@@ -29,19 +28,7 @@ class FakeAudioContext {
 }
 
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, AudioContext: FakeAudioContext,
-    addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ seed: 1, window: { AudioContext: FakeAudioContext } });
   game.cfg.sound = true;
   const [a, b] = game.fighters;
   Object.assign(a, { x: 400, z: 50, alt: 0, va: 0, vx: 0, vz: 0, facing: 1, state: 'idle', st: 0, hp: 1000, target: b });

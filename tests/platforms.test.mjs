@@ -3,27 +3,20 @@
 // fighters walk off their edges, and with the setting off there are none.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load(on = true, scale, [w, h] = [1280, 720]) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: w, innerHeight: h, devicePixelRatio: 1, addEventListener: (t, f) => (listeners[t] ||= []).push(f) };
-  window.resize = (w, h) => { window.innerWidth = w; window.innerHeight = h; for (const f of listeners.resize) f(); };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=4&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   const props = {};
   if (scale) props.figurescale = { value: scale };
   if (on) props.platforms = { value: true };
-  window.wallpaperPropertyListener.applyUserProperties(props);
-  const game = window.__stickmanBrawl;
+  const { game, window, context } = loadMain({
+    search: '?count=4&mode=ffa', width: w, height: h,
+    window: { addEventListener: (t, f) => (listeners[t] ||= []).push(f) },
+    properties: props,
+  });
+  window.resize = (w, h) => { window.innerWidth = w; window.innerHeight = h; for (const f of listeners.resize) f(); };
   // Everyone but the fighter under test stays out of the way, flinching on the floor at the far right
   for (const [i, f] of game.fighters.entries()) {
     Object.assign(f, { x: 900 - i * 5, z: 60, alt: 0, va: 0, vx: 0, state: 'hit', st: 0, dur: 999, hp: 1000, cool: 999 });

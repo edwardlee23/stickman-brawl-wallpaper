@@ -5,26 +5,13 @@
 // the boomerang burst and its thrower lost it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 const FIG_TOP = 110;   // As in main.js: the jump ceiling is groundY(z) - FIG_TOP
 
 function load(size) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A fixed Math.random of 0.99 turns off the random jumps, dashes and blocks
-  vm.runInContext('Math.random = () => 0.99;', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties({ figurescale: { value: size } });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ random: 0.99, properties: { figurescale: { value: size } } });
   game.cfg.items = true;
   // With no move style on, the thrower picks no move of its own, so it throws as soon as it can
   for (const k in game.cfg.styles) game.cfg.styles[k] = false;

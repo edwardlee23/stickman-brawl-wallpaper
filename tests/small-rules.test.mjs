@@ -5,15 +5,9 @@
 // and the overlap check for fighters in the air.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
-// A copy of main.js that also exposes hitStop, impact, quake and the running hit stop
-const END_ANCHOR = 'requestAnimationFrame(frame);\n})();';
-assert.ok(source.includes(END_ANCHOR), 'anchor not found in main.js');
-const exposed = source.replace(END_ANCHOR,
-  'requestAnimationFrame(frame);\nwindow.__in = { hitStop, impact, quake, get freeze() { return freeze; } };\n})();');
+import { loadMain, mulberry32 } from './load-main.mjs';
+// Code run at the end of main.js that also exposes hitStop, impact, quake and the running hit stop
+const EXPOSE = 'window.__in = { hitStop, impact, quake, get freeze() { return freeze; } };';
 
 // An AudioParam that remembers the highest value it is ramped or set to
 const param = v => ({
@@ -44,13 +38,6 @@ class FakeAudioContext {
 // hook, the exposed internals, the settings listener, the audio listeners, and a function
 // that draws one frame and returns the text it drew.
 function load(search, { seed = 187, audio = false } = {}) {
-  let s = seed >>> 0;
-  const random = () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let r = Math.imul(s ^ (s >>> 15), 1 | s);
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
   const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
   let drawn = [];
   const state = {};
@@ -60,23 +47,14 @@ function load(search, { seed = 187, audio = false } = {}) {
       : k in state ? state[k] : stub,
     set: (_, k, v) => { state[k] = v; return true; },
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   const listeners = [];
   let next = null, now = 0;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {},
-    wallpaperRegisterAudioListener: cb => listeners.push(cb) };
-  if (audio) window.AudioContext = FakeAudioContext;
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: Object.assign(Object.create(Math), { random }),
-    Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const win = { wallpaperRegisterAudioListener: cb => listeners.push(cb) };
+  if (audio) win.AudioContext = FakeAudioContext;
+  const { window } = loadMain({
+    search, ctx, random: mulberry32(seed), window: win, expose: EXPOSE,
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
   });
-  vm.runInNewContext(exposed, window);
   return {
     game: window.__stickmanBrawl, inner: window.__in, we: window.wallpaperPropertyListener, listeners,
     draw: () => { drawn = []; next(now += 16); return drawn; },

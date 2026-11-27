@@ -5,10 +5,8 @@
 // fighter, a knocked-out body, the shield's side, health bars and the name tag color.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain, source as SRC } from './load-main.mjs';
 
-const SRC = readFileSync('wallpaper/main.js', 'utf8');
 // 1280 x 720 at figure size 100%: one world unit is 720 / 540 screen pixels
 const S = 720 / 540;
 
@@ -64,19 +62,13 @@ function load(search = '?count=2&mode=ffa', seed = 1) {
     get: (_, k) => (...a) => { calls.push([k, ...a]); return k === 'measureText' ? { width: String(a[0]).length * 8 } : grad; },
     set: (_, k, v) => { calls.push(['=' + String(k), v]); return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, AudioContext: fakeAudio(sites),
-    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); },
-    wallpaperRegisterAudioListener(cb) { audio.push(cb); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
+  const { window } = loadMain({
+    search, seed, ctx,
+    window: { AudioContext: fakeAudio(sites),
+      addEventListener(type, fn) { (listeners[type] ??= []).push(fn); },
+      wallpaperRegisterAudioListener(cb) { audio.push(cb); } },
   });
-  vm.runInContext(`{ let s = ${seed}; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }`, context);
-  vm.runInContext(SRC, context, { filename: 'wallpaper/main.js' });
   const game = window.__stickmanBrawl;
   const we = window.wallpaperPropertyListener;
   let clock = 0;

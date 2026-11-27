@@ -3,8 +3,7 @@
 // covered by a fighter standing in front of it, and drawn over its own holder's body
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper; calls records every canvas method call, and every property set as
 // ['set', name, value]
@@ -15,16 +14,7 @@ function load(search) {
     get: (_, k) => (...a) => { calls.push([k, ...a]); return grad; },
     set: (_, k, v) => { calls.push(['set', k, v]); return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, calls };
+  return { game: loadMain({ search, ctx }).game, calls };
 }
 const TEAM_COLOR = ['#ff6b6b', '#4dabf7'];
 const ITEM_COLOR = { staff: '#a0703f', boomerang: '#d9a066' };   // WOOD, BOOMERANG_COL

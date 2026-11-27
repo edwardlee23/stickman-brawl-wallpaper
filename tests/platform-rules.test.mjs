@@ -3,26 +3,13 @@
 // (issue #184): each test fails under a one-string change to those rules.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load([w, h] = [1280, 720], scale) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: w, innerHeight: h, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=4&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  // A seeded generator (an LCG), so every run is the same (issue #161)
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   const props = { platforms: { value: true } };
   if (scale) props.figurescale = { value: scale };
-  window.wallpaperPropertyListener.applyUserProperties(props);
-  const game = window.__stickmanBrawl;
+  // A seeded generator (an LCG), so every run is the same (issue #161)
+  const { game } = loadMain({ width: w, height: h, search: '?count=4&mode=ffa', properties: props });
   // Everyone but the fighter under test stays out of the way, flinching on the floor at the far right
   for (const [i, f] of game.fighters.entries()) {
     Object.assign(f, { x: 1200 - i * 5, z: 60, alt: 0, va: 0, vx: 0, state: 'hit', st: 0, dur: 999, hp: 1000, cool: 999 });

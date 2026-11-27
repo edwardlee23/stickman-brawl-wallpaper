@@ -3,10 +3,7 @@
 // and with "Reduce flashing and screen shake" on the backdrop does not move.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // A 2D context that logs every method call as [name, ...args]
 function recorder(log) {
@@ -23,21 +20,13 @@ function load(reduce) {
   const screen = [];
   const canvas = { getContext: () => recorder(screen), style: {}, width: 0, height: 0 };
   const document = {
-    getElementById: () => canvas, body: { style: {} },
     createElement: () => { const c = { log: [], width: 0, height: 0, style: {} }; c.getContext = () => recorder(c.log); return c; },
   };
-  const M = Object.create(Math); M.random = () => 0.5;
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: () => {} };
-  Object.assign(window, {
-    window, document,
-    location: { search: `?count=2&reducemotion=${reduce ? 1 : 0}` },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: M, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search: `?count=2&reducemotion=${reduce ? 1 : 0}`, canvas, document, random: 0.5,
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
   });
-  vm.runInNewContext(source, window);
   return { screen, game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, frame: t => { screen.length = 0; next(t); } };
 }
 
