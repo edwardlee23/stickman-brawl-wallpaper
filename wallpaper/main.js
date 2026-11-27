@@ -972,12 +972,15 @@ const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jum
 // The drawn body is the game pose plus a damped offset per pose key (livelier motion, layer 1):
 // the offset is kicked by the pose's acceleration times g and springs back at w rad/s with
 // damping ratio z, so a pose that stops sharply overshoots a little and settles. Drawing only:
-// hits, grabs and items read the game pose, so the fight is unchanged.
-const LOOK = { w: 40, z: 0.5, g: 0.35 };
+// hits, grabs and items read the game pose, so the fight is unchanged. The acceleration is
+// clamped to amax rad/s/s, so a pose set in one frame (a landing, a flinch) kicks the offset
+// by a bounded amount instead of by the whole snap.
+const LOOK = { w: 40, z: 0.5, g: 0.35, amax: 400 };
 const LOOK_STEP = 1 / 240;   // Longest spring sub-step, so a slow frame rate stays stable
 // The lag of the drawn head and hands (layer 4): a spring at w rad/s with damping ratio z per
-// point, at most max px from where the pose puts it, and the joint each point hangs from
-const LAG = { w: 22, z: 0.45, max: { head: 3, hand: 5 } };
+// point, at most max px from where the pose puts it, driven by at most amax px/s/s, and the
+// joint each point hangs from
+const LAG = { w: 22, z: 0.45, max: { head: 3, hand: 5 }, amax: 3000 };
 const LAG_PARENT = { head: 'sh', hF: 'eF', hB: 'eB' };
 // The pose keys of the limb that leads each joint a strike can land with
 const LEAD_LIMB = { hF: ['aF', 'eF'], hB: ['aB', 'eB'], eF: ['aF'], eB: ['aB'], fF: ['lF', 'kF'], fB: ['lB', 'kB'], kF: ['lF'], kB: ['lB'] };
@@ -1023,14 +1026,14 @@ class Fighter {
     look.carry += dt;
     if (look.carry < LOOK_STEP) return;
     dt = look.carry; look.carry = 0;
-    const { d, v, p0, v0 } = look, { w, z, g } = LOOK;
+    const { d, v, p0, v0 } = look, { w, z, g, amax } = LOOK;
     const n = Math.ceil(dt / LOOK_STEP), h = dt / n;
     // The point a strike lands with leads it, so it is drawn where it hits: until the strike is
     // over, a striking hand has no lag and its limb no offset (a staff would magnify either)
     const m = this.state === 'attack' ? this.move : null, lead = m && !m.type && this.st < m.wind + m.act ? m.hit : null;
     const still = LEAD_LIMB[lead] || [];
     for (const k of KEYS) {
-      const vel = (this.pose[k] - p0[k]) / dt, acc = (vel - v0[k]) / dt;
+      const vel = (this.pose[k] - p0[k]) / dt, acc = clamp((vel - v0[k]) / dt, -amax, amax);
       p0[k] = this.pose[k]; v0[k] = vel;
       if (still.includes(k)) { d[k] = 0; v[k] = 0; continue; }
       for (let i = 0; i < n; i++) {
@@ -1047,7 +1050,9 @@ class Fighter {
     for (const k in LAG_PARENT) {
       const P = J[LAG_PARENT[k]], q = par[k] || { x: P.x, y: P.y, vx: 0, vy: 0 };
       const vx = (P.x - q.x) / dt, vy = (P.y - q.y) / dt;
-      const ax = (vx - q.vx) / dt + bx, ay = (vy - q.vy) / dt + by;
+      let ax = (vx - q.vx) / dt + bx, ay = (vy - q.vy) / dt + by;
+      const a = Math.hypot(ax, ay);
+      if (a > LAG.amax) { ax *= LAG.amax / a; ay *= LAG.amax / a; }
       par[k] = { x: P.x, y: P.y, vx, vy };
       if (k === lead) { Object.assign(look.lag[k], { x: 0, y: 0, vx: 0, vy: 0 }); continue; }
       const o = look.lag[k], max = k === 'head' ? LAG.max.head : LAG.max.hand, lw = LAG.w, lz = LAG.z;
