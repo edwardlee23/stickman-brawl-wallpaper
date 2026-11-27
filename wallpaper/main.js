@@ -186,6 +186,7 @@ const SHIELD_UP = 1.1;       // Seconds a shield stays up, longer against a far 
 const SMOKE_OUT = 0.3;       // Seconds hidden in a smoke escape, longer against a far projectile
 const BEAM_FIRE = 0.65;      // Seconds an energy beam fires and can hit
 const BLAST_SHOTS = 6, BLAST_GAP = 0.13;   // Shots of an energy blast, and seconds between them
+const CLONES_RUSH = 0.35;    // Seconds the shadow clones rush in, from their warning to their strike
 const MOVE_BY = {};
 for (const m of MOVES) {
   MOVE_BY[m.id] = m;
@@ -1229,8 +1230,10 @@ class Fighter {
         e.startMove(MOVE_BY.smoke, true);
         // A beam warns as it fires and keeps hitting along its line, so stay hidden until it stops
         // A blast warns with its first shot and fires the rest after it, so stay hidden until the last arrives
+        // The shadow clones warn as they rush in and strike after it, so stay hidden past the strike (#414)
         e.md.from = this.x; e.md.hold = SMOKE_OUT + fly + (this.move.type === 'beam' ? BEAM_FIRE : 0)
-          + (this.move.type === 'blast' ? (BLAST_SHOTS - 1) * BLAST_GAP : 0);
+          + (this.move.type === 'blast' ? (BLAST_SHOTS - 1) * BLAST_GAP : 0)
+          + (this.move.type === 'clones' ? CLONES_RUSH : 0);
       } else if (!grab && r >= 0.55 && r < 0.63 && cfg.styles.ninjutsu) {
         e.subFrom = this; e.subT = (this.move.wind || 0.3) + (this.move.act || 0.4) + 0.3 + fly;
       }
@@ -1690,7 +1693,7 @@ class Fighter {
         c.x = c.x0 + (place(gx) - c.x0) * u; c.alt = ga * Math.sin(Math.PI / 2 * u);
         c.fac = u > 0.5 ? gf : 1;
       });
-      if (this.st - md.t0 >= 0.35) { md.ph = 'strike'; md.t0 = this.st; this.vx = 0; }
+      if (this.st - md.t0 >= CLONES_RUSH) { md.ph = 'strike'; md.t0 = this.st; this.vx = 0; }
     } else if (md.ph === 'strike') {
       lerpPose(this.pose, MOVE_BY.cross.A, Math.min(1, dt * 30), this.pose);
       if (!md.hit) {
