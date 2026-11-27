@@ -240,8 +240,11 @@ test('the winner of a round strikes the victory pose with an aura', () => {
   for (let t = 0; t < 0.5; t += DT) a.update(DT);
   assert.equal(a.target, null);
   assert.equal(a.aura, 0.6);
-  // VICTORY raises both arms (aF 2.9, aB 3.0, swaying by 0.25); GUARD holds them at 0.95 and 0.45
-  assert.ok(a.pose.aF > 2.4 && a.pose.aB > 2.4, `arms at ${a.pose.aF.toFixed(2)}, ${a.pose.aB.toFixed(2)}`);
+  // The pose is the winner's victory pose (VICTORIES, by the round and the fighter), not the guard
+  const want = {}, keys = Object.keys(game.GUARD);
+  game.VICTORIES[game.victoryOf(a)](want, a.time);
+  const off = p => keys.reduce((s, k) => s + Math.abs(a.pose[k] - p[k]), 0);
+  assert.ok(off(want) < 0.5 && off(game.GUARD) > 2, `${off(want).toFixed(2)} off the victory pose, ${off(game.GUARD).toFixed(2)} off the guard`);
 });
 
 test('a boomerang flies back at the speed it slowed from: half its throw speed 0.5 s after turning', () => {
