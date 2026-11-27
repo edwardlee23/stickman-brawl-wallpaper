@@ -2547,9 +2547,12 @@ function newRound(decided = false) {
 // changed while it shows is seen at once, as on the name tags and the score (issue #391)
 const winnerText = () => !roundWinner ? 'DRAW' : cfg.mode === 'teams' ? TEAM_NAME[roundWinner.team] + ' WINS!' : labelOf(roundWinner) + ' WINS!';
 const winnerColor = () => (roundWinner ? colorOf(roundWinner) : cfg.line);
-function checkRound(dt) {
+// real: the real time that has passed, which the win banner counts down, like the slow-motion
+// finish, so it shows for 4.5 s at any Speed (issue #472). frame() passes it after the
+// substeps; a test or a call without it counts game time as real.
+function checkRound(dt, real = dt) {
   roundTime += dt;
-  if (roundOver) { roundTimer -= dt; if (roundTimer <= 0) newRound(true); return; }
+  if (roundOver) { roundTimer -= real; if (roundTimer <= 0) newRound(true); return; }
   const alive = fighters.filter(f => f.alive);
   // Ladder: after a knockout the next waiting fighters step in before the round is judged, so
   // after a double knockout the next pair fights on. One fighter left waiting then has nobody
@@ -2954,7 +2957,7 @@ Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKE
   ragCorners, updateShots, updateItems, steerBoomerang, LOOK, GUARD, WALK, walkPose, FOLLOW, LAG });
 Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
-function update(dt) {
+function update(dt, real = dt) {
   roundRulesStep();
   for (const f of fighters) f.update(dt);
   // Avoid overlap
@@ -3015,7 +3018,7 @@ function update(dt) {
     fx[i].t += dt;
     if (fx[i].t >= fx[i].dur) fx.splice(i, 1);
   }
-  checkRound(dt);
+  checkRound(dt, real);
 }
 
 // ---------- Rendering ----------
@@ -3594,9 +3597,12 @@ function frame(now) {
       freeze -= f; dt -= f;
       if (dt <= 1e-9) continue;
     }
-    update(dt);
+    update(dt, 0);
     freezeGap -= dt;
   }
+  // The win banner counts real time, so it shows for 4.5 s at any Speed; a paused wallpaper
+  // returns above, which holds it (issue #472)
+  if (roundOver) checkRound(0, real);
   render();
 }
 
