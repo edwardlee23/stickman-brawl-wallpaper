@@ -44,10 +44,15 @@ The pictures of the settings in the READMEs (`docs/images/`) are listed in
 after a change people can see in a setting, or a change to `main.js` that can
 shift the random sequence, and look at each one: a picture whose knockout,
 item drop or move no longer shows needs another seed or start in the list.
+Then run the check: it replays each GIF in the browser, as the recorder does,
+and fails when an event its `shows` field names (the caption's moves, a
+flash, the item that drops, a fighter launched by the click) does not happen
+in the clip.
 
 ```bash
 node scripts/record-settings.mjs                  # every picture
 node scripts/record-settings.mjs items platforms  # only these
+node scripts/record-settings.mjs --check          # each GIF shows its caption
 ```
 
 A new setting people can see gets a picture: an entry in the list (a GIF for
