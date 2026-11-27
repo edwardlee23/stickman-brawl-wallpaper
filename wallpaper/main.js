@@ -878,6 +878,14 @@ function boltOverhead(t) {
   const x = clamp(t.x + t.vx * 0.25, 14, worldW - 14), feet = groundY(t.z) - t.alt;
   return platforms.some(p => x >= p.x0 && x <= p.x1 && p.y < feet - 0.5);
 }
+// Whether a special started now can reach t: its height (#338), and from a ledge a beam, shot or
+// bolt that would come down on that ledge instead (#387, #420, #421)
+function specialFits(me, m, t) {
+  if (!altFits(me, m, t)) return false;
+  if (m.type === 'beam' && beamOnOwnLedge(me, t)) return false;
+  if (shotsOnOwnLedge(me, t, m.type)) return false;
+  return !(m.type === 'lightning' && boltOverhead(t));
+}
 function pickMove(me, t, dist) {
   let items = [];
   // Height is measured from the surface the fighter stands on, so a ledge is not the air
@@ -887,18 +895,18 @@ function pickMove(me, t, dist) {
     items.push([m, m.w * (tAir ? 0.15 : 1)]);
   }
   for (const m of SPECIALS) {
-    if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air) || (t && !altFits(me, m, t))) continue;
+    if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air) || (t && !specialFits(me, m, t))) continue;
     if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
-    if (m.type === 'beam' && t && beamOnOwnLedge(me, t)) continue;
-    if (t && shotsOnOwnLedge(me, t, m.type)) continue;
-    if (m.type === 'lightning' && t && boltOverhead(t)) continue;
     items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1) * musicSpecial()]);
   }
   // Every special of the styles that are on ruled out for this target, as from a ledge over it:
-  // still one of those specials rather than a move of a style that is off (#459)
-  if (!items.length) {
+  // still one of those specials rather than a move of a style that is off (#459). On the ground it
+  // waits to start until the fighter has moved to where it fits (see updIdle). Not in the air,
+  // where it would start at once: the martial-arts moves below are never started there, so the
+  // fighter waits instead (#338)
+  if (!items.length && !meAir) {
     for (const m of SPECIALS) {
-      if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air)) continue;
+      if (!cfg.styles[m.style] || m.reactive) continue;
       if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
       items.push([m, m.w]);
     }
@@ -1309,7 +1317,7 @@ class Fighter {
         this.state = 'air'; this.st = 0; this.cool = rand(0.1, 0.35);
         return;
       }
-      const altOK = m.type ? altFits(this, m, t) : Math.abs(t.alt - this.alt) < 35;
+      const altOK = m.type ? specialFits(this, m, t) : Math.abs(t.alt - this.alt) < 35;
       if (this.cool <= 0 && t.hittable && altOK && dist >= m.range[0] && dist <= m.range[1] && Math.abs(dz) < 9) {
         // Walking to an item turns the fighter away; every move starts facing the target
         if (dist > 1) this.facing = sgn(dx);
