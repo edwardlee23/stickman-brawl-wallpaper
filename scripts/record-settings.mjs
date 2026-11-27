@@ -84,19 +84,26 @@ async function prepare(browser, shot, startFrame) {
 
 // The event a shot starts at, lead seconds before it: the first knockout (ko), or the first
 // item drop (item: seconds), or the first drop of one kind (item: { kind, lead }); null for skip.
-// test is the page's check for it, as source run in the page.
+// It is data only: firstEvent checks for it in the page.
 export function startEvent(shot) {
-  if (shot.ko !== undefined) return { name: 'ko', lead: shot.ko, test: '() => window.__fighters().some(f => !f.alive)' };
+  if (shot.ko !== undefined) return { name: 'ko', lead: shot.ko, ko: true };
   if (shot.item === undefined) return null;
   const { kind, lead } = typeof shot.item === 'object' ? shot.item : { lead: shot.item };
-  if (!kind) return { name: 'item', lead, test: '() => window.__stickmanBrawl.items.length > 0' };
-  return { name: kind + ' item', lead, test: `() => window.__stickmanBrawl.items.some(it => it.kind === ${JSON.stringify(kind)})` };
+  return kind ? { name: kind + ' item', lead, kind } : { name: 'item', lead };
+}
+// Runs inside the page, passed to page.evaluate as a function with its data as the argument:
+// steps the fight until the event ev (from startEvent) happens, up to max frames, and returns
+// the frame, or -1. It uses only its argument and win, so no data is spliced into source.
+export function firstEvent([ev, max], win = window) {
+  const seen = () => ev.ko ? win.__fighters().some(f => !f.alive)
+    : ev.kind ? win.__stickmanBrawl.items.some(it => it.kind === ev.kind)
+    : win.__stickmanBrawl.items.length > 0;
+  for (let i = 0; i < max; i++) { win.__step(); if (seen()) return i; }
+  return -1;
 }
 async function eventFrame(browser, shot, ev) {
   const page = await prepare(browser, shot, 0);
-  const f = await page.evaluate(`(() => { const seen = ${ev.test};
-    for (let i = 0; i < ${FPS * 180}; i++) { window.__step(); if (seen()) return i; }
-    return -1; })()`);
+  const f = await page.evaluate(firstEvent, [ev, FPS * 180]);
   await page.close();
   if (f < 0) throw new Error(shot.name + ': no ' + ev.name + ' in 180 s');
   return f;
@@ -108,8 +115,9 @@ async function startFrame(browser, shot) {
 }
 
 // Runs inside the page, for --check: steps through a clip of n frames as frames() does, clicks
-// included, and returns what happened in it. It uses only its arguments, as it is sent as source.
-export function watchClip(win, n, clicks) {
+// included, and returns what happened in it. Like firstEvent it is passed to page.evaluate as a
+// function, with [n, clicks] as its argument, and uses only that and win.
+export function watchClip([n, clicks], win = window) {
   const sb = win.__stickmanBrawl, at = new Map(clicks);
   const moves = new Set(), fx = new Set(), drops = new Set(), pickups = new Set();
   const oldFx = new WeakSet(), oldItems = new WeakSet(), move = new WeakMap(), held = new WeakMap(), alive = new WeakMap();
@@ -162,7 +170,7 @@ const clickFrames = clicks => (clicks || []).map(([t, x, y]) => [Math.round(t * 
 // Replays a GIF shot as recordShot does and returns what happened and what shows misses
 export async function checkShot(browser, shot) {
   const page = await prepare(browser, shot, await startFrame(browser, shot));
-  const seen = await page.evaluate(`(${watchClip})(window, ${shot.secs * FPS}, ${JSON.stringify(clickFrames(shot.clicks))})`);
+  const seen = await page.evaluate(watchClip, [shot.secs * FPS, clickFrames(shot.clicks)]);
   await page.close();
   return { seen, missing: shortfall(shot.shows, seen) };
 }
