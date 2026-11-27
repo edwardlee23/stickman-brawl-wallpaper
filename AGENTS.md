@@ -116,7 +116,7 @@ same order. The tests check that the list, `docs/images/` and the READMEs agree.
 | `wallpaper/index.html` | Page that holds the canvas and loads `main.js`. |
 | `wallpaper/main.js` | The whole wallpaper: settings, skeleton, moves, fighters, rounds, rendering. |
 | `wallpaper/project.json` | Wallpaper Engine manifest: title, settings panel, translations. |
-| `wallpaper/preview.jpg` | Workshop preview image. |
+| `wallpaper/preview.jpg` | Workshop preview image. Keep it square: the editor crops it to a square on upload. |
 | `README.md`, `README.zh-TW.md`, `README.zh-CN.md` | The README in English, Traditional Chinese and Simplified Chinese, kept in step. |
 | `demo.gif` | Animated demo shown in the README; not used by Wallpaper Engine. |
 | `docs/images/` | Pictures of the settings shown in the READMEs; not used by Wallpaper Engine. |
