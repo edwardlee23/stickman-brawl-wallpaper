@@ -7,7 +7,7 @@ import { loadMain, source, mulberry32 } from './load-main.mjs';
 
 // A copy of main.js that adds up, in window.__upd, the game time update() simulates,
 // and exposes hitStop as window.__hitStop
-const UPDATE_ANCHOR = 'function update(dt) {';
+const UPDATE_ANCHOR = 'function update(dt, real = dt) {';
 assert.ok(source.includes(UPDATE_ANCHOR), 'anchor not found in main.js');
 const count = src => src.replace(UPDATE_ANCHOR, UPDATE_ANCHOR + ' window.__upd += dt;');
 
