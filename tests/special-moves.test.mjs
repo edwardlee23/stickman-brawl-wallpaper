@@ -12,8 +12,9 @@ import vm from 'node:vm';
 
 const source = readFileSync('wallpaper/main.js', 'utf8');
 
-// Loads the wallpaper with Math.random fixed at 0.99: no random jumps, dashes or reactions
-function load() {
+// Loads the wallpaper with Math.random fixed at 0.99: no random jumps, dashes or reactions.
+// With platforms, the floating ledges are turned on.
+function load(platforms) {
   const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
   const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
@@ -25,6 +26,7 @@ function load() {
   });
   vm.runInContext('Math.random = () => 0.99;', context);
   vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
+  if (platforms) window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: true } });
   const game = window.__stickmanBrawl;
   const [a, e] = game.fighters;
   // a attacks from the left; e stands still in hitstun, so it neither moves nor blocks
@@ -117,13 +119,20 @@ test('a slam shockwave does less damage the farther the target is from the impac
   assert.ok(Math.abs(far / near - (1 - 130 / 200) / (1 - 20 / 200)) < 0.01, 'near ' + near + ', far ' + far);
 });
 
-// a dives at e from above, until the kick hits
-function dive(e0) {
-  const { game, a, e } = load();
-  place(e, Object.assign({ x: 420 }, e0));
+// a dives at e from above, until the kick hits. With onLedge, e stands on the left ledge.
+function dive(e0, onLedge) {
+  const { game, a, e } = load(onLedge);
+  let x = 420;
+  if (onLedge) {
+    const p = game.platforms.find(q => q.x1 < 480);
+    x = p.x1 - 20;
+    e0 = Object.assign({ alt: game.groundY(e.z) - p.y }, e0);
+    assert.equal(e0.alt > 30, true, 'the ledge is high: ' + e0.alt);
+  }
+  place(e, Object.assign({ x }, e0));
   a.startMove(byId(game, 'dive'));
   Object.assign(a.md, { ph: 'dive', a: 0.8, jumped: true, prev: null });
-  place(a, { x: 300, alt: (e0.alt || 0) + 120, hover: true, vx: 600, va: -600 });
+  place(a, { x: x - 120, alt: (e0.alt || 0) + 120, hover: true, vx: 600, va: -600 });
   run(a, () => hits(game, 'dive') > 0, 1);
   assert.equal(hits(game, 'dive'), 1, 'the dive hit');
   return { a, e };
@@ -132,6 +141,8 @@ function dive(e0) {
 test('a dive spikes a target in the air down, and launches one on the floor up', () => {
   assert.ok(dive({ alt: 120, hover: true }).e.va < 0, 'the airborne target is sent down');
   assert.ok(dive({}).e.va > 0, 'the target on the floor is sent up');
+  // Standing on a ledge is not being in the air (#417)
+  assert.ok(dive({}, true).e.va > 0, 'the target on a ledge is sent up');
 });
 
 test('a dive that hits rebounds up and back from the target', () => {
