@@ -39,7 +39,7 @@ scan shows all eight styles, and name it in the commit message. The recorder
 draws the canvas in software, so with the same Chrome and ffmpeg a seed gives
 the same GIF byte for byte.
 
-The pictures of the settings in both READMEs (`docs/images/`) are listed in
+The pictures of the settings in the READMEs (`docs/images/`) are listed in
 `scripts/settings-shots.mjs` and recorded the same way. Record them again
 after a change people can see in a setting, or a change to `main.js` that can
 shift the random sequence, and look at each one: a picture whose knockout,
@@ -51,8 +51,8 @@ node scripts/record-settings.mjs items platforms  # only these
 ```
 
 A new setting people can see gets a picture: an entry in the list (a GIF for
-motion, a still PNG otherwise), and the image in both READMEs, in the same
-order. The tests check that the list, `docs/images/` and both READMEs agree.
+motion, a still PNG otherwise), and the image in all three READMEs, in the
+same order. The tests check that the list, `docs/images/` and the READMEs agree.
 
 ## Never
 
@@ -69,9 +69,10 @@ order. The tests check that the list, `docs/images/` and both READMEs agree.
 ## Rules
 
 - Docs, comments and commit messages are in English. The settings panel keeps
-  its Traditional and Simplified Chinese translations, and `README.zh-TW.md` is
-  the README in Traditional Chinese: a change to `README.md` is made to both,
-  using the panel's `zh-cht` labels for the settings.
+  its Traditional and Simplified Chinese translations, and `README.zh-TW.md` and
+  `README.zh-CN.md` are the README in Traditional and Simplified Chinese: a
+  change to `README.md` is made to all three, using the panel's `zh-cht` and
+  `zh-chs` labels for the settings.
 - Every settings label in `project.json` is a `ui_` token with a translation in
   every language under `general.localization` (`en-us`, `zh-cht`, `zh-chs`).
   The tests fail otherwise.
@@ -111,9 +112,9 @@ order. The tests check that the list, `docs/images/` and both READMEs agree.
 | `wallpaper/main.js` | The whole wallpaper: settings, skeleton, moves, fighters, rounds, rendering. |
 | `wallpaper/project.json` | Wallpaper Engine manifest: title, settings panel, translations. |
 | `wallpaper/preview.jpg` | Workshop preview image. |
-| `README.md`, `README.zh-TW.md` | The README in English and in Traditional Chinese, kept in step. |
+| `README.md`, `README.zh-TW.md`, `README.zh-CN.md` | The README in English, Traditional Chinese and Simplified Chinese, kept in step. |
 | `demo.gif` | Animated demo shown in the README; not used by Wallpaper Engine. |
-| `docs/images/` | Pictures of the settings shown in both READMEs; not used by Wallpaper Engine. |
+| `docs/images/` | Pictures of the settings shown in the READMEs; not used by Wallpaper Engine. |
 | `scripts/record-demo.mjs` | Records `demo.gif` (seeded, fixed time step); needs Playwright and ffmpeg. |
 | `scripts/record-settings.mjs`, `scripts/settings-shots.mjs` | Record `docs/images/` from the list of pictures, the same way. |
 | `tests/` | `node:test` tests: behavior simulations of fights, frames and sound, plus checks that the files agree with each other. |

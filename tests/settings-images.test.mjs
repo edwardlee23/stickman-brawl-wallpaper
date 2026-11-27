@@ -1,6 +1,7 @@
-// The pictures of the settings in the two READMEs (README.md, README.zh-TW.md) come from the
+// The pictures of the settings in the three READMEs (README.md, README.zh-TW.md,
+// README.zh-CN.md) come from the
 // list in scripts/settings-shots.mjs, recorded by scripts/record-settings.mjs into docs/images/.
-// These checks keep the list, the folder and both READMEs in step, and keep the list naming
+// These checks keep the list, the folder and the READMEs in step, and keep the list naming
 // only settings the panel has.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +10,7 @@ import { SHOTS } from '../scripts/settings-shots.mjs';
 import { fileOf, parseNames, musicFrame, fixedDate } from '../scripts/record-settings.mjs';
 
 const properties = JSON.parse(readFileSync('wallpaper/project.json', 'utf8')).general.properties;
-const READMES = ['README.md', 'README.zh-TW.md'];
+const READMES = ['README.md', 'README.zh-TW.md', 'README.zh-CN.md'];
 const images = text => [...text.matchAll(/\(docs\/images\/([\w-]+\.(?:png|gif))\)/g)].map(m => m[1]);
 
 test('every picture in the list is in docs/images, and docs/images holds nothing else', () => {
@@ -22,12 +23,14 @@ test('each README shows every picture in the list, once, and in the same order',
   for (const [k, list] of seen.entries()) {
     assert.deepEqual([...list].sort(), [...want].sort(), READMES[k]);
   }
-  assert.deepEqual(seen[0], seen[1], 'the two READMEs show the pictures in a different order');
+  for (const k of [1, 2]) assert.deepEqual(seen[k], seen[0], READMES[k] + ' shows the pictures in another order than README.md');
 });
 
-test('the two READMEs link to each other', () => {
-  assert.match(readFileSync('README.md', 'utf8'), /\]\(README\.zh-TW\.md\)/);
-  assert.match(readFileSync('README.zh-TW.md', 'utf8'), /\]\(README\.md\)/);
+test('each README links to the other two', () => {
+  for (const f of READMES) {
+    const text = readFileSync(f, 'utf8');
+    for (const g of READMES) if (g !== f) assert.ok(text.includes('](' + g + ')'), f + ' does not link to ' + g);
+  }
 });
 
 test('the list names only settings the panel has, with values it can take', () => {
