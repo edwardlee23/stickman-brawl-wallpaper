@@ -894,6 +894,15 @@ function pickMove(me, t, dist) {
     if (m.type === 'lightning' && t && boltOverhead(t)) continue;
     items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1) * musicSpecial()]);
   }
+  // Every special of the styles that are on ruled out for this target, as from a ledge over it:
+  // still one of those specials rather than a move of a style that is off (#459)
+  if (!items.length) {
+    for (const m of SPECIALS) {
+      if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air)) continue;
+      if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
+      items.push([m, m.w]);
+    }
+  }
   // Every style turned off: fight with all the martial-arts moves rather than stand still (see README)
   if (!items.length) for (const m of MOVES) items.push([m, m.w]);
   // Given a distance, only the moves that reach it, when any of them does
