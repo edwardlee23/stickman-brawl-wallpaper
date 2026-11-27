@@ -1296,7 +1296,10 @@ class Fighter {
       const ledge = this.alt > 0 && !this.aloft() ? platformAt(this.x, groundY(this.z) - this.alt) : null;
       const back0 = ledge ? Math.max(16, ledge.x0 + 16) : 16, back1 = ledge ? Math.min(worldW - 16, ledge.x1 - 16) : worldW - 16;
       const pinned = t.hittable && dir < 0 && (this.facing > 0 ? this.x <= back0 : this.x >= back1);
-      this.reachT = t.hittable && (dist < m.range[0] || dist > m.range[1]) ? this.reachT + dt : 0;
+      // A special that cannot reach the target from here, as a bolt at a target under a ledge
+      // (#421), is waited out for as long, then replaced too (#459)
+      const unfit = m.type && !specialFits(this, m, t);
+      this.reachT = t.hittable && (dist < m.range[0] || dist > m.range[1] || unfit) ? this.reachT + dt : 0;
       if (pinned || this.reachT > 1.5) { this.nextMove = pickMove(this, t, dist); this.reachT = 0; }
       if (pinned) dir = 0;   // A wall stops it anyway; a ledge end does not
       if (this.evade <= 0 && this.dash <= 0) {

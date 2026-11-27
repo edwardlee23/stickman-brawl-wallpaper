@@ -82,3 +82,23 @@ test('in the air, an air special ruled out for the target is not started as a fa
   }
   assert.equal(dives, 0);
 });
+
+// Only Magic on, both on the floor, the target held under the left ledge in bolt range, the caster
+// with a lightning queued: the bolt would stop on the ledge (#421), so it is not started, and the
+// queued bolt is replaced, as one out of reach is, instead of keeping the caster waiting (#459)
+test('a queued special that cannot reach its target is replaced within 2 s (#459)', () => {
+  const { game, a, e } = setup('magic');
+  const z = 40, bolt = game.MAGIC.find(m => m.id === 'lightning');
+  const started = [], start = a.startMove;
+  a.startMove = function (m, ...rest) { started.push(m.id); return start.call(this, m, ...rest); };
+  e.update = () => {};
+  Object.assign(a, { x: 343, z, alt: 0, facing: -1, cool: 0, retarget: 99, target: e, nextMove: bolt, reachT: 0 });
+  for (let t = 0; t < 2 && !started.length; t += DT) {
+    Object.assign(e, { x: 210, z, alt: 0, va: 0, vx: 0, vz: 0, hp: 1000, target: a });
+    a.retarget = 99; a.target = e;
+    if (a.state === 'air') a.va = Math.min(a.va, 0);   // No jumping onto the ledge out of the way
+    game.update(DT);
+  }
+  assert.ok(started.length > 0, 'no move started in 2 s');
+  assert.ok(!started.includes('lightning'), 'the bolt that stops on the ledge was started');
+});
