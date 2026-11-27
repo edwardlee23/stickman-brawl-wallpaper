@@ -2537,8 +2537,12 @@ Fighter.prototype.u_boomerang = function (dt) {
       const s = this.castShot(this.W.hF, 'boomerang', BOOMERANG.speed, 0.02);
       // Slowing to a stop at 1 s, the outbound flight rises half its upward speed. On the short
       // world of a large figure size a steep throw at a high target would leave the top of the
-      // screen, where a shot bursts, so it is flattened to turn back 10 px below it (issue #348)
+      // screen, where a shot bursts, so it is flattened to turn back 10 px below it (issue #348).
+      // A throw toward a near side wall is slowed along its line, so it turns back 10 px inside
+      // the wall and comes no lower than it would have (#423)
       s.vy = Math.max(s.vy, -2 * Math.max(0, s.y - 10));
+      const room = 2 * Math.max(0, s.vx > 0 ? worldW - 10 - s.x : s.x - 10);
+      if (Math.abs(s.vx) > room) { const k = room / Math.abs(s.vx); s.vx *= k; s.vy *= k; }
       Object.assign(s, { col: BOOMERANG_COL, life: 2.6, age: 0, v0x: s.vx, v0y: s.vy });
       sfx('toss', this.x);
       this.warn(9999, false);
