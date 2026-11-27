@@ -185,6 +185,7 @@ const SPECIALS = [...SUPER, ...MAGIC, ...NINJA];
 const SHIELD_UP = 1.1;       // Seconds a shield stays up, longer against a far projectile
 const SMOKE_OUT = 0.3;       // Seconds hidden in a smoke escape, longer against a far projectile
 const BEAM_FIRE = 0.65;      // Seconds an energy beam fires and can hit
+const BEAM_WARN = 0.3;       // Seconds before it fires that an energy beam warns those along it (#416)
 const BLAST_SHOTS = 6, BLAST_GAP = 0.13;   // Shots of an energy blast, and seconds between them
 const CLONES_RUSH = 0.35;    // Seconds the shadow clones rush in, from their warning to their strike
 const MOVE_BY = {};
@@ -899,6 +900,8 @@ if (typeof window.wallpaperRegisterAudioListener === 'function') window.wallpape
 const TMP = clonePose(GUARD);
 // The joints warn() measures against a beam's line and a shot's path: those each hit test checks
 const WARN_BEAM_PARTS = ['head', 'sh', 'hip'], WARN_SHOT_PARTS = ['head', 'sh', 'hip', 'kF', 'kB', 'fF', 'fB'];
+// Attacks a dodge steps aside from in depth instead of backing off (#416)
+const SIDESTEP = new Set(['beam', 'blast', 'fireball', 'ice', 'shuriken', 'clones']);
 // Attacks made right after appearing next to a target (teleport, substitution)
 const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 'rising', 'barrage', 'clones'];
 const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run',
@@ -1088,7 +1091,8 @@ class Fighter {
     this.retarget -= dt; this.cool -= dt * musicTempo();
     let t = this.target;
     if (!t || !t.alive || this.retarget <= 0) { t = this.target = pickTarget(this); this.retarget = rand(1.2, 3); }
-    if (this.evade > 0) { this.evade -= dt; this.vx = approach(this.vx, 0, 500 * dt); }
+    // A sidestep in depth (#416) slows to a stop in about a third of a second
+    if (this.evade > 0) { this.evade -= dt; this.vx = approach(this.vx, 0, 500 * dt); this.vz = approach(this.vz, 0, 700 * dt); }
     if (this.dash > 0) { this.dash -= dt; if (this.dash <= 0) this.trailOn = false; }
     if (!t) {
       this.vx = approach(this.vx, 0, 300 * dt); this.vz = approach(this.vz, 0, 200 * dt);
@@ -1258,7 +1262,8 @@ class Fighter {
       }
       // A projectile is thrown as it warns and needs time to fly; a block, shield, smoke
       // escape or substitution lasts that much longer, so it is still up when the shot arrives
-      const fly = this.move.speed ? Math.abs(e.x - this.x) / this.move.speed : 0;
+      // A beam warns BEAM_WARN before it fires, so the same goes for the time until it fires
+      const fly = this.move.speed ? Math.abs(e.x - this.x) / this.move.speed : this.move.type === 'beam' ? BEAM_WARN : 0;
       const r = Math.random(), guard = !grab && !unguardable;
       if (guard && r < 0.25) {
         e.state = 'block'; e.st = 0; e.dur = (this.move.wind || 0.3) + (this.move.act || 0.4) + rand(0.05, 0.2) + fly;
@@ -1268,13 +1273,25 @@ class Fighter {
         e.facing = sgn(this.x - e.x);
       } else if (r >= 0.25 && r < 0.37) {
         e.evade = 0.3; e.vx = sgn(e.x - this.x) * rand(160, 230);
+        // A back-step does not leave a beam's line, a shot's flight or the clones' rush, which
+        // come on along the attacker's depth: step aside in depth instead, about 43 out of it,
+        // away from the attacker's depth unless the floor ends there, and stay aside until the
+        // attack has passed, as a smoke escape stays hidden (#416)
+        if (SIDESTEP.has(this.move.type)) {
+          let side = e.z !== this.z ? sgn(e.z - this.z) : e.z < DEPTH / 2 ? 1 : -1;
+          if (e.z + side * 45 < 0 || e.z + side * 45 > DEPTH) side = -side;
+          e.vz = side * rand(235, 255);
+          e.evade += fly + (this.move.type === 'beam' ? BEAM_FIRE : 0)
+            + (this.move.type === 'blast' ? (BLAST_SHOTS - 1) * BLAST_GAP : 0)
+            + (this.move.type === 'clones' ? CLONES_RUSH : 0);
+        }
       } else if (guard && r < 0.47 && cfg.styles.magic) {
         e.facing = sgn(this.x - e.x);
         e.startMove(MOVE_BY.shield, true);
         e.md.from = this; e.md.hold = SHIELD_UP + fly;
       } else if (r >= 0.47 && r < 0.55 && cfg.styles.ninjutsu) {
         e.startMove(MOVE_BY.smoke, true);
-        // A beam warns as it fires and keeps hitting along its line, so stay hidden until it stops
+        // A beam keeps hitting along its line once it fires (fly covers the wait), so stay hidden until it stops
         // A blast warns with its first shot and fires the rest after it, so stay hidden until the last arrives
         // The shadow clones warn as they rush in and strike after it, so stay hidden past the strike (#414)
         e.md.from = this.x; e.md.hold = SMOKE_OUT + fly + (this.move.type === 'beam' ? BEAM_FIRE : 0)
@@ -1383,15 +1400,19 @@ class Fighter {
       lerpPose(this.pose, CHARGE, Math.min(1, dt * 10), this.pose);
       if (!md.chargeSfx) { md.chargeSfx = true; sfx('charge', this.x); }
       if (t && t.alive) this.facing = sgn(t.x - this.x);
-
-      if (this.st >= 0.75) {
-        md.ph = 'fire'; md.t0 = this.st; sfx('fire', this.x, 1.5); md.hit = new Set();
-        const aim = md.aim = this.beamAim(t);
+      // It warns BEAM_WARN before it fires, along the line it would fire on now: the beam hits
+      // as it fires, so a dodge needs that long to step out of its depth (#416)
+      if (this.st >= 0.75 - BEAM_WARN && !md.warned) {
+        md.warned = true;
         // Only opponents along the beam, up to where it ends, react to it (issue #343);
         // 25 covers its half width and the hit margin (md.w + 8). Those far above or
         // below its line do not either (#382)
-        const line = this.beamLine(aim);
+        const line = this.beamLine(this.beamAim(t));
         this.warn(Math.abs(line.E.x - this.x) + 25, false, false, [line]);
+      }
+      if (this.st >= 0.75) {
+        md.ph = 'fire'; md.t0 = this.st; sfx('fire', this.x, 1.5); md.hit = new Set();
+        md.aim = this.beamAim(t);
         addFx({ type: 'flash', dur: 0.15 });
         shake = Math.max(shake, 7);
       }
