@@ -2744,10 +2744,11 @@ function staffUsable() {
   return STRIKING.some(s => cfg.styles[s]) || !Object.values(cfg.styles).some(Boolean);
 }
 // The move a fighter makes of a queued one: a strike becomes a staff strike while it holds
-// a staff, and a staff strike queued before the staff was used up becomes the bare move again.
+// a staff with strikes left, and a staff strike queued, or chained on in a combo (#462), once the
+// staff is used up becomes the bare move again.
 // A kick, knee or elbow becomes a staff swing of its own style, so no turned-off style shows.
 function withStaff(f, m) {
-  const staff = f.held && f.held.kind === 'staff' && staffUsable();
+  const staff = f.held && f.held.kind === 'staff' && f.held.n > 0 && staffUsable();
   if (staff && m && !m.type && !m.grab && !m.staff) {
     return STAFF_MOVE[m.id] || Object.assign(Object.create(STAFF_MOVE[pick(STAFF_STRIKES)]), { style: m.style, bare: m });
   }
