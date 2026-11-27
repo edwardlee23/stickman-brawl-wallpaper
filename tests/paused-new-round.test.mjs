@@ -11,7 +11,7 @@ function load() {
   const screen = [];
   const ctx = new Proxy({}, { get: (_, k) => (...args) => { screen.push([k, ...args]); return { addColorStop() {} }; }, set: () => true });
   let next = null, t = 0;
-  const { game, window } = loadMain({ search: '?count=2', ctx,
+  const { game, window } = loadMain({ search: '?count=2', ctx, stiff: true,
     globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; } } });
   return {
     game, we: window.wallpaperPropertyListener,

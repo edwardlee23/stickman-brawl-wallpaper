@@ -376,7 +376,7 @@ function resize() {
   }
   // The joints drawn are taken once a step; a frame drawn before the next one (paused, or
   // in a hit stop) would show the bodies where they stood before the resize (issue #388)
-  for (const f of fighters) if (f.W) f.W = f.rag ? f.rag.pts : f.joints();
+  for (const f of fighters) if (f.W) { f.W = f.rag ? f.rag.pts : f.joints(); f.V = f.rag ? f.rag.pts : f.viewJoints(); }
   // Items on the floor too, or one left past the edge could never be picked up
   for (const it of items) it.x = clamp(it.x, 40, worldW - 40);
   // A crack in the right wall moves with that wall, or it floats mid-screen (issue #388)
@@ -907,6 +907,12 @@ const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 
 const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run',
   fireball: 'charge', lightning: 'cast', ice: 'cast', shield: 'up',
   shuriken: 'cast', clones: 'split', smoke: 'out', substitute: 'in' };
+// The drawn body is the game pose plus a damped offset per pose key (livelier motion, layer 1):
+// the offset is kicked by the pose's acceleration times g and springs back at w rad/s with
+// damping ratio z, so a pose that stops sharply overshoots a little and settles. Drawing only:
+// hits, grabs and items read the game pose, so the fight is unchanged.
+const LOOK = { w: 40, z: 0.5, g: 0.35 };
+const LOOK_STEP = 1 / 240;   // Longest spring sub-step, so a slow frame rate stays stable
 class Fighter {
   constructor(id, x, z, team, hue) {
     Object.assign(this, { id, x, z, team, hue });
@@ -922,6 +928,7 @@ class Fighter {
     this.trail = []; this.trailOn = false; this.trailT = 0;
     this.subFrom = null; this.subT = 0;   // A substitution readied against this attacker, for subT seconds
     this.reachT = 0;                      // Seconds the queued move has been out of reach
+    this.V = null; this.resetLook();      // The drawn joints, and the spring offset they are drawn with
   }
   get alive() { return this.state !== 'ko'; }
   get hittable() {
@@ -931,9 +938,36 @@ class Fighter {
   }
   drawFacing() { return this.spin ? -this.facing : this.facing; }
 
-  joints() {
-    const J = fk(this.pose);
-    this.hipH = -J.hip.y;
+  // Puts the drawn pose back on the game pose, at rest
+  resetLook() {
+    const d = {}, v = {}, v0 = {};
+    for (const k of KEYS) { d[k] = 0; v[k] = 0; v0[k] = 0; }
+    this.look = { d, v, p0: clonePose(this.pose), v0 };
+  }
+  // Moves the spring offset on by dt. A frozen or ragdoll body is drawn as it is.
+  stepLook(dt) {
+    if (this.state === 'frozen' || this.rag || dt <= 0) { this.resetLook(); return; }
+    const { d, v, p0, v0 } = this.look, { w, z, g } = LOOK;
+    const n = Math.ceil(dt / LOOK_STEP), h = dt / n;
+    for (const k of KEYS) {
+      const vel = (this.pose[k] - p0[k]) / dt, acc = (vel - v0[k]) / dt;
+      p0[k] = this.pose[k]; v0[k] = vel;
+      for (let i = 0; i < n; i++) {
+        v[k] += (-w * w * d[k] - 2 * z * w * v[k] - g * acc) * h;
+        d[k] += v[k] * h;
+      }
+    }
+  }
+  // The drawn joints: the game pose plus the spring offset, placed as joints() places them
+  viewJoints() {
+    const p = {};
+    for (const k of KEYS) p[k] = this.pose[k] + this.look.d[k];
+    return this.joints(p);
+  }
+
+  joints(pose = this.pose) {
+    const J = fk(pose);
+    if (pose === this.pose) this.hipH = -J.hip.y;
     const fac = this.drawFacing();
     let px = 0, py = 0, ax = this.x, ay = groundY(this.z) - this.alt;
     if (this.state === 'thrown') { px = J.hip.x; py = J.hip.y; ax = this.th.hx; ay = this.th.hy; }
@@ -2300,6 +2334,7 @@ class Fighter {
   ko(vx, vy) {
     this.state = 'ko'; this.st = 0; this.clearMove(); this.trailOn = true;
     this.rag = makeRag(this.W, vx, vy); stats.ko++; sfx('ko', this.x);
+    this.resetLook();
     lastKO = this;
   }
 }
@@ -2718,7 +2753,7 @@ function drawItems() {
 }
 // What a fighter holds: a staff along the forearm of the striking (or front) hand, or a boomerang
 function drawHeld(f) {
-  const J = f.W;
+  const J = f.V || f.W;
   if (!f.held || !J || !f.alive || f.invis) return;
   ctx.globalAlpha = f.alpha; ctx.lineCap = 'round';
   if (f.held.kind === 'staff') {
@@ -2734,7 +2769,7 @@ function drawHeld(f) {
 Object.assign(window.__stickmanBrawl, { items, spawnItem, withStaff, newRound });
 // For the tests that pin the rules inside these (issue #355)
 Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKES, staffTip, hitTest, ledgeHit, ragPlatform,
-  ragCorners, updateShots, updateItems, steerBoomerang });
+  ragCorners, updateShots, updateItems, steerBoomerang, LOOK });
 Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
 function update(dt) {
@@ -2765,15 +2800,18 @@ function update(dt) {
     // Here, once for every way into these states (a fall, a landing from a launch or a throw),
     // and before the joints are taken, so a ragdoll made from them starts where the body lay
     if (LYING.has(f.state)) f.inWalls();
+    f.stepLook(dt);
     f.W = f.rag ? f.rag.pts : f.joints();
-    if (f.koPending) { f.koPending = false; f.ko(0, -40); f.W = f.rag.pts; }
+    f.V = f.rag ? f.rag.pts : f.viewJoints();
+    if (f.koPending) { f.koPending = false; f.ko(0, -40); f.W = f.V = f.rag.pts; }
     // Afterimages
     if (f.trailOn && !f.invis) {
       f.trailT -= dt;
       if (f.trailT <= 0) {
         f.trailT = 0.03;
         const snap = {};
-        for (const k of JOINTS) snap[k] = { x: f.W[k].x, y: f.W[k].y };
+        const D = f.V || f.W;
+        for (const k of JOINTS) snap[k] = { x: D[k].x, y: D[k].y };
         f.trail.push({ p: snap, life: 1 });
         if (f.trail.length > 10) f.trail.shift();
       }
@@ -2894,7 +2932,7 @@ function drawSkeleton(J, col, alpha, width, headFill) {
   if (glow) ctx.shadowBlur = 0;
 }
 function drawAura(f, col) {
-  const J = f.W;
+  const J = f.V || f.W;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.shadowColor = col; ctx.shadowBlur = 12;
@@ -2909,7 +2947,7 @@ function drawAura(f, col) {
   ctx.restore();
 }
 function drawFighter(f) {
-  const J = f.W;
+  const J = f.V || f.W;
   if (!J || f.invis) return;
   const col = colorOf(f);
   for (const tr of f.trail) drawSkeleton(tr.p, col, tr.life * 0.3 * f.alpha, 2, false);
@@ -3335,7 +3373,7 @@ function frame(now) {
     if (redraw) {
       // A round started while paused (a setting, or the first frame) has fighters no step has
       // posed yet: take their joints, as update() would, so they are drawn standing (issue #351)
-      for (const f of fighters) if (!f.W) f.W = f.joints();
+      for (const f of fighters) if (!f.W) { f.W = f.joints(); f.V = f.viewJoints(); }
       render();
     }
     return;

@@ -14,6 +14,8 @@
 //   patch       a function that changes main.js's source before it runs
 //   expose      code run inside main.js's closure at its end, as in 'window.__in = { hitStop };'
 //   properties  settings passed to applyUserProperties after main.js has loaded
+//   stiff       draw the game joints f.W as they are, without the spring offset of f.V, for
+//               tests that pin drawing against f.W (livelier motion)
 // Returns the debug hook (game), the window, the sandbox (context), the canvas and ctx.
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -45,7 +47,7 @@ export function mulberry32(seed) {
 export function loadMain({
   search = '?count=2&mode=ffa', width = 1280, height = 720, dpr = 1,
   ctx = stubContext(), canvas = { width: 0, height: 0, style: {}, getContext: () => ctx },
-  seed = 1, random, window: win = {}, document = {}, globals = {}, prelude, patch, expose, properties,
+  seed = 1, random, window: win = {}, document = {}, globals = {}, prelude, patch, expose, properties, stiff,
 } = {}) {
   const window = { innerWidth: width, innerHeight: height, devicePixelRatio: dpr, addEventListener() {}, ...win };
   const context = vm.createContext({
@@ -65,6 +67,11 @@ export function loadMain({
   }
   if (prelude) vm.runInContext(prelude, context);
   let code = patch ? patch(source) : source;
+  if (stiff) {
+    const VIEW = 'f.V = f.rag ? f.rag.pts : f.viewJoints();';
+    if (!code.includes(VIEW)) throw new Error('main.js no longer sets ' + VIEW);
+    code = code.replaceAll(VIEW, 'f.V = null;');
+  }
   if (expose !== undefined) {
     if (!code.includes(END)) throw new Error('main.js no longer ends with ' + JSON.stringify(END));
     code = code.replace(END, () => 'requestAnimationFrame(frame);\n' + expose + '\n})();');

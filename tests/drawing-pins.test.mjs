@@ -21,6 +21,7 @@ function load({ query = '?count=2', seed = 1 } = {}) {
   const canvas = { getContext: () => recorder(screen), style: {}, width: 0, height: 0 };
   let next = null;
   const { window } = loadMain({
+    stiff: true,   // pins drawing against f.W
     search: query, canvas, random: mulberry32(seed),
     document: { createElement: () => { const c = { log: [], width: 0, height: 0, style: {} }; c.getContext = () => recorder(c.log); made.push(c); return c; } },
     window: { addEventListener: (k, f) => { (listeners[k] ??= []).push(f); } },
