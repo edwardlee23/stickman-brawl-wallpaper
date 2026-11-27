@@ -1070,9 +1070,13 @@ class Fighter {
       // Replace a queued move that cannot be reached: backed against a wall there is no room
       // to back off into, and a target that keeps its distance is never caught.
       // While the target cannot be hit, footwork keeps clear of it whatever the move, so neither counts.
-      const pinned = t.hittable && dir < 0 && (this.facing > 0 ? this.x <= 16 : this.x >= worldW - 16);
+      // Standing on a ledge, its end is a wall too: backing off it would step off into a fall (#418)
+      const ledge = this.alt > 0 && !this.aloft() ? platformAt(this.x, groundY(this.z) - this.alt) : null;
+      const back0 = ledge ? Math.max(16, ledge.x0 + 16) : 16, back1 = ledge ? Math.min(worldW - 16, ledge.x1 - 16) : worldW - 16;
+      const pinned = t.hittable && dir < 0 && (this.facing > 0 ? this.x <= back0 : this.x >= back1);
       this.reachT = t.hittable && (dist < m.range[0] || dist > m.range[1]) ? this.reachT + dt : 0;
       if (pinned || this.reachT > 1.5) { this.nextMove = pickMove(this, t, dist); this.reachT = 0; }
+      if (pinned) dir = 0;   // A wall stops it anyway; a ledge end does not
       if (this.evade <= 0 && this.dash <= 0) {
         this.vx = approach(this.vx, dir * this.facing * 110, 600 * dt);
         this.vz = approach(this.vz, clamp(dz * 4, -45, 45), 300 * dt);
