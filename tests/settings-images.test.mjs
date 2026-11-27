@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { SHOTS } from '../scripts/settings-shots.mjs';
-import { fileOf, parseNames, musicFrame, fixedDate } from '../scripts/record-settings.mjs';
+import { fileOf, parseNames, musicFrame, fixedDate, SHOWS } from '../scripts/record-settings.mjs';
 
 const properties = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8')).general.properties;
 const READMES = ['README.md', 'README.zh-TW.md', 'README.zh-CN.md'];
@@ -66,8 +66,12 @@ test('the list names only settings the panel has, with values it can take', () =
 
 // The fields scripts/settings-shots.mjs documents; a tile may set any of them but name, tiles
 // and secs, since a grid of tiles is one still (#468)
-const SHOT_FIELDS = ['name', 'seed', 'query', 'props', 'skip', 'ko', 'item', 'clicks', 'music', 'hour', 'tiles', 'secs'];
-const TILE_FIELDS = SHOT_FIELDS.filter(k => !['name', 'tiles', 'secs'].includes(k));
+const SHOT_FIELDS = ['name', 'seed', 'query', 'props', 'skip', 'ko', 'item', 'clicks', 'music', 'hour', 'tiles', 'secs', 'shows'];
+const TILE_FIELDS = SHOT_FIELDS.filter(k => !['name', 'tiles', 'secs', 'shows'].includes(k));
+// The move ids and item kinds main.js has, for the item and shows fields (#466)
+const MAIN = readFileSync(new URL('../wallpaper/main.js', import.meta.url), 'utf8');
+const MOVE_IDS = new Set([...MAIN.matchAll(/\bid: '(\w+)'/g)].map(m => m[1]));
+const ITEM_KINDS = JSON.parse(MAIN.match(/const ITEM_KINDS = (\[[^\]]*\])/)[1].replace(/'/g, '"'));
 
 // What is wrong with a shot, as a list of messages; empty when nothing is
 function shotProblems(shot) {
@@ -88,6 +92,24 @@ function shotProblems(shot) {
     const starts = ['skip', 'ko', 'item'].filter(k => p[k] !== undefined);
     if (starts.length > 1) out.push(where + ': only one of skip, ko and item, not ' + starts.join(' and '));
     if (p.music && !(p.props.audioreactive && p.props.audioreactive.value === true)) out.push(where + ': music without audioreactive: true');
+  }
+  // item is the seconds before the first drop, or { kind, lead } for the first drop of that kind (#466)
+  if (shot.item !== undefined) {
+    const it = shot.item, lead = typeof it === 'object' && it ? it.lead : it;
+    if (typeof it === 'object' && it && !ITEM_KINDS.includes(it.kind)) out.push(name + ': item kind ' + it.kind + ' is not one of ' + ITEM_KINDS.join(', '));
+    if (typeof it === 'object' && it) for (const k of Object.keys(it)) if (!['kind', 'lead'].includes(k)) out.push(name + ': item: unknown field ' + k);
+    if (!(typeof lead === 'number' && lead >= 0)) out.push(name + ': item lead ' + lead + ' is not a number of seconds');
+  }
+  // shows: what --check asserts happens in the clip, so it is for GIFs only (#466)
+  if (shot.shows) {
+    if (!shot.secs) out.push(name + ': shows is for a GIF, and a still has no clip to check');
+    const s = shot.shows;
+    for (const k of Object.keys(s)) if (!SHOWS.includes(k)) out.push(name + ': shows: unknown field ' + k);
+    for (const id of s.moves || []) if (!MOVE_IDS.has(id)) out.push(name + ': shows: no move ' + id);
+    for (const t of s.fx || []) if (!new RegExp("addFx\\(\\{ type: '" + t + "'").test(MAIN)) out.push(name + ': shows: no fx ' + t);
+    if (s.item !== undefined && !ITEM_KINDS.includes(s.item)) out.push(name + ': shows: no item kind ' + s.item);
+    if (s.launched !== undefined && !(Number.isInteger(s.launched) && s.launched > 0 && shot.clicks)) out.push(name + ': shows: launched needs clicks and a count');
+    if (s.ko !== undefined && s.ko !== true) out.push(name + ': shows: ko is true or left out');
   }
   for (const [t] of shot.clicks || []) {
     if (!shot.secs || !(t >= 0 && t < shot.secs)) out.push(name + ': a click at ' + t + ' s is outside the ' + (shot.secs || 0) + ' s clip');
@@ -113,9 +135,36 @@ test('the shot check catches the changes #468 names', () => {
   delete music.props.audioreactive;
   const fractional = shot('backgrounds');
   fractional.hour = 21.5;
-  for (const bad of [dayNight, backgrounds, click, slow, music, fractional]) {
+  const sword = shot('items');
+  sword.item = { kind: 'sword', lead: 0.3 };
+  const noLead = shot('items');
+  noLead.item = { kind: 'boomerang' };
+  const stillShows = shot('teams');
+  stillShows.shows = { ko: true };
+  const noMove = shot('styles-super');
+  noMove.shows = { moves: ['kamehameha'] };
+  const noFx = shot('reduce-motion-off');
+  noFx.shows = { fx: ['sparkle'] };
+  for (const bad of [dayNight, backgrounds, click, slow, music, fractional, sword, noLead, stillShows, noMove, noFx]) {
     assert.notDeepEqual(shotProblems(bad), [], bad.name + ' passes the check');
   }
+});
+
+// The captions these GIFs have in README.md name events a shifted random sequence can lose
+// (#466); --check replays each clip and asserts that what shows lists happens
+test('each GIF whose caption names an event lists it in shows, for --check (#466)', () => {
+  const want = {
+    'styles-super': { moves: ['blast', 'wallrun', 'slam'] },
+    'styles-magic': { moves: ['fireball', 'lightning', 'ice', 'shield'], fx: ['bolt'] },
+    'styles-ninjutsu': { moves: ['shuriken', 'clones', 'smoke'] },
+    'reduce-motion-off': { fx: ['flash'] },
+    'slow-motion': { ko: true },
+    items: { item: 'boomerang' },
+    'click-blast': { launched: 1 },
+  };
+  for (const [name, shows] of Object.entries(want)) assert.deepEqual(SHOTS.find(s => s.name === name).shows, shows, name);
+  // The items clip waits for the boomerang its caption names, not for whatever drops first
+  assert.equal(SHOTS.find(s => s.name === 'items').item.kind, 'boomerang');
 });
 
 test('the recorder records only pictures the list has', () => {
