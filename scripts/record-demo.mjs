@@ -24,7 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const FPS = 20, SECS = 14, WIDTH = 1280, HEIGHT = 720;
+export const FPS = 20, SECS = 14, WIDTH = 1280, HEIGHT = 720;
 const QUERY = '?count=6&mode=ffa&sound=0';
 
 // main.js keeps its fighters inside a closure; the recorder serves a copy that also
@@ -51,14 +51,15 @@ export const fixedClock = seed => `(() => {
   window.__advance = ms => { now += ms; const q = queue; queue = []; for (const cb of q) cb(now); };
 })();`;
 
-async function openPage(browser, seed) {
+// query replaces the demo's query string; init is more code run before main.js, after the clock
+export async function openPage(browser, seed, { query = QUERY, init = '' } = {}) {
   const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 });
-  await page.addInitScript(fixedClock(seed));
+  await page.addInitScript(fixedClock(seed) + init);
   await page.route('**/main.js', route => route.fulfill({
     contentType: 'text/javascript',
     body: exposeFighters(fs.readFileSync(path.join(ROOT, 'wallpaper', 'main.js'), 'utf8')),
   }));
-  await page.goto(pathToFileURL(path.join(ROOT, 'wallpaper', 'index.html')).href + QUERY);
+  await page.goto(pathToFileURL(path.join(ROOT, 'wallpaper', 'index.html')).href + query);
   await page.waitForFunction(() => typeof window.__fighters === 'function');
   return page;
 }
