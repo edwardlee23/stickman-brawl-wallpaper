@@ -1,6 +1,6 @@
-// The pictures of the settings in README.md and README.zh-TW.md, recorded into docs/images/
-// by scripts/record-settings.mjs. Each one is a GIF of a few seconds (secs) or a still PNG
-// (no secs). Fields:
+// The pictures of the settings in README.md, README.zh-TW.md and README.zh-CN.md, recorded
+// into docs/images/ by scripts/record-settings.mjs. Each one is a GIF of a few seconds (secs)
+// or a still PNG (no secs). Fields:
 //   name      file name in docs/images/, without the extension
 //   seed      seeds Math.random, as for demo.gif; scan again after a change to main.js
 //   query     the page's query string (count and mode; sound stays off)

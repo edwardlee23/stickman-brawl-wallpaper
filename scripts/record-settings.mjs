@@ -1,6 +1,7 @@
-// Records the pictures of the settings shown in README.md and README.zh-TW.md into
-// docs/images/, from the list in scripts/settings-shots.mjs. Like demo.gif, each is drawn on
-// the fixed 1/20 s time step with a seeded Math.random, so a picture comes out the same each time.
+// Records the pictures of the settings shown in README.md, README.zh-TW.md and
+// README.zh-CN.md into docs/images/, from the list in scripts/settings-shots.mjs. Like
+// demo.gif, each is drawn on the fixed 1/20 s time step with a seeded Math.random, so a
+// picture comes out the same each time.
 //
 // Needs Playwright and ffmpeg, which the wallpaper itself does not use:
 //

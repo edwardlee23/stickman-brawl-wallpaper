@@ -3,7 +3,7 @@
 [![CI](https://github.com/edwardlee23/stickman-brawl-wallpaper/actions/workflows/ci.yml/badge.svg)](https://github.com/edwardlee23/stickman-brawl-wallpaper/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[English](README.md) | 繁體中文
+[English](README.md) | 繁體中文 | [简体中文](README.zh-CN.md)
 
 給 [Wallpaper Engine](https://www.wallpaperengine.io/) 用的漫畫風火柴人格鬥桌布。
 角色混用拳擊、泰拳、跆拳道、柔道和角力，加上漫畫式必殺技（氣功波、飛簷走壁、
@@ -108,9 +108,9 @@
 ### 回合規則
 
 「回合規則」改變回合的玩法；預設的「一般」照原本的方式進行。「王者」讓一個角色在該
-回合有兩倍血量並戴上王冠，其他人會先圍攻他。「車輪戰」把大亂鬥變成一對一：其他人在
+回合有兩倍血量並戴上王冠，其他人會先圍攻它。「車輪戰」把大亂鬥變成一對一：其他人在
 兩側等待歡呼，勝者留下，下一位上場。雙方同時倒下時換下兩位上場；如果只剩一位在等，
-他沒有對手，這回合算平手。「生存」讓回合勝者把剩下的血量帶到下一回合，但低於 15% 時
+它沒有對手，這回合算平手。「生存」讓回合勝者把剩下的血量帶到下一回合，但低於 15% 時
 會補滿；回合時間到，或因為改設定而重新開始的回合，所有人都會補滿。「王者」和「車輪戰」
 只在大亂鬥時有效。
 
