@@ -45,9 +45,9 @@ The owner picked approach 1.
   first sound while sound is on. All sounds go through one master gain set
   from the volume setting.
 - Hooks: `impact` (hit, light or heavy by `big`), block, whiff, `quake`
-  (ground boom), wall `crack` (crash), `makeRag` (knockout thud), blast
+  (ground boom), wall `crack` (crash), `ko()` (knockout thud), blast
   charge and release, wall-run steps, and the round-end sting (three short
-  notes) where `winnerText` is set.
+  notes) in `checkRound`, where the round is decided.
 - Hooks added with the magic and ninjutsu styles and the items, after this
   spec was first written, so every kind in `SFX` in `main.js` is listed:
   - `charge` and `fire` also play for a fireball's wind-up and throw, and
