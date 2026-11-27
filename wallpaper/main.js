@@ -2227,17 +2227,19 @@ class Fighter {
     // A reeling target slides on, slowing at 520 a second each second (update()), so a strike is
     // aimed at where it will be when the strike lands, halfway through its active time
     const away = e.vx * sgn(dx), slide = T => Math.abs(away) / 520 < T ? away * Math.abs(away) / 1040 : away * T - 260 * T * T;
-    const ids = COMBO_NEXT[(m.bare || m).id].filter(id => {
-      const n = MOVE_BY[id], T = n.wind + n.act * 0.5, d = dist + slide(T);
+    // Each candidate as it would be thrown: with a staff held, a staff strike with its own reach
+    const next = COMBO_NEXT[(m.bare || m).id].filter(id => cfg.styles[MOVE_BY[id].style]).map(id => withStaff(this, MOVE_BY[id]));
+    const fits = next.filter(n => {
+      const T = n.wind + n.act * 0.5, d = dist + slide(T);
       // In the far half of the reach, short of its very end: thrown from closer, the fist or foot
       // sweeps past the target's body between two frames, and at its farthest it can fall short
       const span = n.range[1] - n.range[0];
-      return cfg.styles[n.style] && d >= n.range[0] + span * 0.5 && d <= n.range[1] - span * 0.1;
+      return d >= n.range[0] + span * 0.5 && d <= n.range[1] - span * 0.1;
     });
-    if (!ids.length) return false;
+    if (!fits.length) return false;
     if (dist > 1) this.facing = sgn(e.x - this.x);
     this.target = e; stats.combos++;
-    const n = withStaff(this, MOVE_BY[pick(ids)]);
+    const n = pick(fits);
     // The combo keeps its target reeling until the next strike lands, or it would be back on
     // guard and walk out of reach of a slower strike
     e.dur = Math.max(e.dur, e.st + n.wind + n.act * 0.5 + 0.05);

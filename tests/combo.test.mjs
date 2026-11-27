@@ -58,6 +58,22 @@ test('every strike of a combo lands', () => {
   }
 });
 
+test('every strike of a combo with a staff lands', () => {
+  let chained = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const { game, a, e } = load(seed);
+    game.cfg.items = true;
+    a.held = { kind: 'staff', n: 99 };
+    const m = game.withStaff(a, jab(game));
+    e.x = 300 + (m.range[0] + m.range[1]) / 2; e.W = e.joints();
+    const ids = strikes(game, a, m);
+    assert.equal(game.stats.whiff, 0, `seed ${seed}: ${ids.join(' > ')} whiffed`);
+    if (ids.length > 1) chained++;
+  }
+  // Fewer than bare: a staff strike reaches far, so fewer of them fit the distance left
+  assert.ok(chained >= 3, 'combos in ' + chained + ' of 40 seeds');
+});
+
 test('a combo uses only the moves of styles that are on', () => {
   for (let seed = 1; seed <= 40; seed++) {
     const { game, a } = load(seed);
