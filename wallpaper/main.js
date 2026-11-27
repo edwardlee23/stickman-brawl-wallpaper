@@ -799,6 +799,32 @@ function beamOnOwnLedge(me, t) {
     return cx >= p.x0 - 4 && cx <= p.x1 + 4;
   });
 }
+// Whether every shot me throws at t with a move of this type would come down on the ledge me
+// stands on, where it bursts (#217): from there a fireball, ice, shuriken, blast or boomerang
+// cannot reach a target below, past the ledge's end (#420), as the beam cannot (#387). Each shot
+// is taken along its aim, from the hand of its throwing pose, as castShot and u_blast aim it; its
+// random spread is left out. A shot whose aim comes down within 2 of the ledge's ends may still
+// pass them, so only one that comes down farther in counts. A boomerang's outbound flight slows to
+// a stop after half its speed (see steerBoomerang), so it comes down only within that distance.
+const SHOT_AIMS = {
+  fireball: [[CHARGE, null, 0]], ice: [[FLING, 'hF', 0]], boomerang: [[FLING, 'hF', 0]],
+  shuriken: [[FLING, 'hF', -0.16], [FLING, 'hF', 0], [FLING, 'hF', 0.16]],
+  blast: [[P({ aF: 1.6, eF: 0, t: 0.25 }), 'hF', 0], [P({ aB: 1.6, eB: 0, t: 0.3 }), 'hB', 0]],
+};
+function shotsOnOwnLedge(me, t, type) {
+  const aims = SHOT_AIMS[type];
+  if (!aims || !platforms.length || !t.W || me.alt <= 0 || me.aloft()) return false;
+  const feet = groundY(me.z) - me.alt, p = platformAt(me.x, feet);
+  if (!p) return false;
+  const f = sgn(t.x - me.x), c = mid(t.W.sh, t.W.hip), reach = type === 'boomerang' ? BOOMERANG.speed / 2 : Infinity;
+  return aims.every(([pose, hand, off]) => {
+    const J = fk(pose), h = hand ? J[hand] : mid(J.hF, J.hB), H = { x: me.x + f * h.x, y: feet + h.y };
+    const a = clamp(Math.atan2(c.y - H.y, Math.abs(c.x - H.x) + 1) + off, -1, 1.1), dy = Math.sin(a), k = (p.y - H.y) / dy;
+    if (dy <= 0.01 || k > reach) return false;
+    const cx = H.x + f * Math.cos(a) * k;
+    return cx >= p.x0 + 2 && cx <= p.x1 - 2;
+  });
+}
 function pickMove(me, t, dist) {
   let items = [];
   // Height is measured from the surface the fighter stands on, so a ledge is not the air
@@ -811,6 +837,7 @@ function pickMove(me, t, dist) {
     if (!cfg.styles[m.style] || m.reactive || (meAir && !m.air) || (t && !altFits(me, m, t))) continue;
     if (m.needWall && Math.min(me.x, worldW - me.x) > 320) continue;
     if (m.type === 'beam' && t && beamOnOwnLedge(me, t)) continue;
+    if (t && shotsOnOwnLedge(me, t, m.type)) continue;
     items.push([m, m.w * 1.6 * (tAir && m.antiAir ? 3 : 1) * musicSpecial()]);
   }
   // Every style turned off: fight with all the martial-arts moves rather than stand still (see README)
@@ -2578,7 +2605,8 @@ function updateItems(dt) {
     // A boomerang is thrown once at a target in range on the same line
     const t = f.target;
     if (f.held.kind === 'boomerang' && f.state === 'idle' && !f.aloft() && f.cool <= 0 && t && t.alive && t.hittable &&
-        Math.abs(t.z - f.z) < 9 && Math.abs(t.x - f.x) >= BOOMERANG.range[0] && Math.abs(t.x - f.x) <= BOOMERANG.range[1]) {
+        Math.abs(t.z - f.z) < 9 && Math.abs(t.x - f.x) >= BOOMERANG.range[0] && Math.abs(t.x - f.x) <= BOOMERANG.range[1] &&
+        !shotsOnOwnLedge(f, t, 'boomerang')) {
       f.facing = sgn(t.x - f.x);
       f.startMove(BOOMERANG, true);
     }
