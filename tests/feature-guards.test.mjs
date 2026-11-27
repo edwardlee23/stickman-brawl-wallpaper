@@ -98,6 +98,8 @@ test('items: a staff strike does about 1.5 times the damage of the bare strike',
     let zone = null;
     const takeHit = e.takeHit;
     e.takeHit = function (att, mv, z, ...rest) { zone = z; return takeHit.call(this, att, mv, z, ...rest); };
+    // One strike alone: no combo runs on from it
+    a.chainOn = () => false;
     a.startMove(m);
     run(game, 1, () => a.state !== 'attack');
     return (100 - e.hp) / (zone === 'head' ? 1.35 : zone === 'leg' ? 0.8 : 1);

@@ -10,8 +10,9 @@ Fighters mix boxing, Muay Thai, taekwondo, judo and wrestling with comic
 specials (energy blasts, wall running, and hits that slam them into walls),
 magic (fireballs, lightning strikes, ice shards that freeze the target, and
 shields that stop a hit) and ninjutsu: shuriken, shadow clones, smoke escapes,
-and a log left behind to take a hit. A knockout turns the loser into a
-ragdoll, and a new round starts when one side is left.
+and a log left behind to take a hit. A punch or kick that lands can run
+straight on into the next, in combos of up to four strikes. A knockout turns
+the loser into a ragdoll, and a new round starts when one side is left.
 
 ![Six fighters brawling in free-for-all mode](demo.gif)
 
