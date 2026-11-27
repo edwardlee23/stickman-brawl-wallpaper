@@ -85,7 +85,7 @@
 			"slowmofinish" : { "order" : 19, "text" : "ui_slowmofinish", "type" : "bool", "value" : false },
 			"items" : { "order" : 18, "text" : "ui_items", "type" : "bool", "value" : false },
 			"showhealth" : { "order" : 21, "text" : "ui_showhealth", "type" : "bool", "value" : true },
-			"colorful" : { "order" : 22, "text" : "ui_colorful", "type" : "bool", "value" : true },
+			"colorful" : { "order" : 22, "text" : "ui_colorful", "type" : "bool", "value" : true, "condition" : "gamemode.value == \"ffa\"" },
 			"reducemotion" : { "order" : 23, "text" : "ui_reducemotion", "type" : "bool", "value" : true },
 			"soundeffects" : { "order" : 24, "text" : "ui_soundeffects", "type" : "bool", "value" : false },
 			"soundvolume" : { "order" : 25, "text" : "ui_soundvolume", "type" : "slider", "min" : 0, "max" : 100, "value" : 50, "condition" : "soundeffects.value" },
