@@ -74,6 +74,25 @@ test('every strike of a combo with a staff lands', () => {
   assert.ok(chained >= 3, 'combos in ' + chained + ' of 40 seeds');
 });
 
+// A staff gives STAFF_USES strikes (#462): its last strike may chain on, but bare-handed
+test('a staff used up by its last strike chains on into no staff strike', () => {
+  for (let seed = 1; seed <= 60; seed++) {
+    const { game, a, e } = load(seed);
+    game.cfg.items = true;
+    a.held = { kind: 'staff', n: 1 };
+    const m = game.withStaff(a, jab(game));
+    e.x = 300 + (m.range[0] + m.range[1]) / 2; e.W = e.joints();
+    a.startMove(m, true);
+    const seen = [];
+    for (let t = 0; t < 3 && a.state === 'attack'; t += DT) {
+      if (a.move !== seen.at(-1)) seen.push(a.move);
+      game.update(DT);
+    }
+    const staffStrikes = seen.filter(s => s.staff).length;
+    assert.equal(staffStrikes, 1, `seed ${seed}: ${seen.map(s => s.id).join(' > ')}`);
+  }
+});
+
 test('a combo uses only the moves of styles that are on', () => {
   for (let seed = 1; seed <= 40; seed++) {
     const { game, a } = load(seed);
