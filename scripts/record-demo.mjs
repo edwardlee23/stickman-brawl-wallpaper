@@ -109,10 +109,14 @@ async function record(browser, seed, out) {
 
 export function parseArgs(argv) {
   const opt = { seed: null, scan: null, out: path.join(ROOT, 'demo.gif') };
+  const given = new Set();
   for (let i = 0; i < argv.length; i += 2) {
     const a = argv[i], v = argv[i + 1];
     if (!['--seed', '--scan', '--out'].includes(a)) throw new Error('Unknown argument: ' + a);
     if (v === undefined) throw new Error(a + ' needs a value');
+    // A second value would silently replace the first (#469).
+    if (given.has(a)) throw new Error(a + ' is given twice');
+    given.add(a);
     if (a === '--seed') {
       opt.seed = Number(v);
       // The page seeds Math.random with a 32-bit value; a larger seed would wrap to another.
@@ -127,6 +131,8 @@ export function parseArgs(argv) {
     } else opt.out = path.resolve(v);
   }
   if (opt.scan && opt.seed !== null) throw new Error('--seed and --scan cannot be used together: scan first, then record one seed');
+  // A scan records nothing, so it would ignore --out (#469).
+  if (opt.scan && given.has('--out')) throw new Error('--out and --scan cannot be used together: a scan writes no GIF');
   if (!opt.scan && opt.seed === null) throw new Error('--seed is needed: run --scan first and pick a seed that shows all eight move styles');
   return opt;
 }

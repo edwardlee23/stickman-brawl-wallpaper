@@ -27,6 +27,15 @@ test('--seed together with --scan is an error', () => {
   assert.throws(() => parseArgs(['--scan', '1-2', '--seed', '5']), /--seed and --scan/);
 });
 
+test('--out with --scan, and a flag given twice, are errors naming the flag (#469)', () => {
+  assert.throws(() => parseArgs(['--scan', '1-2', '--out', 'x.gif']), /--out and --scan/);
+  assert.throws(() => parseArgs(['--out', 'x.gif', '--scan', '1-2']), /--out and --scan/);
+  assert.throws(() => parseArgs(['--seed', '1', '--seed', '2']), /--seed is given twice/);
+  assert.throws(() => parseArgs(['--out', 'a.gif', '--out', 'b.gif', '--seed', '3']), /--out is given twice/);
+  assert.throws(() => parseArgs(['--scan', '1', '--scan', '2']), /--scan is given twice/);
+  assert.match(parseArgs(['--out', 'a.gif', '--seed', '3']).out, /a\.gif$/);
+});
+
 // Runs the patched main.js the way the recorder's page does: the seeded clock first, then
 // main.js, with a stubbed canvas. window is the global, as in a browser.
 function page(seed) {
