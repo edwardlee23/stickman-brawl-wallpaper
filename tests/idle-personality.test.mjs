@@ -22,14 +22,17 @@ test('breathing and taunts draw nothing from Math.random: a seed gives the same 
     const game = load({ search: '?count=4&mode=ffa', patch, random: () => { n++; return rnd(); } });
     let rounds = 0;
     for (let i = 0; i < 3600; i++) { game.update(1 / 60); if (i % 2) game.render(); rounds = game.stats.rounds; }
-    return { n, rounds, at: JSON.stringify(game.fighters.map(f => [f.state, f.x.toFixed(6), f.hp.toFixed(6)])) };
+    const taunts = game.fighters.reduce((s, f) => s + f.flair.n, 0);
+    return { n, rounds, taunts, at: JSON.stringify(game.fighters.map(f => [f.state, f.x.toFixed(6), f.hp.toFixed(6)])) };
   };
   const none = src => src
     .replace('  addFlair(p) {', '$&return;')
+    .replace('  taunting() {', '$&return false;')
     .replace('VICTORIES[victoryOf(this)](tp, this.time);', 'VICTORIES[0](tp, this.time);');
   const plain = run(none), full = run();
   assert.ok(plain.rounds >= 1, 'no round ended');
-  assert.deepEqual(full, plain);
+  assert.ok(full.taunts >= 1, 'no taunt made');
+  assert.deepEqual({ ...full, taunts: 0 }, plain);
 });
 
 test('a fighter standing still breathes: its drawn chest rises and falls, its game pose does not', () => {
