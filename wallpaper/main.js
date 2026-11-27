@@ -1630,6 +1630,9 @@ class Fighter {
   }
   // Attacks right after appearing, with a move from the styles that are turned on
   followUp() {
+    // Not at a target knocked down while it was unseen: as everywhere else (#338), no move starts
+    // at a target that cannot be hit, and it picks a move again instead (#419)
+    if (!this.target || !this.target.hittable) { this.endMove(); return; }
     const ids = TELEPORT_FOLLOW.filter(id => cfg.styles[MOVE_BY[id].style]);
     this.startMove(MOVE_BY[pick(ids.length ? ids : TELEPORT_FOLLOW)], true);
   }
