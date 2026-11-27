@@ -2794,7 +2794,12 @@ Fighter.prototype.u_boomerang = function (dt) {
       if (Math.abs(s.vx) > room) { const k = room / Math.abs(s.vx); s.vx *= k; s.vy *= k; }
       Object.assign(s, { col: BOOMERANG_COL, life: 2.6, age: 0, v0x: s.vx, v0y: s.vy });
       sfx('toss', this.x);
-      this.warn(9999, false);
+      // Its outbound flight, from the hand to where it turns back (half its starting speed, as
+      // it slows to a stop at 1 s), or to where it would burst first: only an enemy along it
+      // reacts (#461). The way back retraces it toward the thrower.
+      const p = shotPath(s), out = Math.hypot(s.vx, s.vy) / 2, len = Math.hypot(p.E.x - p.O.x, p.E.y - p.O.y);
+      if (len > out) p.E = { x: p.O.x + (p.E.x - p.O.x) * out / len, y: p.O.y + (p.E.y - p.O.y) * out / len };
+      this.warn(9999, false, false, [p]);
     }
   } else {
     lerpPose(this.pose, MOVE_BY.jab.A, Math.min(1, dt * 25), this.pose);
