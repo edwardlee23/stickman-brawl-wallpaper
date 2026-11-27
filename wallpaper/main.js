@@ -1522,7 +1522,8 @@ class Fighter {
         const r = this.sweepHit(P0, H, 8);
         if (r) {
           const [e, zone] = r;
-          e.takeHit(this, m, zone, H, { launch: { vx: this.facing * 680, va: e.alt > 30 ? -650 : 300 }, big: true });
+          // In the air means above the surface it stands on: a target on a ledge is launched up (#417)
+          e.takeHit(this, m, zone, H, { launch: { vx: this.facing * 680, va: e.alt - e.surfaceAlt() > 30 ? -650 : 300 }, big: true });
           this.hover = false; this.va = 400; this.vx = -this.facing * 160;
           this.hitDone = true; this.endMove();
           return;
