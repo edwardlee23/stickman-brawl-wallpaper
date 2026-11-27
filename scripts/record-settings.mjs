@@ -54,15 +54,15 @@ async function prepare(browser, shot, startFrame) {
   const init = (shot.hour !== undefined ? fixedDate(shot.hour) : '') + (shot.music ? musicHook : '');
   const page = await openPage(browser, shot.seed, { query: shot.query + '&sound=0', init });
   await page.evaluate(props => window.wallpaperPropertyListener.applyUserProperties(props), shot.props || {});
-  await page.evaluate(({ n, music, fps }) => {
+  // One step of the fight; with music, the frame of levels Wallpaper Engine would hand over first
+  if (shot.music) await page.evaluate(`window.__musicFrame = ${musicFrame}`);
+  await page.evaluate(({ music, fps }) => {
     window.__frame = 0;
     window.__step = () => {
       if (music && window.__music) window.__music(window.__musicFrame(window.__frame));
       window.__advance(1000 / fps); window.__frame++;
     };
-    for (let i = 0; i < n; i++) window.__step();
-  }, { n: 0, music: !!shot.music, fps: FPS });
-  if (shot.music) await page.evaluate(`window.__musicFrame = ${musicFrame}`);
+  }, { music: !!shot.music, fps: FPS });
   await page.evaluate(n => { for (let i = 0; i < n; i++) window.__step(); }, startFrame);
   return page;
 }
