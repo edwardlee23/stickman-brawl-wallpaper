@@ -110,13 +110,13 @@ test('a strike hits an enemy 16 deep, not 17 deep (#263, #393)', () => {
 });
 
 // ---------- #382 ----------
-// a on the floor at x 400 casts shadow clones at its target at x 700; an idle enemy b stands
-// at x 450, bAlt up. Returns b once the move has run its course or b reacted.
+// a on the floor at x 400 casts shadow clones at b, an idle enemy at x 450, bAlt up (the clones
+// warn only their target, #415). Returns b once the move has run its course or b reacted.
 function clones(bAlt) {
   const { game, context } = load({ count: 3 });
   for (const s of Object.keys(game.cfg.styles)) game.cfg.styles[s] = true;
   const [a, t, b] = game.fighters;
-  Object.assign(a, held, { x: 400, z: 50, alt: 0, facing: 1, state: 'idle', target: t });
+  Object.assign(a, held, { x: 400, z: 50, alt: 0, facing: 1, state: 'idle', target: b });
   Object.assign(t, still, { x: 700, z: 50, alt: 0, facing: -1, target: a });
   Object.assign(b, held, { x: 450, z: 50, alt: bAlt, facing: -1, state: 'idle', target: a });
   context.__rnd = 0.3;   // warn() rolls a dodge
