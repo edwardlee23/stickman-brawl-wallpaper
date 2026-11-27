@@ -3150,7 +3150,9 @@ function render() {
   redraw = false;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, SW, SH);
-  const sk = cfg.reduceMotion ? 0 : shake;
+  // Shake only decays in a running step, so a paused redraw (a setting changed) draws without
+  // it instead of moving the picture by a new random offset each time (issue #424)
+  const sk = cfg.reduceMotion || paused ? 0 : shake;
   const ox = sk ? rand(-sk, sk) : 0, oy = sk ? rand(-sk, sk) : 0;
   if (cfg.bgTheme !== 'plain') drawBackground(ox, oy);
   else if (bg.canvas) {
