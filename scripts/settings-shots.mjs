@@ -59,6 +59,6 @@ export const SHOTS = [
   { name: 'platforms', seed: 1, query: '?count=6&mode=ffa', skip: 2, secs: 5, props: { platforms: v(true) } },
   { name: 'music', seed: 1, query: '?count=6&mode=ffa', skip: 2, secs: 4, music: true,
     props: { audioreactive: v(true), audiostrength: v(100), reducemotion: v(false) } },
-  { name: 'click-blast', seed: 1, query: '?count=6&mode=ffa', skip: 2, secs: 3, clicks: [[0.5, 1200, 400]],
+  { name: 'click-blast', seed: 1, query: '?count=6&mode=ffa', skip: 2, secs: 3, clicks: [[0.5, 920, 410]],
     props: { clickblast: v(true), reducemotion: v(false) }, shows: { launched: 1 } },
 ];
