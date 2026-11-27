@@ -1204,6 +1204,8 @@ class Fighter {
       if (!this.move.type && Math.abs(e.alt - this.alt) >= 35) continue;
       // The shadow clones strike only within 45 above or below the caster (u_clones, #382)
       if (this.move.type === 'clones' && Math.abs(e.alt - this.alt) >= 45) continue;
+      // and strike only their target, so no one else has anything to react to (#415)
+      if (this.move.type === 'clones' && e !== this.target) continue;
       // 25 covers a beam's half width and hit margin (md.w + 8), and a shot's pad on the
       // parts it hits: the beam hits the head, shoulders and hips, a shot the legs too
       if (paths && e.W) {
