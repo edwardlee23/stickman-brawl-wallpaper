@@ -100,6 +100,30 @@ test('every strike is drawn within 4 px on the frame it lands, at mid-range', ()
   assert.deepEqual(far, [], 'drawn this far from the hit as it lands');
 });
 
+test('a launch landing is drawn close to the game body, without a flail', () => {
+  // The landing sets the pose to DOWN in one frame (#464): that snap must move the drawn
+  // joints by a bounded amount, and must not swing them out one way and then back the other
+  const game = load();
+  const f = game.fighters[0];
+  f.launch(0, 300);
+  let landed = -1;
+  const prev = {};
+  for (let i = 0; i < 600 && (landed < 0 || i - landed < 30); i++) {
+    game.update(DT);
+    if (landed < 0 && f.state === 'down') landed = i;
+    if (landed < 0) continue;
+    for (const k in f.W) {
+      const o = { x: f.V[k].x - f.W[k].x, y: f.V[k].y - f.W[k].y }, r = Math.hypot(o.x, o.y), p = prev[k];
+      assert.ok(r <= 6, k + ' drawn ' + r.toFixed(1) + ' px from the game joint ' + (i - landed) + ' frames after landing');
+      if (p && r > 2 && Math.hypot(p.x, p.y) > 2) {
+        assert.ok(o.x * p.x + o.y * p.y >= 0, k + ' reversed direction ' + (i - landed) + ' frames after landing');
+      }
+      prev[k] = o;
+    }
+  }
+  assert.ok(landed >= 0, 'the fighter never landed');
+});
+
 test('a very short step does not blow the spring up', () => {
   // frame() can hand update() a sliver of a step when a hit stop ends; a pose that snaps in
   // that sliver must not kick the offset by the change over that sliver's length
