@@ -89,6 +89,26 @@ const BLOCK = P({ t: 0.05, aF: 1.5, eF: 2.3, aB: 1.2, eB: 2.5 });
 const DOWN = P({ t: 0, aF: 0.25, eF: 0.2, aB: -0.25, eB: 0.2, lF: 0.08, kF: -0.05, lB: -0.08, kB: -0.05 });
 const CROUCH = P({ t: 0.6, aF: 0.6, eF: 0.8, aB: 0.2, eB: 0.6, lF: 1.2, kF: -2.2, lB: -0.2, kB: -1.6 });
 const VICTORY = P({ t: -0.05, aF: 2.9, eF: 0.2, aB: 3.0, eB: -0.2, lF: 0.25, kF: 0, lB: -0.25, kB: 0 });
+// A round's winners strike one of these, chosen by the round and the fighter (victoryOf), each
+// with its own motion at time t: both arms waving overhead, a fist pumped with the other hand
+// on the hip, or arms folded with a slow nod of the shoulders
+const FIST_PUMP = P({ t: -0.1, aF: 2.5, eF: 1.3, aB: -0.6, eB: 2.0, lF: 0.25, kF: 0, lB: -0.25, kB: 0 });
+const ARMS_FOLDED = P({ t: -0.12, aF: 0.8, eF: 2.5, aB: 0.75, eB: 2.5, lF: 0.2, kF: 0, lB: -0.2, kB: 0 });
+const VICTORIES = [
+  (p, t) => { Object.assign(p, VICTORY); p.aF += Math.sin(t * 6) * 0.25; p.aB += Math.sin(t * 6 + 1) * 0.25; },
+  (p, t) => { Object.assign(p, FIST_PUMP); const s = Math.max(0, Math.sin(t * 8)); p.aF += s * 0.35; p.eF -= s * 0.9; },
+  (p, t) => { Object.assign(p, ARMS_FOLDED); p.t += Math.sin(t * 3) * 0.05; },
+];
+// Taunts, drawn over a fighter that stands waiting for its target to get up (Fighter.flair):
+// beckoning with the front hand, a shrug, or a loose bounce on the knees
+const BECKON = P({ t: -0.05, aF: 1.35, eF: 1.0, aB: 0.4, eB: 1.9 });
+const SHRUG = P({ t: -0.1, aF: 0.55, eF: 1.9, aB: 0.5, eB: 1.9, lF: 0.2, kF: 0, lB: -0.2, kB: 0 });
+const TAUNTS = [
+  (p, t) => { Object.assign(p, BECKON); p.eF += Math.max(0, Math.sin(t * 9)) * 0.9; },
+  (p, t) => { Object.assign(p, SHRUG); const s = Math.max(0, Math.sin(t * 4)); p.eF -= s * 0.4; p.eB -= s * 0.4; },
+  (p, t) => { Object.assign(p, GUARD); const s = Math.abs(Math.sin(t * 7)); p.kF -= s * 0.35; p.kB -= s * 0.35; p.lF += s * 0.15; p.lB += s * 0.15; p.aF -= 0.3; p.aB -= 0.2; },
+];
+const FLAIR = {};   // Scratch pose for a taunt
 const AIR = P({ t: 0.2, aF: 1.2, eF: 1.5, aB: 0.6, eB: 2.0, lF: 1.2, kF: -1.6, lB: 0.4, kB: -1.4 });
 const TUMBLE = P({ t: 0.5, aF: 2.2, eF: 1.0, aB: -0.8, eB: 0.8, lF: 1.6, kF: -1.0, lB: 0.9, kB: -1.6 });
 const SPLAT = P({ t: 0, aF: 2.3, eF: 0.1, aB: -2.3, eB: -0.1, lF: 0.5, kF: 0, lB: -0.5, kB: 0 });
@@ -458,6 +478,10 @@ function hitStop(t) {
   freezeGap = Math.max(freezeGap, freeze * FREEZE_GAP);
 }
 let roundOver = false, roundTimer = 0, roundTime = 0, roundWinner = null;   // null: a draw
+// The victory pose a winner strikes: one of VICTORIES, by the round and the fighter, so each
+// round's winners vary without drawing from Math.random
+const victoryOf = f => Math.floor(bgHash(stats.rounds * 37.3 + f.id * 5.7 + 0.5) * VICTORIES.length);
+const BREATH = 2.4;   // Radians a second of a standing fighter's breath, about one breath in 2.6 s
 // Slow-motion finish (optional, issue #90): the knockout that ends a round runs game time at a
 // quarter for SLOWMO_HOLD s of real time, then eases back to full speed over SLOWMO_EASE s.
 // Unless motion is reduced, the view also zooms in up to 1 + SLOWMO_ZOOM times toward the
@@ -1069,10 +1093,16 @@ class Fighter {
     for (const k of KEYS) { d[k] = 0; v[k] = 0; v0[k] = 0; }
     for (const k in LAG_PARENT) lag[k] = { x: 0, y: 0, vx: 0, vy: 0 };
     this.look = { d, v, p0: clonePose(this.pose), v0, lag, par: null, bvx: this.vx, bva: this.va, carry: 0 };
+    this.flair = { w: 0, k: 0, n: this.flair ? this.flair.n : 0 };   // A taunt's weight, kind and count
   }
   // Moves the spring offset and the lag on by dt. A frozen or ragdoll body is drawn as it is.
   stepLook(dt) {
     if (this.state === 'frozen' || this.rag) { this.resetLook(); return; }
+    // A taunt eases in while the fighter stands waiting for its target to get up, and out once
+    // it moves; each one is picked from the fighter and how many it has made, not Math.random
+    const fl = this.flair, want = this.taunting();
+    if (want && fl.w === 0) { fl.n++; fl.k = Math.floor(bgHash(this.id * 31 + fl.n * 7) * TAUNTS.length); }
+    fl.w = approach(fl.w, want ? 1 : 0, dt * 4);
     // A step shorter than a sub-step (the sliver frame() can leave as a hit stop ends) is
     // carried into the next one: speeds taken over a sliver would kick the springs wildly
     const look = this.look;
@@ -1123,7 +1153,28 @@ class Fighter {
   lookPose() {
     const p = {};
     for (const k of KEYS) p[k] = this.pose[k] + this.look.d[k];
+    this.addFlair(p);
     return p;
+  }
+  // Standing still: true while its target lies on the floor or gets up, and it waits
+  taunting() {
+    const t = this.target;
+    return this.state === 'idle' && this.alive && !roundOver && !this.aloft() && Math.abs(this.vx) < 30 &&
+      !!t && t.alive && (t.state === 'down' || t.state === 'getup');
+  }
+  // What the drawn pose p adds to the game pose, which hits never see: a slow breath while
+  // standing (the chest rising, the arms lifting with it) and the taunt eased in over it
+  addFlair(p) {
+    if (this.state === 'idle' || this.state === 'wait') {
+      const still = 1 - Math.min(1, Math.abs(this.vx) / 60), b = Math.sin(this.time * BREATH + this.id * 1.7) * still;
+      p.t -= 0.03 * b; p.aF += 0.05 * b; p.aB += 0.05 * b;
+    }
+    const w = this.flair.w;
+    if (w > 0) {
+      TAUNTS[this.flair.k](FLAIR, this.time);
+      const u = ease(w);
+      for (const k of KEYS) p[k] += (FLAIR[k] + this.look.d[k] - p[k]) * u;
+    }
   }
   // The drawn joints: the game pose plus the spring offset, the head and hands moved by their
   // lag and swung back onto their segment's length round the joint they hang from, placed as
@@ -1312,8 +1363,7 @@ class Fighter {
     if (!t) {
       this.vx = approach(this.vx, 0, 300 * dt); this.vz = approach(this.vz, 0, 200 * dt);
       if (roundOver) {
-        Object.assign(tp, VICTORY);
-        tp.aF += Math.sin(this.time * 6) * 0.25; tp.aB += Math.sin(this.time * 6 + 1) * 0.25;
+        VICTORIES[victoryOf(this)](tp, this.time);
         this.aura = 0.6;
       }
     } else {
@@ -3015,7 +3065,7 @@ function drawHeld(f) {
 Object.assign(window.__stickmanBrawl, { items, spawnItem, withStaff, newRound });
 // For the tests that pin the rules inside these (issue #355)
 Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKES, staffTip, hitTest, ledgeHit, ragPlatform,
-  ragCorners, updateShots, updateItems, steerBoomerang, LOOK, GUARD, WALK, walkPose, FOLLOW, LAG });
+  ragCorners, updateShots, updateItems, steerBoomerang, LOOK, GUARD, WALK, walkPose, FOLLOW, LAG, VICTORIES, victoryOf, TAUNTS });
 Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
 // A smear frame: through a strike's active time, the band its lead limb sweeps over the last

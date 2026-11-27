@@ -319,6 +319,8 @@ test('the winner waves its arms (#430)', () => {
   e.state = 'ko';
   w.run('roundOver = true');
   Object.assign(f, { state: 'idle', alt: 0, target: null, time: 0.2 });
+  w.run('stats.rounds = 1');   // A round whose first winner waves both arms (VICTORIES[0])
+  assert.equal(w.run('victoryOf(fighters[0])'), 0);
   f.updIdle(0.08);
   const V = w.run('VICTORY');
   assert.ok(near(f.pose.aF, V.aF + Math.sin(f.time * 6) * 0.25, 1e-6), 'front arm ' + f.pose.aF);
