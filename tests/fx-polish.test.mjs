@@ -58,7 +58,7 @@ test('a wall splat flings chips off the wall that come to rest on the floor', ()
   assert.equal(d.x, 0);
   const fy = game.groundY(a.z);
   for (const b of d.bits) {
-    assert.ok(b.vx > 0, 'a chip flies into the wall');
+    assert.ok(b.vx > 0, 'a chip flies away from the wall');
     assert.ok(Math.abs(d.y + b.vy * b.tl + 450 * b.tl * b.tl - fy) < 1e-6, 'a chip stops off the floor');
   }
 });
@@ -78,6 +78,19 @@ test('a strike leaves a smear only through its active time', () => {
   assert.ok(act.length > 2 && act.slice(1).every(([, n]) => n > 0), 'no smear in the active time');
   assert.ok(seen.filter(([t]) => t < m.wind || t > m.wind + m.act + 0.01).every(([, n]) => n === 0), 'a smear outside it');
   assert.ok(Math.max(...act.map(([, n]) => n)) <= 10, 'more than 0.07 s of steps at 120 a second kept');
+});
+
+test('a step that takes no time adds nothing to a smear', () => {
+  const { game } = load();
+  const [a, b] = game.fighters;
+  b.x = a.x + 400;
+  const m = strike(game, 'roundhouse');
+  a.startMove(m);
+  while (a.st < m.wind + m.act / 2) game.update(1 / 120);
+  const n = a.smear.length;
+  assert.ok(n > 0);
+  for (let i = 0; i < 50; i++) game.update(0);
+  assert.equal(a.smear.length, n);
 });
 
 test('a grab leaves no smear', () => {

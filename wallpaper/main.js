@@ -3028,6 +3028,8 @@ function updSmear(f) {
     f.st >= m.wind && f.st < m.wind + m.act;
   if (!on) { f.smear.length = 0; return; }
   const e = D[m.hit], r = D[SMEAR_ROOT[m.hit]];
+  // A step that took no time adds nothing, so the list only ever holds SMEAR_AGE seconds
+  if (f.smear.length && f.time <= f.smear[f.smear.length - 1].t) return;
   f.smear.push({ t: f.time, ex: e.x, ey: e.y, rx: r.x, ry: r.y });
   while (f.time - f.smear[0].t > SMEAR_AGE) f.smear.shift();
 }
