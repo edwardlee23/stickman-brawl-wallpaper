@@ -28,13 +28,15 @@ function load(roll) {
 const held = { z: 50, vx: 0, vz: 0, va: 0, cool: 99, retarget: 99, hp: 1000 };
 
 // a on the floor at x 400 uses move id at its target at x 700, tAlt up; an idle enemy b
-// stands at x bx, bAlt up, facing a. Returns b once a's move has run its course.
-function attack(id, { tAlt, bx, bAlt = 0, roll = 0.1 }) {
+// stands at x bx, bAlt up, facing a. With aimAtB, b is a's target instead: the shadow clones
+// warn only their target (#415). Returns b once a's move has run its course.
+function attack(id, { tAlt, bx, bAlt = 0, roll = 0.1, aimAtB = false }) {
   const game = load(roll);
   const [a, t, b] = game.fighters;
   Object.assign(a, held, { x: 400, alt: 0, facing: 1, state: 'idle', target: t });
   Object.assign(t, held, { x: 700, alt: tAlt, facing: -1, state: 'hit', st: 0, dur: 99, target: a });
   Object.assign(b, held, { x: bx, alt: bAlt, facing: -1, state: 'idle', target: a });
+  if (aimAtB) a.target = b;
   for (const f of game.fighters) f.W = f.joints();
   const m = [...game.SUPER, ...game.MAGIC, ...game.NINJA].find(x => x.id === id);
   a.startMove(m);
@@ -60,11 +62,11 @@ for (const id of ['beam', 'fireball', 'ice', 'blast', 'shuriken']) {
 
 for (const [roll, how] of [[0.3, 'dodge'], [0.5, 'vanish in smoke']]) {
   test('an enemy on a ledge 185 up does not ' + how + ' from shadow clones cast on the floor (#382)', () => {
-    const b = attack('clones', { tAlt: 0, bx: 450, bAlt: 185, roll });
+    const b = attack('clones', { tAlt: 0, bx: 450, bAlt: 185, roll, aimAtB: true });
     assert.ok(!reacted(b), 'the enemy on the ledge reacted (' + b.state + ', evade ' + b.evade + ')');
   });
   test('an enemy on the floor still ' + (roll === 0.3 ? 'dodges' : 'vanishes in smoke') + ' from shadow clones cast on the floor (#382)', () => {
-    const b = attack('clones', { tAlt: 0, bx: 450, roll });
+    const b = attack('clones', { tAlt: 0, bx: 450, roll, aimAtB: true });
     assert.ok(reacted(b), 'the enemy on the floor did not react');
   });
 }
