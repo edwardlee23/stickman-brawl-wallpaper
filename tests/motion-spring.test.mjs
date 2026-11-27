@@ -94,11 +94,26 @@ test('a very short step does not blow the spring up', () => {
   }
 });
 
+test('a staff strike\'s tip is drawn within 4 px', () => {
+  const game = load();
+  const [a, e] = game.fighters;
+  for (const id of game.STAFF_STRIKES) {
+    const m = game.STAFF_MOVE[id];
+    hold(e, { x: 2000 });
+    hold(a, { state: 'idle', facing: 1 });
+    a.target = e;
+    a.startMove(m);
+    for (let t = 0; t + DT / 2 < m.wind + m.act * 0.5; t += DT) game.update(DT);
+    const d = dist(game.staffTip(a.V, m.hit), game.staffTip(a.W, m.hit));
+    assert.ok(d <= 4, id + ': staff tip drawn ' + d.toFixed(2) + ' px from the hit');
+  }
+});
+
 test('at rest the drawn body is the game body', () => {
   const game = load();
   const f = game.fighters[0];
-  for (const state of ['hit', 'frozen']) {
-    hold(f, { state });
+  for (const [state, o] of [['hit'], ['frozen'], ['launched'], ['thrown', { th: { hx: 640, hy: 300 } }], ['hit', { spin: true }]]) {
+    hold(f, { state, ...o });
     f.pose.aF += 0.8;
     for (let t = 0; t < 1.5; t += DT) { f.stepLook(DT); }
     f.W = f.joints(); f.V = f.viewJoints();

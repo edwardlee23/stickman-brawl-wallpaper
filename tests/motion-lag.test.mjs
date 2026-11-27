@@ -31,6 +31,18 @@ test('a sudden lunge makes the head trail and return', () => {
   assert.ok(Math.abs(f.viewJoints().head.x - f.joints().head.x) < 0.1, 'the head did not come back');
 });
 
+test('while spinning, the head trails the way it is drawn', () => {
+  // A spin move draws the fighter facing away: its lag must follow the drawn frame
+  const game = load();
+  const f = game.fighters[0];
+  hold(f, { spin: true });
+  for (let i = 0; i < 10; i++) f.stepLook(DT);
+  f.vx = 300;
+  let most = 0;
+  for (let t = 0; t < 0.1; t += DT) { f.stepLook(DT); most = Math.min(most, f.viewJoints().head.x - f.joints().head.x); }
+  assert.ok(most < -0.5, 'the head trailed only ' + most + ' px');
+});
+
 test('lag never stretches a limb', () => {
   const game = load('?count=4&mode=ffa');
   const { L } = game;

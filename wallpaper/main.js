@@ -950,6 +950,7 @@ const LOOK_STEP = 1 / 240;   // Longest spring sub-step, so a slow frame rate st
 // point, at most max px from where the pose puts it, and the joint each point hangs from
 const LAG = { w: 22, z: 0.45, max: { head: 3, hand: 5 } };
 const LAG_PARENT = { head: 'sh', hF: 'eF', hB: 'eB' };
+const LEAD_ARM = { hF: ['aF', 'eF'], hB: ['aB', 'eB'] };   // The pose keys of the arm each hand ends
 class Fighter {
   constructor(id, x, z, team, hue) {
     Object.assign(this, { id, x, z, team, hue });
@@ -993,9 +994,14 @@ class Fighter {
     dt = look.carry; look.carry = 0;
     const { d, v, p0, v0 } = look, { w, z, g } = LOOK;
     const n = Math.ceil(dt / LOOK_STEP), h = dt / n;
+    // The point a strike lands with leads it, so it is drawn where it hits: until the strike is
+    // over, a striking hand has no lag and its arm no offset (a staff would magnify either)
+    const m = this.state === 'attack' ? this.move : null, lead = m && !m.type && this.st < m.wind + m.act ? m.hit : null;
+    const still = LEAD_ARM[lead] || [];
     for (const k of KEYS) {
       const vel = (this.pose[k] - p0[k]) / dt, acc = (vel - v0[k]) / dt;
       p0[k] = this.pose[k]; v0[k] = vel;
+      if (still.includes(k)) { d[k] = 0; v[k] = 0; continue; }
       for (let i = 0; i < n; i++) {
         v[k] += (-w * w * d[k] - 2 * z * w * v[k] - g * acc) * h;
         d[k] += v[k] * h;
@@ -1005,10 +1011,8 @@ class Fighter {
     // acceleration of the joint each point hangs from and by the body's change of speed (not
     // of place, so a teleport moves nothing), then clamped.
     const J = fk(this.lookPose()), par = look.par || {};
-    const bx = (this.vx - look.bvx) / dt * this.facing, by = -(this.va - look.bva) / dt;
+    const bx = (this.vx - look.bvx) / dt * this.drawFacing(), by = -(this.va - look.bva) / dt;
     look.bvx = this.vx; look.bva = this.va;
-    // The point a strike lands with leads it, so it is drawn where it hits
-    const m = this.state === 'attack' ? this.move : null, lead = m && !m.type && this.st < m.wind + m.act ? m.hit : null;
     for (const k in LAG_PARENT) {
       const P = J[LAG_PARENT[k]], q = par[k] || { x: P.x, y: P.y, vx: 0, vy: 0 };
       const vx = (P.x - q.x) / dt, vy = (P.y - q.y) / dt;

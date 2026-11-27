@@ -68,9 +68,10 @@ export function loadMain({
   if (prelude) vm.runInContext(prelude, context);
   let code = patch ? patch(source) : source;
   if (stiff) {
-    const VIEW = 'f.V = f.rag ? f.rag.pts : f.viewJoints();';
-    if (!code.includes(VIEW)) throw new Error('main.js no longer sets ' + VIEW);
-    code = code.replaceAll(VIEW, 'f.V = null;');
+    for (const VIEW of ['f.V = f.rag ? f.rag.pts : f.viewJoints();', 'f.V = f.viewJoints();']) {
+      if (!code.includes(VIEW)) throw new Error('main.js no longer sets ' + VIEW);
+      code = code.replaceAll(VIEW, 'f.V = null;');
+    }
   }
   if (expose !== undefined) {
     if (!code.includes(END)) throw new Error('main.js no longer ends with ' + JSON.stringify(END));
