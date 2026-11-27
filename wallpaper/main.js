@@ -1769,7 +1769,10 @@ class Fighter {
       }
       lerpPose(this.pose, SLAM_UP, Math.min(1, dt * 12), this.pose);
       this.aura = 0.8;
-      if ((this.va < 0 && this.st > 0.25) || (md.wasAir && this.st > 0.12)) {
+      // A jump that landed has va 0 for good: at large figure sizes on a side ledge at the jump
+      // ceiling, or on the floor of a small screen before 0.25 s (issue #460)
+      if ((this.va < 0 && this.st > 0.25) || (this.va === 0 && !this.aloft() && this.st > 0.12) ||
+          (md.wasAir && this.st > 0.12)) {
         md.ph = 'down'; this.hover = true; this.va = -1300; this.vx *= 0.2; this.trailOn = true;
       }
     } else if (md.ph === 'down') {
