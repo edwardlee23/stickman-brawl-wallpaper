@@ -636,10 +636,10 @@ function clash(a, b, Ha, Hb) {
 // off balance for PARRY_STAGGER s while the blocker strikes back. Strikes meet when an enemy
 // warned of one answers it with its own (warn, MEET_CHANCE)
 const CLASH_DIST = 16, CLASH_STAGGER = 0.3, PARRY_CHANCE = 0.35, PARRY_STAGGER = 0.4;
-const MEET_CHANCE = 0.25;
+const MEET_CHANCE = 0.25;   // Share of martial-arts strikes an enemy warned of meets with a strike of its own (warn)
 // Spacing: the chance a second, while a fighter waits with its target in reach, that it backs
 // off into a standoff; how far from the target's depth it circles; the speed of the rush in
-const STANDOFF_RATE = 0.7, STANDOFF_DZ = 18, RUSH_SPEED = 520;   // Share of martial-arts strikes an enemy warned of meets with a strike of its own (warn)
+const STANDOFF_RATE = 0.7, STANDOFF_DZ = 18, RUSH_SPEED = 520;
 // A cloud of smoke: a few grey balls that swell and fade
 function puff(x, y, size) {
   const balls = [];
@@ -1435,8 +1435,8 @@ class Fighter {
       if (this.evade <= 0 && this.dash <= 0) {
         this.vx = approach(this.vx, dir * this.facing * 110, 600 * dt);
         // Circling while spacing: round the target in depth, turning back at STANDOFF_DZ from its
-        // depth or at the front and back of the floor
-        // Not on a ledge: its top is a height on screen, so a step in depth would step off it
+        // depth or at the front and back of the floor. Not on a ledge, whose top is a height on
+        // screen, so a step in depth would step off it
         if (this.standoff > 0 && !ledge) {
           if ((this.z - t.z) * this.circle > STANDOFF_DZ || this.z + this.circle * 6 < 0 || this.z + this.circle * 6 > DEPTH) this.circle = -this.circle;
           this.vz = approach(this.vz, this.circle * 40, 300 * dt);
