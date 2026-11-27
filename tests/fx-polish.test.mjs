@@ -77,7 +77,7 @@ test('a strike leaves a smear only through its active time', () => {
   const act = seen.filter(([t]) => t >= m.wind + 1e-9 && t < m.wind + m.act - 1e-9);
   assert.ok(act.length > 2 && act.slice(1).every(([, n]) => n > 0), 'no smear in the active time');
   assert.ok(seen.filter(([t]) => t < m.wind || t > m.wind + m.act + 0.01).every(([, n]) => n === 0), 'a smear outside it');
-  assert.ok(act.every(([, n]) => n <= 4), 'more than 4 steps kept');
+  assert.ok(Math.max(...act.map(([, n]) => n)) <= 10, 'more than 0.07 s of steps at 120 a second kept');
 });
 
 test('a grab leaves no smear', () => {

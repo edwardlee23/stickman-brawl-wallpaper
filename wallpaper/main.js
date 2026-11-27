@@ -1050,7 +1050,7 @@ class Fighter {
     this.th = null; this.rag = null; this.hipH = 44; this.W = null; this.downDur = 1; this.koPending = false;
     this.aura = 0; this.alpha = 1; this.invis = false; this.ghost = false;
     this.trail = []; this.trailOn = false; this.trailT = 0;
-    this.smear = [];   // Where a strike's lead limb was over its last few steps (updSmear)
+    this.smear = [];   // Where a strike's lead limb was over its last SMEAR_AGE seconds (updSmear)
     this.subFrom = null; this.subT = 0;   // A substitution readied against this attacker, for subT seconds
     this.reachT = 0;                      // Seconds the queued move has been out of reach
     this.V = null; this.resetLook();      // The drawn joints, and the spring offset they are drawn with
@@ -3019,7 +3019,8 @@ Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKE
 Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
 // A smear frame: through a strike's active time, the band its lead limb sweeps over the last
-// few steps is drawn as a faded fill (drawFighter), so a fast kick reads as a blur of motion
+// SMEAR_AGE seconds is drawn as a faded fill (drawFighter), so a fast kick reads as a blur of motion
+const SMEAR_AGE = 0.07;   // Seconds of the sweep a smear covers
 const SMEAR_ROOT = { hF: 'eF', hB: 'eB', eF: 'sh', eB: 'sh', fF: 'kF', fB: 'kB', kF: 'hip', kB: 'hip' };
 function updSmear(f) {
   const m = f.move, D = f.V || f.W;
@@ -3027,8 +3028,8 @@ function updSmear(f) {
     f.st >= m.wind && f.st < m.wind + m.act;
   if (!on) { f.smear.length = 0; return; }
   const e = D[m.hit], r = D[SMEAR_ROOT[m.hit]];
-  f.smear.push({ ex: e.x, ey: e.y, rx: r.x, ry: r.y });
-  if (f.smear.length > 4) f.smear.shift();
+  f.smear.push({ t: f.time, ex: e.x, ey: e.y, rx: r.x, ry: r.y });
+  while (f.time - f.smear[0].t > SMEAR_AGE) f.smear.shift();
 }
 function update(dt, real = dt) {
   roundRulesStep();
@@ -3235,7 +3236,7 @@ function drawFighter(f) {
   if (f.smear.length > 1) {
     const s = f.smear, a = s[0], b = s[s.length - 1];
     if (Math.hypot(b.ex - a.ex, b.ey - a.ey) > 8) {
-      ctx.globalAlpha = 0.28 * f.alpha; ctx.fillStyle = col;
+      ctx.globalAlpha = 0.35 * f.alpha; ctx.fillStyle = col;
       ctx.beginPath();
       for (const p of s) ctx.lineTo(p.ex, p.ey);
       for (let i = s.length - 1; i >= 0; i--) ctx.lineTo(s[i].rx, s[i].ry);
@@ -3341,7 +3342,7 @@ function drawFx(o, layer) {
     const k = easeOut(u);
     ctx.fillStyle = cfg.line;
     for (const b of o.balls) {
-      ctx.globalAlpha = 0.16 * (1 - u);
+      ctx.globalAlpha = 0.22 * (1 - u);
       ctx.beginPath();
       ctx.ellipse(o.x + b.dx + b.vx * o.dur * k, o.y + b.vy * o.dur * k, b.r * (0.7 + u), b.r * (0.4 + u * 0.5), 0, 0, Math.PI * 2);
       ctx.fill();
