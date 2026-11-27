@@ -946,6 +946,10 @@ const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jum
 // hits, grabs and items read the game pose, so the fight is unchanged.
 const LOOK = { w: 40, z: 0.5, g: 0.35 };
 const LOOK_STEP = 1 / 240;   // Longest spring sub-step, so a slow frame rate stays stable
+// The lag of the drawn head and hands (layer 4): a spring at w rad/s with damping ratio z per
+// point, at most max px from where the pose puts it, and the joint each point hangs from
+const LAG = { w: 22, z: 0.45, max: { head: 3, hand: 5 } };
+const LAG_PARENT = { head: 'sh', hF: 'eF', hB: 'eB' };
 class Fighter {
   constructor(id, x, z, team, hue) {
     Object.assign(this, { id, x, z, team, hue });
@@ -971,16 +975,17 @@ class Fighter {
   }
   drawFacing() { return this.spin ? -this.facing : this.facing; }
 
-  // Puts the drawn pose back on the game pose, at rest
+  // Puts the drawn pose back on the game pose, at rest, with no lag
   resetLook() {
-    const d = {}, v = {}, v0 = {};
+    const d = {}, v = {}, v0 = {}, lag = {};
     for (const k of KEYS) { d[k] = 0; v[k] = 0; v0[k] = 0; }
-    this.look = { d, v, p0: clonePose(this.pose), v0 };
+    for (const k in LAG_PARENT) lag[k] = { x: 0, y: 0, vx: 0, vy: 0 };
+    this.look = { d, v, p0: clonePose(this.pose), v0, lag, par: null, bvx: this.vx, bva: this.va };
   }
-  // Moves the spring offset on by dt. A frozen or ragdoll body is drawn as it is.
+  // Moves the spring offset and the lag on by dt. A frozen or ragdoll body is drawn as it is.
   stepLook(dt) {
     if (this.state === 'frozen' || this.rag || dt <= 0) { this.resetLook(); return; }
-    const { d, v, p0, v0 } = this.look, { w, z, g } = LOOK;
+    const look = this.look, { d, v, p0, v0 } = look, { w, z, g } = LOOK;
     const n = Math.ceil(dt / LOOK_STEP), h = dt / n;
     for (const k of KEYS) {
       const vel = (this.pose[k] - p0[k]) / dt, acc = (vel - v0[k]) / dt;
@@ -990,17 +995,60 @@ class Fighter {
         d[k] += v[k] * h;
       }
     }
+    // The lag (layer 4), in the fighter's own frame: x forward, y down. It is driven by the
+    // acceleration of the joint each point hangs from and by the body's change of speed (not
+    // of place, so a teleport moves nothing), then clamped.
+    const J = fk(this.lookPose()), par = look.par || {};
+    const bx = (this.vx - look.bvx) / dt * this.facing, by = -(this.va - look.bva) / dt;
+    look.bvx = this.vx; look.bva = this.va;
+    // The point a strike lands with leads it, so it is drawn where it hits
+    const m = this.state === 'attack' ? this.move : null, lead = m && !m.type && this.st < m.wind + m.act ? m.hit : null;
+    for (const k in LAG_PARENT) {
+      const P = J[LAG_PARENT[k]], q = par[k] || { x: P.x, y: P.y, vx: 0, vy: 0 };
+      const vx = (P.x - q.x) / dt, vy = (P.y - q.y) / dt;
+      const ax = (vx - q.vx) / dt + bx, ay = (vy - q.vy) / dt + by;
+      par[k] = { x: P.x, y: P.y, vx, vy };
+      if (k === lead) { Object.assign(look.lag[k], { x: 0, y: 0, vx: 0, vy: 0 }); continue; }
+      const o = look.lag[k], max = k === 'head' ? LAG.max.head : LAG.max.hand, lw = LAG.w, lz = LAG.z;
+      for (let i = 0; i < n; i++) {
+        o.vx += (-lw * lw * o.x - 2 * lz * lw * o.vx - ax) * h;
+        o.vy += (-lw * lw * o.y - 2 * lz * lw * o.vy - ay) * h;
+        o.x += o.vx * h; o.y += o.vy * h;
+        const r = Math.hypot(o.x, o.y);
+        if (r > max) { o.x *= max / r; o.y *= max / r; o.vx *= 0.5; o.vy *= 0.5; }
+      }
+    }
+    look.par = par;
   }
-  // The drawn joints: the game pose plus the spring offset, placed as joints() places them
-  viewJoints() {
+  // The game pose plus the spring offset
+  lookPose() {
     const p = {};
     for (const k of KEYS) p[k] = this.pose[k] + this.look.d[k];
-    return this.joints(p);
+    return p;
+  }
+  // The drawn joints: the game pose plus the spring offset, the head and hands moved by their
+  // lag and swung back onto their segment's length round the joint they hang from, placed as
+  // joints() places the game joints
+  viewJoints() {
+    const J = fk(this.lookPose());
+    for (const k in LAG_PARENT) {
+      const o = this.look.lag[k];
+      if (!o.x && !o.y) continue;
+      const P = J[LAG_PARENT[k]], r = Math.hypot(J[k].x - P.x, J[k].y - P.y);
+      const qx = J[k].x + o.x - P.x, qy = J[k].y + o.y - P.y, s = r / (Math.hypot(qx, qy) || 1);
+      J[k] = { x: P.x + qx * s, y: P.y + qy * s };
+    }
+    return this.place(J);
   }
 
   joints(pose = this.pose) {
     const J = fk(pose);
     if (pose === this.pose) this.hipH = -J.hip.y;
+    return this.place(J);
+  }
+  // Joints J in local coordinates, placed in the world: facing, spin, the body's turn, and the
+  // anchor the state holds it by
+  place(J) {
     const fac = this.drawFacing();
     let px = 0, py = 0, ax = this.x, ay = groundY(this.z) - this.alt;
     if (this.state === 'thrown') { px = J.hip.x; py = J.hip.y; ax = this.th.hx; ay = this.th.hy; }
@@ -2801,7 +2849,7 @@ function drawHeld(f) {
 Object.assign(window.__stickmanBrawl, { items, spawnItem, withStaff, newRound });
 // For the tests that pin the rules inside these (issue #355)
 Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKES, staffTip, hitTest, ledgeHit, ragPlatform,
-  ragCorners, updateShots, updateItems, steerBoomerang, LOOK, GUARD, WALK, walkPose, FOLLOW });
+  ragCorners, updateShots, updateItems, steerBoomerang, LOOK, GUARD, WALK, walkPose, FOLLOW, LAG });
 Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
 function update(dt) {
