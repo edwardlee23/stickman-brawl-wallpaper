@@ -116,6 +116,21 @@ function fk(p) {
   return J;
 }
 
+// The walk cycle (livelier motion, layer 2), added to pose p at stride phase `phase` and forward
+// speed sp in px/s (negative walking backward). The thighs swing; the knee of the leg swinging
+// forward bends, lifting its foot; the arms swing against the legs; and the torso leans in from
+// 150 px/s, smoothly, to 0.4 at 450 px/s. Everything grows with speed up to 60 px/s.
+const WALK = { thigh: 0.32, knee: 0.55, arm: 0.22 };
+function walkPose(p, phase, sp) {
+  const s = Math.min(1, Math.abs(sp) / 60), sw = Math.sin(phase), fw = Math.cos(phase) * sgn(sp);
+  p.lF += sw * WALK.thigh * s; p.lB -= sw * WALK.thigh * s;
+  p.kF -= Math.max(0, fw) * WALK.knee * s; p.kB -= Math.max(0, -fw) * WALK.knee * s;
+  p.aF -= sw * WALK.arm * s; p.aB += sw * WALK.arm * s;
+  const u = clamp((Math.abs(sp) - 150) / 300, 0, 1);
+  p.t += 0.4 * u * u * (3 - 2 * u);
+  return p;
+}
+
 // ---------- Moves ----------
 // Real martial arts (the strike point sweeps from W to A)
 const MOVES = [
@@ -1183,9 +1198,7 @@ class Fighter {
     }
     const sp = this.vx * this.facing;
     this.walk += dt * sp * 0.11;
-    const amp = Math.min(1, Math.abs(sp) / 60) * 0.32;
-    tp.lF += Math.sin(this.walk) * amp; tp.lB -= Math.sin(this.walk) * amp;
-    if (Math.abs(sp) > 300) tp.t += 0.4;
+    walkPose(tp, this.walk, sp);
     const b = Math.sin(this.time * 7 + this.id);
     tp.kF += b * 0.07; tp.kB += b * 0.07; tp.t += b * 0.02;
     lerpPose(this.pose, tp, Math.min(1, dt * 14), this.pose);
@@ -2769,7 +2782,7 @@ function drawHeld(f) {
 Object.assign(window.__stickmanBrawl, { items, spawnItem, withStaff, newRound });
 // For the tests that pin the rules inside these (issue #355)
 Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKES, staffTip, hitTest, ledgeHit, ragPlatform,
-  ragCorners, updateShots, updateItems, steerBoomerang, LOOK });
+  ragCorners, updateShots, updateItems, steerBoomerang, LOOK, GUARD, WALK, walkPose });
 Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
 function update(dt) {
