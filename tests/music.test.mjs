@@ -88,7 +88,7 @@ test('the line glow pulses on a beat only when flashing is allowed', () => {
 });
 
 test('project.json turns on audio processing and keeps React to music off by default', () => {
-  const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
+  const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
   assert.equal(project.general.supportsaudioprocessing, true);
   const p = project.general.properties;
   assert.equal(p.audioreactive.type, 'bool');

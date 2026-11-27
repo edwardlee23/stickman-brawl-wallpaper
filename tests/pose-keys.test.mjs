@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { loadMain } from './load-main.mjs';
 
-const src = readFileSync('wallpaper/main.js', 'utf8');
+const src = readFileSync(new URL('../wallpaper/main.js', import.meta.url), 'utf8');
 
 function load() {
   return loadMain({ search: '?count=6&mode=ffa' }).game;

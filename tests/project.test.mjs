@@ -6,16 +6,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 
-const DIR = 'wallpaper';
-const project = JSON.parse(readFileSync(join(DIR, 'project.json'), 'utf8'));
-const main = readFileSync(join(DIR, 'main.js'), 'utf8');
+const DIR = new URL('../wallpaper/', import.meta.url);
+const project = JSON.parse(readFileSync(new URL('project.json', DIR), 'utf8'));
+const main = readFileSync(new URL('main.js', DIR), 'utf8');
 const { properties, localization } = project.general;
 
 test('the entry file and preview image exist', () => {
-  assert.ok(existsSync(join(DIR, project.file)), project.file);
-  assert.ok(existsSync(join(DIR, project.preview)), project.preview);
+  assert.ok(existsSync(new URL(project.file, DIR)), project.file);
+  assert.ok(existsSync(new URL(project.preview, DIR)), project.preview);
 });
 
 test('the wallpaper folder holds only the files Wallpaper Engine needs', () => {

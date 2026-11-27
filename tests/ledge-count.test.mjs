@@ -26,7 +26,7 @@ test('a narrow world has two ledges, from the screen shape or from a large figur
 });
 
 test('the README says a narrow screen gets two ledges, not only a large figure size', () => {
-  const readme = readFileSync('README.md', 'utf8');
+  const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   const para = readme.slice(readme.indexOf('"Floating platforms"')).split('\n\n')[0];
   assert.match(para, /narrow/);
   assert.match(para, /portrait/);

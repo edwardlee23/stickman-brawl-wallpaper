@@ -49,6 +49,16 @@ test('only minor and patch Dependabot updates merge themselves (#41, #428)', () 
   );
 });
 
+test('the auto-merge job runs only on pull requests Dependabot opened (#468)', () => {
+  // The job holds contents: write and pull-requests: write; its own condition keeps it off
+  // every other pull request.
+  const job = autoMerge.match(/^  auto-merge:\n((?: {4,}.*\n|\n)*)/m);
+  assert.ok(job, 'the workflow has an auto-merge job');
+  const cond = job[1].split('\n').find((l) => /^ {4}if:/.test(l));
+  assert.ok(cond, 'the auto-merge job has a job-level if');
+  assert.equal(cond.replace(/^ {4}if:\s*/, '').trim(), "github.event.pull_request.user.login == 'dependabot[bot]'");
+});
+
 test('the auto-merge workflow grants nothing at workflow level, and write only to its job (#428)', () => {
   const perms = topBlock(autoMerge, 'permissions');
   assert.equal(perms.inline, '{}');

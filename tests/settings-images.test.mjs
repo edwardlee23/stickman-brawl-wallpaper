@@ -9,17 +9,17 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { SHOTS } from '../scripts/settings-shots.mjs';
 import { fileOf, parseNames, musicFrame, fixedDate } from '../scripts/record-settings.mjs';
 
-const properties = JSON.parse(readFileSync('wallpaper/project.json', 'utf8')).general.properties;
+const properties = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8')).general.properties;
 const READMES = ['README.md', 'README.zh-TW.md', 'README.zh-CN.md'];
 const images = text => [...text.matchAll(/\(docs\/images\/([\w-]+\.(?:png|gif))\)/g)].map(m => m[1]);
 
 test('every picture in the list is in docs/images, and docs/images holds nothing else', () => {
-  assert.deepEqual(readdirSync('docs/images').sort(), SHOTS.map(fileOf).sort());
+  assert.deepEqual(readdirSync(new URL('../docs/images', import.meta.url)).sort(), SHOTS.map(fileOf).sort());
 });
 
 test('each README shows every picture in the list, once, and in the same order', () => {
   const want = SHOTS.map(fileOf);
-  const seen = READMES.map(f => images(readFileSync(f, 'utf8')));
+  const seen = READMES.map(f => images(readFileSync(new URL('../' + f, import.meta.url), 'utf8')));
   for (const [k, list] of seen.entries()) {
     assert.deepEqual([...list].sort(), [...want].sort(), READMES[k]);
   }
@@ -28,7 +28,7 @@ test('each README shows every picture in the list, once, and in the same order',
 
 test('each README links to the other two', () => {
   for (const f of READMES) {
-    const text = readFileSync(f, 'utf8');
+    const text = readFileSync(new URL('../' + f, import.meta.url), 'utf8');
     for (const g of READMES) if (g !== f) assert.ok(text.includes('](' + g + ')'), f + ' does not link to ' + g);
   }
 });
@@ -50,6 +50,60 @@ test('the list names only settings the panel has, with values it can take', () =
     }
     if (shot.tiles) assert.ok([2, 4].includes(shot.tiles.length), shot.name + ': 2 or 4 tiles');
     if (shot.tiles) assert.ok(!shot.secs, shot.name + ': tiles make a still');
+  }
+});
+
+// The fields scripts/settings-shots.mjs documents; a tile may set any of them but name, tiles
+// and secs, since a grid of tiles is one still (#468)
+const SHOT_FIELDS = ['name', 'seed', 'query', 'props', 'skip', 'ko', 'item', 'clicks', 'music', 'hour', 'tiles', 'secs'];
+const TILE_FIELDS = SHOT_FIELDS.filter(k => !['name', 'tiles', 'secs'].includes(k));
+
+// What is wrong with a shot, as a list of messages; empty when nothing is
+function shotProblems(shot) {
+  const out = [];
+  const name = shot.name;
+  for (const k of Object.keys(shot)) if (!SHOT_FIELDS.includes(k)) out.push(name + ': unknown field ' + k);
+  for (const [i, t] of (shot.tiles || []).entries()) {
+    for (const k of Object.keys(t)) if (!TILE_FIELDS.includes(k)) out.push(name + ': tile ' + i + ': unknown field ' + k);
+  }
+  // Each picture the recorder makes: the shot itself, or each tile over the shared fields
+  const pictures = (shot.tiles || [{}]).map(t => ({ ...shot, ...t, props: { ...(shot.props || {}), ...(t.props || {}) } }));
+  for (const [i, p] of pictures.entries()) {
+    const where = name + (shot.tiles ? ': tile ' + i : '');
+    // Without hour the recorder leaves the clock running, and the picture shows the recording machine's time
+    const theme = p.props.backgroundtheme ? p.props.backgroundtheme.value : properties.backgroundtheme.value;
+    if (theme === 'daynight' && p.hour === undefined) out.push(where + ': Day and night needs an hour');
+    if (p.hour !== undefined && !(Number.isInteger(p.hour) && p.hour >= 0 && p.hour <= 23)) out.push(where + ': hour ' + p.hour + ' is not a whole number 0-23');
+    const starts = ['skip', 'ko', 'item'].filter(k => p[k] !== undefined);
+    if (starts.length > 1) out.push(where + ': only one of skip, ko and item, not ' + starts.join(' and '));
+    if (p.music && !(p.props.audioreactive && p.props.audioreactive.value === true)) out.push(where + ': music without audioreactive: true');
+  }
+  for (const [t] of shot.clicks || []) {
+    if (!shot.secs || !(t >= 0 && t < shot.secs)) out.push(name + ': a click at ' + t + ' s is outside the ' + (shot.secs || 0) + ' s clip');
+  }
+  return out;
+}
+
+test('every shot sets only known fields, with values the recorder uses (#468)', () => {
+  assert.deepEqual(SHOTS.flatMap(shotProblems), []);
+});
+
+test('the shot check catches the changes #468 names', () => {
+  const shot = n => structuredClone(SHOTS.find(s => s.name === n));
+  const dayNight = shot('day-and-night');
+  dayNight.tiles = dayNight.tiles.map(({ hour }) => ({ hours: hour }));
+  const backgrounds = shot('backgrounds');
+  delete backgrounds.hour;
+  const click = shot('click-blast');
+  click.clicks = [[3.5, 640, 560]];
+  const slow = shot('slow-motion');
+  slow.skip = 40;
+  const music = shot('music');
+  delete music.props.audioreactive;
+  const fractional = shot('backgrounds');
+  fractional.hour = 21.5;
+  for (const bad of [dayNight, backgrounds, click, slow, music, fractional]) {
+    assert.notDeepEqual(shotProblems(bad), [], bad.name + ' passes the check');
   }
 });
 

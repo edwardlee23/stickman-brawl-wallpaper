@@ -20,7 +20,7 @@
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-export const source = readFileSync('wallpaper/main.js', 'utf8');
+export const source = readFileSync(new URL('../wallpaper/main.js', import.meta.url), 'utf8');
 const END = 'requestAnimationFrame(frame);\n})();';
 
 // A 2D context that takes every call and every property; a gradient it returns takes colour stops

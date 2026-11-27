@@ -130,6 +130,6 @@ test('with "Reduce flashing and screen shake" on, time slows but the view has no
 test('the slow-motion finish is off by default', () => {
   const w = load('?count=2');
   assert.equal(w.game.cfg.slowmo, false);
-  const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
+  const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
   assert.equal(project.general.properties.slowmofinish.value, false);
 });

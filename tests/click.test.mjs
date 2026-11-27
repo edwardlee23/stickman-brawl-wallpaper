@@ -92,7 +92,7 @@ test('a click with Click to blast on pushes a knocked-out ragdoll away', () => {
 });
 
 test('Click to blast is in the settings panel at order 28 and off by default', () => {
-  const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
+  const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
   const p = project.general.properties.clickblast;
   assert.ok(p, 'clickblast setting exists');
   assert.deepEqual([p.order, p.type, p.value, p.text], [28, 'bool', false, 'ui_clickblast']);
