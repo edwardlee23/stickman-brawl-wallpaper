@@ -39,6 +39,21 @@ scan shows all eight styles, and name it in the commit message. The recorder
 draws the canvas in software, so with the same Chrome and ffmpeg a seed gives
 the same GIF byte for byte.
 
+The pictures of the settings in both READMEs (`docs/images/`) are listed in
+`scripts/settings-shots.mjs` and recorded the same way. Record them again
+after a change people can see in a setting, or a change to `main.js` that can
+shift the random sequence, and look at each one: a picture whose knockout,
+item drop or move no longer shows needs another seed or start in the list.
+
+```bash
+node scripts/record-settings.mjs                  # every picture
+node scripts/record-settings.mjs items platforms  # only these
+```
+
+A new setting people can see gets a picture: an entry in the list (a GIF for
+motion, a still PNG otherwise), and the image in both READMEs, in the same
+order. The tests check that the list, `docs/images/` and both READMEs agree.
+
 ## Never
 
 - Never add a runtime dependency or a build step: Wallpaper Engine must be
@@ -54,7 +69,9 @@ the same GIF byte for byte.
 ## Rules
 
 - Docs, comments and commit messages are in English. The settings panel keeps
-  its Traditional and Simplified Chinese translations.
+  its Traditional and Simplified Chinese translations, and `README.zh-TW.md` is
+  the README in Traditional Chinese: a change to `README.md` is made to both,
+  using the panel's `zh-cht` labels for the settings.
 - Every settings label in `project.json` is a `ui_` token with a translation in
   every language under `general.localization` (`en-us`, `zh-cht`, `zh-chs`).
   The tests fail otherwise.
@@ -94,8 +111,11 @@ the same GIF byte for byte.
 | `wallpaper/main.js` | The whole wallpaper: settings, skeleton, moves, fighters, rounds, rendering. |
 | `wallpaper/project.json` | Wallpaper Engine manifest: title, settings panel, translations. |
 | `wallpaper/preview.jpg` | Workshop preview image. |
+| `README.md`, `README.zh-TW.md` | The README in English and in Traditional Chinese, kept in step. |
 | `demo.gif` | Animated demo shown in the README; not used by Wallpaper Engine. |
+| `docs/images/` | Pictures of the settings shown in both READMEs; not used by Wallpaper Engine. |
 | `scripts/record-demo.mjs` | Records `demo.gif` (seeded, fixed time step); needs Playwright and ffmpeg. |
+| `scripts/record-settings.mjs`, `scripts/settings-shots.mjs` | Record `docs/images/` from the list of pictures, the same way. |
 | `tests/` | `node:test` tests: behavior simulations of fights, frames and sound, plus checks that the files agree with each other. |
 
 ## Phase status
