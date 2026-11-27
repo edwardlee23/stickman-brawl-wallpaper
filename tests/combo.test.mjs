@@ -117,3 +117,25 @@ test('a move started anew starts a new combo count', () => {
   a.startMove(jab(game), true);
   assert.equal(a.combo, 0);
 });
+
+// Issue #465: a chained strike lengthens the target's reeling time; its flinch must not jerk back
+// toward FLINCH for it. Between two hits the hit pose's progress (st / dur) only grows.
+test('a reeling target recovers steadily between the strikes of a combo', () => {
+  let chained = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const { game, a, e } = load(seed);
+    a.startMove(jab(game), true);
+    let prev = null, hp = e.hp, strikes = 0, last = null;
+    for (let t = 0; t < 3 && a.state === 'attack'; t += DT) {
+      if (a.move !== last) { last = a.move; strikes++; }
+      game.update(DT);
+      if (e.hp < hp) { hp = e.hp; prev = null; }   // A new hit starts the flinch again
+      if (e.state !== 'hit') { prev = null; continue; }
+      const p = e.st / e.dur;
+      if (prev !== null) assert.ok(p >= prev - 1e-9, `seed ${seed}: reeling went back from ${prev.toFixed(3)} to ${p.toFixed(3)}`);
+      prev = p;
+    }
+    if (strikes > 1) chained++;
+  }
+  assert.ok(chained >= 10, 'combos in ' + chained + ' of 40 seeds');
+});

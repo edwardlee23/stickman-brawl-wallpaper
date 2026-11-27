@@ -2245,8 +2245,13 @@ class Fighter {
     this.target = e; stats.combos++;
     const n = pick(fits);
     // The combo keeps its target reeling until the next strike lands, or it would be back on
-    // guard and walk out of reach of a slower strike
-    e.dur = Math.max(e.dur, e.st + n.wind + n.act * 0.5 + 0.05);
+    // guard and walk out of reach of a slower strike. Its time in the flinch is stretched with
+    // it, so its pose (st / dur) holds where it was and recovers on from there (#465)
+    const keep = n.wind + n.act * 0.5 + 0.05;
+    if (e.state === 'hit' && e.st < e.dur && e.dur - e.st < keep) {
+      const p = e.st / e.dur;
+      e.dur = keep / (1 - p); e.st = p * e.dur;
+    } else e.dur = Math.max(e.dur, e.st + keep);
     this.startMove(n, false, true);
     return true;
   }
