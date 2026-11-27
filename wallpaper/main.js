@@ -597,7 +597,10 @@ function quake(x, y, r) {
 // Every sound is synthesized from noise and oscillators, so nothing is loaded.
 // The AudioContext is created on the first sound played while sound is on.
 const MAX_VOICES = 6, SFX_GAP = 0.04;      // sounds at once; seconds between two of one kind
-const snd = { ac: null, master: null, noise: null, ends: [], last: {} };
+// Knockout and win sounds have priority (issue #473): they skip the gap, and at the cap
+// they take the voice of the oldest minor sound, so no knockout or round end is silent.
+const SFX_MAJOR = { ko: true, win: true };
+const snd = { ac: null, master: null, noise: null, voices: [], last: {} };
 function soundContext() {
   if (snd.ac) return snd.ac;
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -674,17 +677,24 @@ function sfx(kind, x, strength = 1) {
   // scheduled now would wait and play with every other one at once when it resumes.
   if (!ac || ac.state !== 'running') return false;
   const t = ac.currentTime;
-  if (t - (snd.last[kind] ?? -1) < SFX_GAP) return false;
-  snd.ends = snd.ends.filter(end => end > t);
-  if (snd.ends.length >= MAX_VOICES) return false;
-  let out = snd.master;
+  const major = SFX_MAJOR[kind];
+  if (!major && t - (snd.last[kind] ?? -1) < SFX_GAP) return false;
+  snd.voices = snd.voices.filter(v => v.end > t);
+  if (snd.voices.length >= MAX_VOICES) {
+    if (!major) return false;
+    // Cuts the oldest minor sound off; with none, plays over the cap (the limiter holds it)
+    const i = snd.voices.findIndex(v => !SFX_MAJOR[v.kind]);
+    if (i >= 0) snd.voices.splice(i, 1)[0].out.disconnect();
+  }
+  // Each sound plays through a node of its own, so a major sound can cut it off
+  let out;
   if (ac.createStereoPanner) {
     out = ac.createStereoPanner();
     out.pan.value = x === undefined || !worldW ? 0 : clamp(x / worldW * 2 - 1, -1, 1) * 0.6;
-    out.connect(snd.master);
-  }
+  } else out = ac.createGain();
+  out.connect(snd.master);
   const dur = SFX[kind](ac, out, t, clamp(strength, 0.3, 1.6), rand(0.94, 1.06));
-  snd.last[kind] = t; snd.ends.push(t + dur);
+  snd.last[kind] = t; snd.voices.push({ end: t + dur, kind, out });
   stats.sfx[kind] = (stats.sfx[kind] || 0) + 1;
   return true;
 }

@@ -99,10 +99,10 @@ test('the same kind plays at most once per 40 ms', () => {
 
 test('at most 6 sounds play at once, and a slot frees once a sound ends', () => {
   const { game, AC } = load('?count=2', { sound: true });
-  const kinds = ['hit', 'hitBig', 'block', 'whiff', 'boom', 'wall', 'ko'];
+  const kinds = ['hit', 'hitBig', 'block', 'whiff', 'boom', 'wall', 'charge'];
   assert.deepEqual(kinds.map(k => game.sfx(k, 100)), [true, true, true, true, true, true, false]);
   AC.instances[0].currentTime = 5;
-  assert.equal(game.sfx('ko', 100), true);
+  assert.equal(game.sfx('charge', 100), true);
 });
 
 test('the panel turns sound on and sets the volume, including 0', () => {
