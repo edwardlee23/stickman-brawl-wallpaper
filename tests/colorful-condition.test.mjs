@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
+const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
 const MODES = project.general.properties.gamemode.options.map(o => o.value);
 
 test('Unique color per fighter is shown in the settings panel only in Free for all', () => {

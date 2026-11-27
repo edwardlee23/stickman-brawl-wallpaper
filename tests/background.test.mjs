@@ -57,7 +57,7 @@ function load({ offscreen = true, width = 1280, height = 720 } = {}) {
 const THEMES = ['plain', 'dojo', 'rooftop', 'comic', 'daynight'];
 
 test('the Background setting offers every theme, and Plain is the default', () => {
-  const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
+  const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
   const p = project.general.properties.backgroundtheme;
   assert.ok(p, 'no backgroundtheme setting');
   assert.equal(p.order, 32);

@@ -32,7 +32,7 @@ function endRound(game, winners) {
 }
 
 test('the round rules default to Normal', () => {
-  const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
+  const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
   const p = project.general.properties.roundrules;
   assert.equal(p.order, 6);
   assert.equal(p.value, 'normal');

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { loadMain } from './load-main.mjs';
 
-const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
+const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
 
 function load(random) {
   const listeners = {};

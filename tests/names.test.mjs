@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { loadMain } from './load-main.mjs';
 
-const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
+const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
 
 // Loads the wallpaper; calls records every canvas method called with its arguments
 function load(search = '?count=3&mode=ffa') {

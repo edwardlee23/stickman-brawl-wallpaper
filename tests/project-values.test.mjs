@@ -8,8 +8,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
-const main = readFileSync('wallpaper/main.js', 'utf8');
+const project = JSON.parse(readFileSync(new URL('../wallpaper/project.json', import.meta.url), 'utf8'));
+const main = readFileSync(new URL('../wallpaper/main.js', import.meta.url), 'utf8');
 const { properties, localization } = project.general;
 
 // Loads main.js with no query string and a stub canvas, and returns the window
