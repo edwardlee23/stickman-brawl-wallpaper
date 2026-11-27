@@ -26,6 +26,7 @@ function load({ query = '?count=2', seed = 1 } = {}) {
   };
   let next = null;
   const { window } = loadMain({
+    stiff: true,   // pins drawing against f.W
     search: query, canvas, document, random: mulberry32(seed),
     window: { addEventListener: (k, f) => { (listeners[k] ??= []).push(f); } },
     globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },

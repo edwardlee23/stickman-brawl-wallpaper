@@ -116,45 +116,77 @@ function fk(p) {
   return J;
 }
 
+// The walk cycle (livelier motion, layer 2), added to pose p at stride phase `phase` and forward
+// speed sp in px/s (negative walking backward). The thighs swing; the knee of the leg swinging
+// forward bends, lifting its foot; the arms swing against the legs; and the torso leans in from
+// 150 px/s, smoothly, to 0.4 at 450 px/s. Everything grows with speed up to 60 px/s.
+const WALK = { thigh: 0.32, knee: 0.55, arm: 0.22 };
+function walkPose(p, phase, sp) {
+  const s = Math.min(1, Math.abs(sp) / 60), sw = Math.sin(phase), fw = Math.cos(phase) * sgn(sp);
+  p.lF += sw * WALK.thigh * s; p.lB -= sw * WALK.thigh * s;
+  p.kF -= Math.max(0, fw) * WALK.knee * s; p.kB -= Math.max(0, -fw) * WALK.knee * s;
+  p.aF -= sw * WALK.arm * s; p.aB += sw * WALK.arm * s;
+  const u = clamp((Math.abs(sp) - 150) / 300, 0, 1);
+  p.t += 0.4 * u * u * (3 - 2 * u);
+  return p;
+}
+
 // ---------- Moves ----------
-// Real martial arts (the strike point sweeps from W to A)
+// Real martial arts (the strike point sweeps from W to A; F carries the impact on in the
+// first FOLLOW of the recovery, before the return to guard)
 const MOVES = [
   { id: 'jab', style: 'boxing', hit: 'hF', wind: 0.08, act: 0.1, rec: 0.14, dmg: 4, push: 20, lunge: 8, w: 4,
-    W: { aF: 1.15, eF: 1.3, t: 0.15 }, A: { t: 0.25, aF: 1.55, eF: 0.02, aB: 0.5, eB: 2.3, lF: 0.45, kF: -0.25 } },
+    W: { aF: 1.15, eF: 1.3, t: 0.15 }, A: { t: 0.25, aF: 1.55, eF: 0.02, aB: 0.5, eB: 2.3, lF: 0.45, kF: -0.25 },
+    F: { t: 0.34, aF: 1.76, eF: 0, aB: 0.42, eB: 2.35, lF: 0.5, kF: -0.3 } },
   { id: 'cross', style: 'boxing', hit: 'hB', wind: 0.1, act: 0.1, rec: 0.18, dmg: 7, push: 35, lunge: 10, kd: 0.05, w: 3,
-    W: { t: 0.05, aB: 0.55, eB: 2.1 }, A: { t: 0.45, aB: 1.58, eB: 0.02, aF: 0.7, eF: 2.0, lB: -0.55, kB: -0.05 } },
+    W: { t: 0.05, aB: 0.55, eB: 2.1 }, A: { t: 0.45, aB: 1.58, eB: 0.02, aF: 0.7, eF: 2.0, lB: -0.55, kB: -0.05 },
+    F: { t: 0.62, aB: 1.78, eB: 0, aF: 0.55, eF: 2.1, lB: -0.65, kB: -0.05, lF: 0.5 } },
   { id: 'hook', style: 'boxing', hit: 'hF', wind: 0.12, act: 0.1, rec: 0.2, dmg: 8, push: 30, lunge: 8, kd: 0.12, w: 3,
-    W: { t: -0.05, aF: 1.1, eF: 1.9 }, A: { t: 0.4, aF: 1.85, eF: 1.0 } },
+    W: { t: -0.05, aF: 1.1, eF: 1.9 }, A: { t: 0.4, aF: 1.85, eF: 1.0 },
+    F: { t: 0.55, aF: 2.05, eF: 1.35, aB: 0.6, eB: 2.3 } },
   { id: 'uppercut', style: 'boxing', hit: 'hB', wind: 0.14, act: 0.1, rec: 0.22, dmg: 9, push: 25, lunge: 8, kd: 0.2, up: 1, w: 2,
-    W: { t: 0.4, aB: 0.3, eB: 1.3, lF: 0.7, kF: -1.0, lB: -0.25, kB: -0.9 }, A: { t: -0.05, aB: 1.25, eB: 1.75, lF: 0.25, kF: 0, lB: -0.3, kB: 0 } },
+    W: { t: 0.4, aB: 0.3, eB: 1.3, lF: 0.7, kF: -1.0, lB: -0.25, kB: -0.9 }, A: { t: -0.05, aB: 1.25, eB: 1.75, lF: 0.25, kF: 0, lB: -0.3, kB: 0 },
+    F: { t: -0.2, aB: 1.7, eB: 1.4, aF: 0.7, eF: 2.0, lF: 0.2, kF: 0, lB: -0.25, kB: 0 } },
 
   { id: 'teep', style: 'muaythai', hit: 'fF', wind: 0.14, act: 0.12, rec: 0.2, dmg: 6, push: 70, lunge: 6, kd: 0.12, w: 3,
-    W: { t: -0.05, lF: 1.8, kF: -2.0 }, A: { t: -0.35, lF: 1.45, kF: 0.05, aF: 1.0, eF: 1.8, aB: 0.3, eB: 2.0 } },
+    W: { t: -0.05, lF: 1.8, kF: -2.0 }, A: { t: -0.35, lF: 1.45, kF: 0.05, aF: 1.0, eF: 1.8, aB: 0.3, eB: 2.0 },
+    F: { t: -0.5, lF: 1.65, kF: 0, aF: 0.9, eF: 1.9, aB: 0.15, eB: 2.1 } },
   { id: 'roundhouse', style: 'muaythai', hit: 'fB', wind: 0.16, act: 0.12, rec: 0.26, dmg: 11, push: 45, lunge: 10, kd: 0.18, w: 3,
-    W: { t: -0.1, lB: -0.7, kB: -0.9 }, A: { t: -0.6, lB: 1.9, kB: 0.15, aB: -0.5, eB: 0.4, aF: 1.1, eF: 1.9 } },
+    W: { t: -0.1, lB: -0.7, kB: -0.9 }, A: { t: -0.6, lB: 1.9, kB: 0.15, aB: -0.5, eB: 0.4, aF: 1.1, eF: 1.9 },
+    F: { t: -0.7, lB: 2.15, kB: -0.3, aB: -0.7, eB: 0.5, aF: 1.2, eF: 2.0 } },
   { id: 'elbow', style: 'muaythai', hit: 'eF', wind: 0.1, act: 0.1, rec: 0.18, dmg: 10, push: 30, lunge: 10, kd: 0.2, w: 2,
-    W: { aF: 0.9, eF: 2.1, t: 0.1 }, A: { t: 0.4, aF: 2.0, eF: 2.7, aB: 0.6, eB: 2.2 } },
+    W: { aF: 0.9, eF: 2.1, t: 0.1 }, A: { t: 0.4, aF: 2.0, eF: 2.7, aB: 0.6, eB: 2.2 },
+    F: { t: 0.55, aF: 2.25, eF: 2.8, aB: 0.45, eB: 2.3 } },
   { id: 'knee', style: 'muaythai', hit: 'kF', wind: 0.12, act: 0.12, rec: 0.2, dmg: 9, push: 35, lunge: 12, up: 1, w: 2,
-    W: { aF: 1.35, eF: 0.9, aB: 1.35, eB: 0.8, t: 0.15 }, A: { t: -0.15, lF: 1.75, kF: -2.2, lB: -0.1, kB: 0, aF: 1.1, eF: 1.2, aB: 1.1, eB: 1.2 } },
+    W: { aF: 1.35, eF: 0.9, aB: 1.35, eB: 0.8, t: 0.15 }, A: { t: -0.15, lF: 1.75, kF: -2.2, lB: -0.1, kB: 0, aF: 1.1, eF: 1.2, aB: 1.1, eB: 1.2 },
+    F: { t: -0.25, lF: 1.95, kF: -2.3, lB: -0.05, kB: 0, aF: 0.85, eF: 1.4, aB: 0.85, eB: 1.4 } },
   { id: 'lowkick', style: 'muaythai', hit: 'fB', wind: 0.13, act: 0.1, rec: 0.2, dmg: 6, push: 20, lunge: 6, kd: 0.1, w: 2,
-    W: { t: -0.05, lB: -0.5, kB: -0.6 }, A: { t: -0.35, lB: 1.25, kB: 0.2, aB: -0.3, eB: 0.5 } },
+    W: { t: -0.05, lB: -0.5, kB: -0.6 }, A: { t: -0.35, lB: 1.25, kB: 0.2, aB: -0.3, eB: 0.5 },
+    F: { t: -0.45, lB: 1.5, kB: -0.15, aB: -0.5, eB: 0.6 } },
 
   { id: 'sidekick', style: 'taekwondo', hit: 'fF', wind: 0.16, act: 0.12, rec: 0.26, dmg: 10, push: 80, lunge: 14, kd: 0.25, w: 3,
-    W: { t: -0.4, lF: 1.95, kF: -2.3, aF: 1.0, eF: 2.0 }, A: { t: -1.0, lF: 1.65, kF: 0.05, aF: 0.6, eF: 1.0, aB: -0.4, eB: 0.5 } },
+    W: { t: -0.4, lF: 1.95, kF: -2.3, aF: 1.0, eF: 2.0 }, A: { t: -1.0, lF: 1.65, kF: 0.05, aF: 0.6, eF: 1.0, aB: -0.4, eB: 0.5 },
+    F: { t: -1.2, lF: 1.85, kF: 0, aF: 0.5, eF: 1.1, aB: -0.5, eB: 0.6 } },
   { id: 'backkick', style: 'taekwondo', hit: 'fB', spin: true, wind: 0.2, act: 0.12, rec: 0.28, dmg: 13, push: 90, lunge: 10, kd: 0.35, w: 1.5,
-    W: { t: 0.3, lB: -0.5, kB: -1.4, aF: 0.8, eF: 1.6 }, A: { t: 0.85, lB: -1.65, kB: 0.05, aF: -0.6, eF: 0.6, aB: 0.3, eB: 1.2, lF: 0.15, kF: -0.2 } },
+    W: { t: 0.3, lB: -0.5, kB: -1.4, aF: 0.8, eF: 1.6 }, A: { t: 0.85, lB: -1.65, kB: 0.05, aF: -0.6, eF: 0.6, aB: 0.3, eB: 1.2, lF: 0.15, kF: -0.2 },
+    F: { t: 1.05, lB: -1.88, kB: 0, aF: -0.75, eF: 0.7, aB: 0.2, eB: 1.3, lF: 0.15, kF: -0.25 } },
   { id: 'axekick', style: 'taekwondo', hit: 'fF', wind: 0.2, act: 0.1, rec: 0.24, dmg: 11, push: 30, lunge: 8, kd: 0.2, down: 1, w: 1.5,
-    W: { t: -0.35, lF: 2.7, kF: 0.05, aF: 0.7, eF: 1.5 }, A: { t: 0.1, lF: 1.0, kF: 0, aF: 0.9, eF: 1.6 } },
+    W: { t: -0.35, lF: 2.7, kF: 0.05, aF: 0.7, eF: 1.5 }, A: { t: 0.1, lF: 1.0, kF: 0, aF: 0.9, eF: 1.6 },
+    F: { t: 0.25, lF: 0.75, kF: -0.15, aF: 0.8, eF: 1.7, lB: -0.45, kB: -0.45 } },
 
   { id: 'seoinage', style: 'judo', grab: 'over', spin: true, reach: 26, wind: 0.16, act: 0.25, rec: 0.35, dmg: 14, lunge: 10, w: 2,
-    W: { t: 0.25, aF: 1.5, eF: 0.4, aB: 1.55, eB: 0.3, lF: 0.4, kF: -0.5 }, A: { t: 1.1, lF: 0.5, kF: -1.1, lB: -0.15, kB: -1.1, aF: 2.5, eF: 0.9, aB: 2.7, eB: 0.8 } },
+    W: { t: 0.25, aF: 1.5, eF: 0.4, aB: 1.55, eB: 0.3, lF: 0.4, kF: -0.5 }, A: { t: 1.1, lF: 0.5, kF: -1.1, lB: -0.15, kB: -1.1, aF: 2.5, eF: 0.9, aB: 2.7, eB: 0.8 },
+    F: { t: 1.25, lF: 0.55, kF: -1.0, lB: -0.1, kB: -1.0, aF: 2.1, eF: 1.0, aB: 2.3, eB: 0.9 } },
   { id: 'osotogari', style: 'judo', grab: 'reap', reach: 24, wind: 0.14, act: 0.14, rec: 0.25, dmg: 10, lunge: 12, w: 2,
-    W: { t: 0.2, aF: 1.5, eF: 0.4, aB: 1.4, eB: 0.5, lB: 1.3, kB: -0.3 }, A: { t: 0.75, lB: -1.3, kB: 0.1, lF: 0.3, kF: -0.4, aF: 1.7, eF: 0.3, aB: 1.6, eB: 0.3 } },
+    W: { t: 0.2, aF: 1.5, eF: 0.4, aB: 1.4, eB: 0.5, lB: 1.3, kB: -0.3 }, A: { t: 0.75, lB: -1.3, kB: 0.1, lF: 0.3, kF: -0.4, aF: 1.7, eF: 0.3, aB: 1.6, eB: 0.3 },
+    F: { t: 0.9, lB: -1.5, kB: 0.05, lF: 0.35, kF: -0.5, aF: 1.5, eF: 0.35, aB: 1.4, eB: 0.35 } },
 
   { id: 'doubleleg', style: 'wrestling', grab: 'takedown', reach: 26, wind: 0.12, act: 0.2, rec: 0.45, dmg: 9, lunge: 34, w: 2,
-    W: { t: 0.55, lF: 0.9, kF: -1.7, lB: -0.5, kB: -1.3, aF: 1.2, eF: 0.6, aB: 1.0, eB: 0.6 }, A: { t: 1.25, lF: 1.15, kF: -1.9, lB: -1.2, kB: -0.2, aF: 1.5, eF: 0.25, aB: 1.4, eB: 0.35 } },
+    W: { t: 0.55, lF: 0.9, kF: -1.7, lB: -0.5, kB: -1.3, aF: 1.2, eF: 0.6, aB: 1.0, eB: 0.6 }, A: { t: 1.25, lF: 1.15, kF: -1.9, lB: -1.2, kB: -0.2, aF: 1.5, eF: 0.25, aB: 1.4, eB: 0.35 },
+    F: { t: 1.35, lF: 1.2, kF: -1.95, lB: -1.4, kB: -0.15, aF: 1.65, eF: 0.3, aB: 1.55, eB: 0.4 } },
   { id: 'suplex', style: 'wrestling', grab: 'over', reach: 22, wind: 0.16, act: 0.25, rec: 0.4, dmg: 15, lunge: 8, w: 1.5,
-    W: { t: 0.3, aF: 1.4, eF: 0.5, aB: 1.4, eB: 0.5, lF: 0.5, kF: -0.8, lB: -0.4, kB: -0.6 }, A: { t: -1.25, aF: 2.6, eF: 0.6, aB: 2.7, eB: 0.5, lF: 0.5, kF: -0.8, lB: -0.4, kB: -0.6 } },
+    W: { t: 0.3, aF: 1.4, eF: 0.5, aB: 1.4, eB: 0.5, lF: 0.5, kF: -0.8, lB: -0.4, kB: -0.6 }, A: { t: -1.25, aF: 2.6, eF: 0.6, aB: 2.7, eB: 0.5, lF: 0.5, kF: -0.8, lB: -0.4, kB: -0.6 },
+    F: { t: -1.4, aF: 2.85, eF: 0.5, aB: 2.95, eB: 0.4, lF: 0.5, kF: -0.8, lB: -0.4, kB: -0.6 } },
 ];
 // Comic specials (each has its own update function)
 const SUPER = [
@@ -188,10 +220,11 @@ const BEAM_FIRE = 0.65;      // Seconds an energy beam fires and can hit
 const BEAM_WARN = 0.3;       // Seconds before it fires that an energy beam warns those along it (#416)
 const BLAST_SHOTS = 6, BLAST_GAP = 0.13;   // Shots of an energy blast, and seconds between them
 const CLONES_RUSH = 0.35;    // Seconds the shadow clones rush in, from their warning to their strike
+const FOLLOW = 1 / 3;   // Share of a move's recovery spent carrying the impact on to its pose F
 const MOVE_BY = {};
 for (const m of MOVES) {
   MOVE_BY[m.id] = m;
-  m.W = P(m.W); m.A = P(m.A);
+  m.W = P(m.W); m.A = P(m.A); m.F = P(m.F);
   if (m.grab) {
     m.range = [2, m.reach + m.lunge * 0.6];
   } else {
@@ -376,7 +409,7 @@ function resize() {
   }
   // The joints drawn are taken once a step; a frame drawn before the next one (paused, or
   // in a hit stop) would show the bodies where they stood before the resize (issue #388)
-  for (const f of fighters) if (f.W) f.W = f.rag ? f.rag.pts : f.joints();
+  for (const f of fighters) if (f.W) { f.W = f.rag ? f.rag.pts : f.joints(); f.V = f.rag ? f.rag.pts : f.viewJoints(); }
   // Items on the floor too, or one left past the edge could never be picked up
   for (const it of items) it.x = clamp(it.x, 40, worldW - 40);
   // A crack in the right wall moves with that wall, or it floats mid-screen (issue #388)
@@ -907,6 +940,17 @@ const TELEPORT_FOLLOW = ['hook', 'roundhouse', 'backkick', 'uppercut', 'elbow', 
 const INIT_PHASE = { beam: 'charge', blast: 0, barrage: 0, rising: 0, dive: 'jump', slam: 'up', teleport: 'out', wallrun: 'run',
   fireball: 'charge', lightning: 'cast', ice: 'cast', shield: 'up',
   shuriken: 'cast', clones: 'split', smoke: 'out', substitute: 'in' };
+// The drawn body is the game pose plus a damped offset per pose key (livelier motion, layer 1):
+// the offset is kicked by the pose's acceleration times g and springs back at w rad/s with
+// damping ratio z, so a pose that stops sharply overshoots a little and settles. Drawing only:
+// hits, grabs and items read the game pose, so the fight is unchanged.
+const LOOK = { w: 40, z: 0.5, g: 0.35 };
+const LOOK_STEP = 1 / 240;   // Longest spring sub-step, so a slow frame rate stays stable
+// The lag of the drawn head and hands (layer 4): a spring at w rad/s with damping ratio z per
+// point, at most max px from where the pose puts it, and the joint each point hangs from
+const LAG = { w: 22, z: 0.45, max: { head: 3, hand: 5 } };
+const LAG_PARENT = { head: 'sh', hF: 'eF', hB: 'eB' };
+const LEAD_ARM = { hF: ['aF', 'eF'], hB: ['aB', 'eB'] };   // The pose keys of the arm each hand ends
 class Fighter {
   constructor(id, x, z, team, hue) {
     Object.assign(this, { id, x, z, team, hue });
@@ -922,6 +966,7 @@ class Fighter {
     this.trail = []; this.trailOn = false; this.trailT = 0;
     this.subFrom = null; this.subT = 0;   // A substitution readied against this attacker, for subT seconds
     this.reachT = 0;                      // Seconds the queued move has been out of reach
+    this.V = null; this.resetLook();      // The drawn joints, and the spring offset they are drawn with
   }
   get alive() { return this.state !== 'ko'; }
   get hittable() {
@@ -931,9 +976,89 @@ class Fighter {
   }
   drawFacing() { return this.spin ? -this.facing : this.facing; }
 
-  joints() {
-    const J = fk(this.pose);
-    this.hipH = -J.hip.y;
+  // Puts the drawn pose back on the game pose, at rest, with no lag
+  resetLook() {
+    const d = {}, v = {}, v0 = {}, lag = {};
+    for (const k of KEYS) { d[k] = 0; v[k] = 0; v0[k] = 0; }
+    for (const k in LAG_PARENT) lag[k] = { x: 0, y: 0, vx: 0, vy: 0 };
+    this.look = { d, v, p0: clonePose(this.pose), v0, lag, par: null, bvx: this.vx, bva: this.va, carry: 0 };
+  }
+  // Moves the spring offset and the lag on by dt. A frozen or ragdoll body is drawn as it is.
+  stepLook(dt) {
+    if (this.state === 'frozen' || this.rag) { this.resetLook(); return; }
+    // A step shorter than a sub-step (the sliver frame() can leave as a hit stop ends) is
+    // carried into the next one: speeds taken over a sliver would kick the springs wildly
+    const look = this.look;
+    look.carry += dt;
+    if (look.carry < LOOK_STEP) return;
+    dt = look.carry; look.carry = 0;
+    const { d, v, p0, v0 } = look, { w, z, g } = LOOK;
+    const n = Math.ceil(dt / LOOK_STEP), h = dt / n;
+    // The point a strike lands with leads it, so it is drawn where it hits: until the strike is
+    // over, a striking hand has no lag and its arm no offset (a staff would magnify either)
+    const m = this.state === 'attack' ? this.move : null, lead = m && !m.type && this.st < m.wind + m.act ? m.hit : null;
+    const still = LEAD_ARM[lead] || [];
+    for (const k of KEYS) {
+      const vel = (this.pose[k] - p0[k]) / dt, acc = (vel - v0[k]) / dt;
+      p0[k] = this.pose[k]; v0[k] = vel;
+      if (still.includes(k)) { d[k] = 0; v[k] = 0; continue; }
+      for (let i = 0; i < n; i++) {
+        v[k] += (-w * w * d[k] - 2 * z * w * v[k] - g * acc) * h;
+        d[k] += v[k] * h;
+      }
+    }
+    // The lag (layer 4), in the fighter's own frame: x forward, y down. It is driven by the
+    // acceleration of the joint each point hangs from and by the body's change of speed (not
+    // of place, so a teleport moves nothing), then clamped.
+    const J = fk(this.lookPose()), par = look.par || {};
+    const bx = (this.vx - look.bvx) / dt * this.drawFacing(), by = -(this.va - look.bva) / dt;
+    look.bvx = this.vx; look.bva = this.va;
+    for (const k in LAG_PARENT) {
+      const P = J[LAG_PARENT[k]], q = par[k] || { x: P.x, y: P.y, vx: 0, vy: 0 };
+      const vx = (P.x - q.x) / dt, vy = (P.y - q.y) / dt;
+      const ax = (vx - q.vx) / dt + bx, ay = (vy - q.vy) / dt + by;
+      par[k] = { x: P.x, y: P.y, vx, vy };
+      if (k === lead) { Object.assign(look.lag[k], { x: 0, y: 0, vx: 0, vy: 0 }); continue; }
+      const o = look.lag[k], max = k === 'head' ? LAG.max.head : LAG.max.hand, lw = LAG.w, lz = LAG.z;
+      for (let i = 0; i < n; i++) {
+        o.vx += (-lw * lw * o.x - 2 * lz * lw * o.vx - ax) * h;
+        o.vy += (-lw * lw * o.y - 2 * lz * lw * o.vy - ay) * h;
+        o.x += o.vx * h; o.y += o.vy * h;
+        const r = Math.hypot(o.x, o.y);
+        if (r > max) { o.x *= max / r; o.y *= max / r; o.vx *= 0.5; o.vy *= 0.5; }
+      }
+    }
+    look.par = par;
+  }
+  // The game pose plus the spring offset
+  lookPose() {
+    const p = {};
+    for (const k of KEYS) p[k] = this.pose[k] + this.look.d[k];
+    return p;
+  }
+  // The drawn joints: the game pose plus the spring offset, the head and hands moved by their
+  // lag and swung back onto their segment's length round the joint they hang from, placed as
+  // joints() places the game joints
+  viewJoints() {
+    const J = fk(this.lookPose());
+    for (const k in LAG_PARENT) {
+      const o = this.look.lag[k];
+      if (!o.x && !o.y) continue;
+      const P = J[LAG_PARENT[k]], r = Math.hypot(J[k].x - P.x, J[k].y - P.y);
+      const qx = J[k].x + o.x - P.x, qy = J[k].y + o.y - P.y, s = r / (Math.hypot(qx, qy) || 1);
+      J[k] = { x: P.x + qx * s, y: P.y + qy * s };
+    }
+    return this.place(J);
+  }
+
+  joints(pose = this.pose) {
+    const J = fk(pose);
+    if (pose === this.pose) this.hipH = -J.hip.y;
+    return this.place(J);
+  }
+  // Joints J in local coordinates, placed in the world: facing, spin, the body's turn, and the
+  // anchor the state holds it by
+  place(J) {
     const fac = this.drawFacing();
     let px = 0, py = 0, ax = this.x, ay = groundY(this.z) - this.alt;
     if (this.state === 'thrown') { px = J.hip.x; py = J.hip.y; ax = this.th.hx; ay = this.th.hy; }
@@ -1149,9 +1274,7 @@ class Fighter {
     }
     const sp = this.vx * this.facing;
     this.walk += dt * sp * 0.11;
-    const amp = Math.min(1, Math.abs(sp) / 60) * 0.32;
-    tp.lF += Math.sin(this.walk) * amp; tp.lB -= Math.sin(this.walk) * amp;
-    if (Math.abs(sp) > 300) tp.t += 0.4;
+    walkPose(tp, this.walk, sp);
     const b = Math.sin(this.time * 7 + this.id);
     tp.kF += b * 0.07; tp.kB += b * 0.07; tp.t += b * 0.02;
     lerpPose(this.pose, tp, Math.min(1, dt * 14), this.pose);
@@ -1330,7 +1453,8 @@ class Fighter {
     const st = this.st, T1 = m.wind, T2 = T1 + m.act, T3 = T2 + m.rec;
     if (st < T1) lerpPose(this.from, m.W, ease(st / T1), this.pose);
     else if (st < T2) lerpPose(m.W, m.A, easeOut(Math.min(1, (st - T1) / (m.act * 0.5))), this.pose);
-    else if (st < T3) lerpPose(m.A, GUARD, ease((st - T2) / m.rec), this.pose);
+    else if (st < T2 + m.rec * FOLLOW) lerpPose(m.A, m.F, easeOut((st - T2) / (m.rec * FOLLOW)), this.pose);
+    else if (st < T3) lerpPose(m.F, GUARD, ease((st - T2 - m.rec * FOLLOW) / (m.rec * (1 - FOLLOW))), this.pose);
     else { this.endMove(); return; }
     this.spin = !!m.spin && st >= T1 && st < T2 + m.rec * 0.5;
     if (st < T2) this.vx = this.facing * m.lunge * 1.4 / T2;
@@ -2300,6 +2424,7 @@ class Fighter {
   ko(vx, vy) {
     this.state = 'ko'; this.st = 0; this.clearMove(); this.trailOn = true;
     this.rag = makeRag(this.W, vx, vy); stats.ko++; sfx('ko', this.x);
+    this.resetLook();
     lastKO = this;
   }
 }
@@ -2718,7 +2843,7 @@ function drawItems() {
 }
 // What a fighter holds: a staff along the forearm of the striking (or front) hand, or a boomerang
 function drawHeld(f) {
-  const J = f.W;
+  const J = f.V || f.W;
   if (!f.held || !J || !f.alive || f.invis) return;
   ctx.globalAlpha = f.alpha; ctx.lineCap = 'round';
   if (f.held.kind === 'staff') {
@@ -2734,7 +2859,7 @@ function drawHeld(f) {
 Object.assign(window.__stickmanBrawl, { items, spawnItem, withStaff, newRound });
 // For the tests that pin the rules inside these (issue #355)
 Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKES, staffTip, hitTest, ledgeHit, ragPlatform,
-  ragCorners, updateShots, updateItems, steerBoomerang });
+  ragCorners, updateShots, updateItems, steerBoomerang, LOOK, GUARD, WALK, walkPose, FOLLOW, LAG });
 Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
 function update(dt) {
@@ -2765,15 +2890,18 @@ function update(dt) {
     // Here, once for every way into these states (a fall, a landing from a launch or a throw),
     // and before the joints are taken, so a ragdoll made from them starts where the body lay
     if (LYING.has(f.state)) f.inWalls();
+    f.stepLook(dt);
     f.W = f.rag ? f.rag.pts : f.joints();
-    if (f.koPending) { f.koPending = false; f.ko(0, -40); f.W = f.rag.pts; }
+    f.V = f.rag ? f.rag.pts : f.viewJoints();
+    if (f.koPending) { f.koPending = false; f.ko(0, -40); f.W = f.V = f.rag.pts; }
     // Afterimages
     if (f.trailOn && !f.invis) {
       f.trailT -= dt;
       if (f.trailT <= 0) {
         f.trailT = 0.03;
         const snap = {};
-        for (const k of JOINTS) snap[k] = { x: f.W[k].x, y: f.W[k].y };
+        const D = f.V || f.W;
+        for (const k of JOINTS) snap[k] = { x: D[k].x, y: D[k].y };
         f.trail.push({ p: snap, life: 1 });
         if (f.trail.length > 10) f.trail.shift();
       }
@@ -2894,7 +3022,7 @@ function drawSkeleton(J, col, alpha, width, headFill) {
   if (glow) ctx.shadowBlur = 0;
 }
 function drawAura(f, col) {
-  const J = f.W;
+  const J = f.V || f.W;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.shadowColor = col; ctx.shadowBlur = 12;
@@ -2909,7 +3037,7 @@ function drawAura(f, col) {
   ctx.restore();
 }
 function drawFighter(f) {
-  const J = f.W;
+  const J = f.V || f.W;
   if (!J || f.invis) return;
   const col = colorOf(f);
   for (const tr of f.trail) drawSkeleton(tr.p, col, tr.life * 0.3 * f.alpha, 2, false);
@@ -3335,7 +3463,7 @@ function frame(now) {
     if (redraw) {
       // A round started while paused (a setting, or the first frame) has fighters no step has
       // posed yet: take their joints, as update() would, so they are drawn standing (issue #351)
-      for (const f of fighters) if (!f.W) f.W = f.joints();
+      for (const f of fighters) if (!f.W) { f.W = f.joints(); f.V = f.viewJoints(); }
       render();
     }
     return;
