@@ -4,8 +4,7 @@
 // sits on top of the head along the neck, not over the neck of an upside-down king
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper; calls records every canvas method call, and every property set as
 // ['set', name, value]
@@ -16,16 +15,8 @@ function load(search) {
     get: (_, k) => (...a) => { calls.push([k, ...a]); return grad; },
     set: (_, k, v) => { calls.push(['set', k, v]); return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, calls };
+  const { game, window } = loadMain({ search, ctx });
+  return { game, we: window.wallpaperPropertyListener, calls };
 }
 const R = 8;   // L.head
 

@@ -6,50 +6,28 @@
 // checks, the knockout hit stop, fighter colors, and item pickup and seeking.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
-// A copy of main.js that also exposes the internals these tests drive or read
-const END_ANCHOR = 'requestAnimationFrame(frame);\n})();';
-assert.ok(source.includes(END_ANCHOR), 'anchor not found in main.js');
-const exposed = source.replace(END_ANCHOR, 'requestAnimationFrame(frame);\n' +
-  'window.__in = { hitStop, quake, hitTest, altFits, makeRag, stepRag, RAG_H, platformAlt, seekItem, L,\n' +
-  '  get freeze() { return freeze; }, get shake() { return shake; } };\n})();');
+import { loadMain, mulberry32 } from './load-main.mjs';
+// Code run at the end of main.js that also exposes the internals these tests drive or read
+const EXPOSE = 'window.__in = { hitStop, quake, hitTest, altFits, makeRag, stepRag, RAG_H, platformAlt, seekItem, L,\n' +
+  '  get freeze() { return freeze; }, get shake() { return shake; } };';
 
 // Loads the wallpaper with a seeded Math.random (mulberry32, see #161). Returns its debug
 // hook, the exposed internals, the settings listener, the audio listeners, the canvas, the
 // setTransform calls made so far and a function that runs one frame 16 ms after the last.
 function load(search, { seed = 226, dpr = 1 } = {}) {
-  let s = seed >>> 0;
-  const random = () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let r = Math.imul(s ^ (s >>> 15), 1 | s);
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
   const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
   const transforms = [];
   const ctx = new Proxy({}, {
     get: (_, k) => k === 'setTransform' ? (...a) => transforms.push(a) : stub,
     set: () => true,
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   const listeners = [];
   let next = null, now = 0;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: dpr, addEventListener() {},
-    wallpaperRegisterAudioListener: cb => listeners.push(cb) };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: Object.assign(Object.create(Math), { random }),
-    Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window, canvas } = loadMain({
+    search, dpr, ctx, random: mulberry32(seed), expose: EXPOSE,
+    window: { wallpaperRegisterAudioListener: cb => listeners.push(cb) },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
   });
-  vm.runInNewContext(exposed, window);
   return {
     game: window.__stickmanBrawl, inner: window.__in, we: window.wallpaperPropertyListener, listeners,
     canvas, transforms, frame: () => next(now += 16),

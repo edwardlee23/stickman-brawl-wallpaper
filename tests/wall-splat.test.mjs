@@ -3,27 +3,16 @@
 // body jump (issue #223). Math.random is stubbed, so each run is the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
-const source = readFileSync('wallpaper/main.js', 'utf8');
 const DT = 1 / 60;
 
 // Loads the wallpaper at a figure size of scale (1 is 100%)
 function load(scale = 1, count = 2) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: `?count=${count}&mode=ffa` },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
+  const { game } = loadMain({
+    search: `?count=${count}&mode=ffa`, random: 0.99,
+    properties: scale !== 1 ? { figurescale: { value: scale * 100 } } : undefined,
   });
-  vm.runInContext('Math.random = () => 0.99;', context);
-  vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
-  if (scale !== 1) window.wallpaperPropertyListener.applyUserProperties({ figurescale: { value: scale * 100 } });
   // The world is 540 units tall; its width follows the 16:9 window
   const W = 1280 / (scale * 720 / 540);
   // Every fighter stands far from the walls, out of reach, with plenty of health

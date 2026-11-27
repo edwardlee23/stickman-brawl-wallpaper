@@ -4,8 +4,7 @@
 // off, and the gap between drops.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 const BOOMERANG_COL = '#d9a066';
 
@@ -16,20 +15,9 @@ function load(random) {
     get: (o, k) => k in props ? props[k] : () => ({ addColorStop() {} }),
     set: (o, k, v) => { props[k] = v; if (k === 'strokeStyle') strokes.push({ col: v, alpha: props.globalAlpha }); return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A fixed Math.random of 0.99 turns off the random jumps and dashes; without one a seeded
   // generator (an LCG) stands in, so every run is the same (issue #161)
-  if (random) vm.runInContext('Math.random = () => ' + random + ';', context);
-  else vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ ctx, random: random || undefined });
   game.cfg.items = true;
   return { game, strokes };
 }

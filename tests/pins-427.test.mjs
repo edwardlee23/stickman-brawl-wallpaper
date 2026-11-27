@@ -6,15 +6,10 @@
 // stereo pan (#66). Each test checks just inside and just outside its limit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain, lcg } from './load-main.mjs';
 
-const source = readFileSync('wallpaper/main.js', 'utf8');
-// A copy of main.js that also exposes, as window.__in, the internals these tests read or call
-const END_ANCHOR = 'requestAnimationFrame(frame);\n})();';
-assert.ok(source.includes(END_ANCHOR), 'anchor not found in main.js');
-const exposed = source.replace(END_ANCHOR, 'requestAnimationFrame(frame);\nwindow.__in = { hitTest, MOVE_BY,' +
-  ' STAFF_MOVE, STAFF_STRIKES, staffTip, fk, get worldW() { return worldW; } };\n})();');
+// main.js also exposes, as window.__in, the internals these tests read or call
+const EXPOSE = 'window.__in = { hitTest, MOVE_BY, STAFF_MOVE, STAFF_STRIKES, staffTip, fk, get worldW() { return worldW; } };';
 
 const DT = 1 / 60;
 
@@ -45,21 +40,16 @@ class FakeAudioContext {
 
 // Loads the wallpaper with a seeded Math.random (an LCG), or context.__rnd when a test sets it
 function load({ props = {}, count = 2, seed = 427, sound = false } = {}) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  if (sound) window.AudioContext = FakeAudioContext;
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=' + count + '&mode=ffa' + (sound ? '&sound=1' : '') },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
+  const next = lcg(seed);
+  let context = null;
+  const { game, window, context: c } = loadMain({
+    search: '?count=' + count + '&mode=ffa' + (sound ? '&sound=1' : ''),
+    window: sound ? { AudioContext: FakeAudioContext } : {},
+    random: () => context?.__rnd ?? next(),
+    expose: EXPOSE, properties: props,
   });
-  context.__seed = seed; context.__rnd = null;
-  vm.runInContext('Math.random = () => __rnd ?? (__seed = (Math.imul(__seed, 1664525) + 1013904223) >>> 0) / 4294967296', context);
-  vm.runInContext(exposed, context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties(props);
-  return { game: window.__stickmanBrawl, inn: window.__in, context };
+  context = c; context.__rnd = null;
+  return { game, inn: window.__in, context };
 }
 
 const held = { vx: 0, vz: 0, va: 0, cool: 999, retarget: 999, hp: 1000 };

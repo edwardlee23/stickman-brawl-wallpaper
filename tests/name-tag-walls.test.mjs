@@ -2,8 +2,7 @@
 // the screen next to either side wall, standing or at the top of a jump (issue #248)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // A Latin character is 5 px wide here and a CJK one 8.25, as in 700 9px sans-serif
 const textW = t => Array.from(String(t)).reduce((w, c) => w + (c.charCodeAt(0) < 128 ? 5 : 8.25), 0);
@@ -20,16 +19,8 @@ function load(search = '?count=2&mode=ffa') {
     },
     set: (_, k, v) => { state[k] = v; return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, texts };
+  const { game, window } = loadMain({ search, ctx });
+  return { game, we: window.wallpaperPropertyListener, texts };
 }
 const worldW = 1280 / (720 / 540);
 

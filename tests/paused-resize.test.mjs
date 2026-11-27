@@ -4,27 +4,20 @@
 // frame too (issue #307), so the screen does not keep showing the old colors or round.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper at 1280 x 720 with a screen context that logs every call as
 // [name, ...args], and a seeded Math.random (an LCG, as the other tests seed it)
 function load() {
   const screen = [];
   const ctx = new Proxy({}, { get: (_, k) => (...args) => { screen.push([k, ...args]); return { addColorStop() {} }; }, set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
   let next = null, t = 0;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: (k, f) => { listeners[k] = f; } };
-  const context = vm.createContext({
-    window, console, URLSearchParams,
-    performance: { now: () => 0 },
-    location: { search: '?count=2' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame: cb => { next = cb; },
+  const { window, canvas } = loadMain({
+    search: '?count=2', ctx, seed: 1,
+    window: { addEventListener: (k, f) => { listeners[k] = f; } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; } },
   });
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
   return {
     window, canvas, screen, game: window.__stickmanBrawl, we: window.wallpaperPropertyListener,
     resize: () => listeners.resize(),

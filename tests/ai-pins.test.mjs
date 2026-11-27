@@ -5,35 +5,20 @@
 // and items out of reach on another surface.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
-const source = readFileSync('wallpaper/main.js', 'utf8');
 // A copy of main.js that also exposes, as window.__in, the internals these tests read or call
-const END_ANCHOR = 'requestAnimationFrame(frame);\n})();';
-assert.ok(source.includes(END_ANCHOR), 'anchor not found in main.js');
-const exposed = source.replace(END_ANCHOR, 'requestAnimationFrame(frame);\nwindow.__in = { MOVE_BY, BOOMERANG, hitStop, steerBoomerang, music,' +
-  ' get freeze() { return freeze; }, get worldW() { return worldW; } };\n})();');
+const EXPOSE = 'window.__in = { MOVE_BY, BOOMERANG, hitStop, steerBoomerang, music,' +
+  ' get freeze() { return freeze; }, get worldW() { return worldW; } };';
 
 // Loads the wallpaper with a seeded Math.random (an LCG), so every run is the same. Every
 // fighter flinches on the floor at the far right, out of the way, until a test moves it.
 function load(props = {}, count = 2, seed = 319) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=' + count + '&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
+  const { game, window } = loadMain({
+    search: '?count=' + count + '&mode=ffa', seed, expose: EXPOSE, properties: props,
+    window: { addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } },
   });
-  context.__seed = seed;
-  vm.runInContext('Math.random = () => (__seed = (Math.imul(__seed, 1664525) + 1013904223) >>> 0) / 4294967296', context);
-  vm.runInContext(exposed, context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties(props);
-  const game = window.__stickmanBrawl;
   for (const [i, f] of game.fighters.entries()) {
     Object.assign(f, { x: 900 - i * 5, z: 60, alt: 0, va: 0, vx: 0, vz: 0, state: 'hit', st: 0, dur: 999, hp: 1000, cool: 999 });
     f.W = f.joints();

@@ -3,25 +3,18 @@
 // read just before the request, which made the first step negative.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 test('a first frame timestamped before load steps no fighter timer backwards (#255)', () => {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, URLSearchParams,
-    performance: { now: () => 1000 },   // Load reads 1000 ms
-    location: { search: '?count=2' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame: cb => { next = cb; },
-  });
   // A seeded generator (an LCG) for Math.random, so every run is the same
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({
+    search: '?count=2',
+    globals: {
+      performance: { now: () => 1000 },   // Load reads 1000 ms
+      requestAnimationFrame: cb => { next = cb; },
+    },
+  });
   const before = game.fighters.map(f => ({ time: f.time, st: f.st }));
   next(995);                         // The first rAF comes 5 ms "before" load
   game.fighters.forEach((f, i) => {

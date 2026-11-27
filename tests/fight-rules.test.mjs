@@ -4,27 +4,13 @@
 // slam's shockwave. Math.random is stubbed in every test, so each run is the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper. Math.random returns rng(), which a test may replace
 // (0.99 by default: no random jumps, dashes or reactions to a warning).
 function load(count = 2) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
   const box = { rng: () => 0.99 };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams, box,
-    location: { search: `?count=${count}&mode=ffa` },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('Math.random = () => box.rng();', context);
-  vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game, window } = loadMain({ search: `?count=${count}&mode=ffa`, random: () => box.rng() });
   const fighters = game.fighters;
   // Every fighter stands on the floor at the same depth, far apart, with plenty of health
   fighters.forEach((f, i) => Object.assign(f, { x: 100 + i * 200, z: 50, alt: 0, va: 0, vx: 0, vz: 0,

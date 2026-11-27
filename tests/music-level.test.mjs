@@ -2,22 +2,12 @@
 // README says, and right-channel bass must count as bass (issue #176).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const audio = [];
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {},
-    wallpaperRegisterAudioListener(cb) { audio.push(cb); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
+  const { window, context } = loadMain({ window: { wallpaperRegisterAudioListener(cb) { audio.push(cb); } } });
   // A fixed "random" number, so every draw is the same from run to run
   context.rnd = 0.5;
   vm.runInContext('Math.random = () => rnd', context);

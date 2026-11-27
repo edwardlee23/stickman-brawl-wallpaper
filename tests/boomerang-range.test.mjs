@@ -3,23 +3,11 @@
 // flight slows and turns at 1 s, so its throw range must end where the flight can reach.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A fixed Math.random of 0.99 turns off the random jumps, dashes and blocks
-  vm.runInContext('Math.random = () => 0.99;', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ random: 0.99 });
   game.cfg.items = true;
   return game;
 }

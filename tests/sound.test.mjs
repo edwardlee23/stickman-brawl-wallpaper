@@ -3,8 +3,7 @@
 // most once per 40 ms (issue #22).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // An AudioParam that accepts every automation call.
 const param = v => ({
@@ -53,21 +52,7 @@ class FakeAudioContext {
 
 function load(query, { audio = true, sound } = {}) {
   FakeAudioContext.instances = [];
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = {
-    innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener() {},
-  };
-  if (audio) window.AudioContext = FakeAudioContext;
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: query },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game, window } = loadMain({ search: query, window: audio ? { AudioContext: FakeAudioContext } : {} });
   if (sound !== undefined) game.cfg.sound = sound;
   const [a, e] = game.fighters;
   e.W = e.joints();

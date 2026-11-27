@@ -4,14 +4,12 @@
 // and the score line is drawn in the documented formats.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper and returns its debug hook, its settings listener, a
 // function that draws one frame, and the text that frame drew, each piece as
 // { text, color } in the order drawn.
 function load(search) {
-  const noop = () => {};
   const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
   let drawn = [];
   const state = {};
@@ -21,19 +19,11 @@ function load(search) {
       : k in state ? state[k] : stub,
     set: (_, k, v) => { state[k] = v; return true; },
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   let next = null, now = 0;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: noop };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search, ctx, random: null,
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
   });
-  vm.runInNewContext(readFileSync('wallpaper/main.js', 'utf8'), window);
   return {
     game: window.__stickmanBrawl,
     we: window.wallpaperPropertyListener,

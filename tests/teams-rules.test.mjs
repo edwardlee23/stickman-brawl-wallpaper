@@ -3,8 +3,7 @@
 // color even with Unique colors on; and the win banner names the team in its color.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 const RED = '#ff6b6b', BLUE = '#4dabf7';
 
@@ -17,18 +16,9 @@ function load(search = '?count=6&mode=teams') {
     get: (_, k) => (...a) => { calls.push({ k, a, fill: style.fillStyle, stroke: style.strokeStyle }); return grad; },
     set: (_, k, v) => { style[k] = v; return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A seeded generator, so every run is the same (issue #161)
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, calls };
+  const { game, window } = loadMain({ search, ctx });
+  return { game, we: window.wallpaperPropertyListener, calls };
 }
 
 for (const rules of ['ladder', 'king']) {

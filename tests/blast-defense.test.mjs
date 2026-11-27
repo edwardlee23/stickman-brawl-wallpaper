@@ -4,23 +4,13 @@
 // the last shot could have arrived.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // r fixes Math.random, which picks the target's reaction in warn(): 0.4 raises a
 // shield (magic), 0.5 vanishes in smoke (ninjutsu).
 function blastAt(r) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game, context } = loadMain();
   for (const s of Object.keys(game.cfg.styles)) game.cfg.styles[s] = true;
   const [a, e] = game.fighters;
   // Attacker on the left facing right, target 200 to its right facing it.

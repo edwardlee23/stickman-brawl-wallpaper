@@ -3,8 +3,7 @@
 // substitution (issue #170), the way its name tag and the King's crown do (#120).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 test('the health bar fades with its fighter (#170)', () => {
   // A context that keeps the styles set on it and logs each fillRect with the alpha it used
@@ -13,18 +12,8 @@ test('the health bar fades with its fighter (#170)', () => {
     get: (s, k) => (k in s ? s[k] : (...a) => { if (k === 'fillRect') rects.push({ args: a, alpha: s.globalAlpha }); return { addColorStop() {} }; }),
     set: (s, k, v) => { s[k] = v; return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A seeded generator (an LCG), so every run is the same (issue #161)
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ ctx });
   assert.ok(game.cfg.showHP, 'health bars are on by default');
   const [a, b] = game.fighters;
   Object.assign(a, { x: 300, z: 50, alt: 0 });

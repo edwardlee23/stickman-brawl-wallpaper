@@ -3,21 +3,11 @@
 // a beam hits up to 22 depth units away, strikes and shots up to 16.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game, context } = loadMain();
   for (const s of Object.keys(game.cfg.styles)) game.cfg.styles[s] = true;
   // 0.1 makes every warned enemy block (warn() blocks below 0.25)
   vm.runInContext('Math.random = () => 0.1;', context);

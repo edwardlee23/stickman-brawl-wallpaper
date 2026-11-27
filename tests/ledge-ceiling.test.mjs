@@ -4,26 +4,17 @@
 // jump pose, unable to attack (issue #245).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load(scale, count = 2) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=' + count + '&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A seeded generator (an LCG), so every run is the same (issue #161)
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  // Sparks live inside main.js; a hook on push notes where each grey dust spark starts
-  vm.runInContext('globalThis.__dust = []; { const push = Array.prototype.push; Array.prototype.push = function (...v) { for (const o of v) if (o && o.col === "rgba(200,200,200,0.6)") push.call(__dust, { y: o.y }); return push.apply(this, v); }; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: true }, figurescale: { value: scale } });
-  return { game: window.__stickmanBrawl, dust: () => context.__dust };
+  const { game, context } = loadMain({
+    search: '?count=' + count + '&mode=ffa', seed: 1,
+    // Sparks live inside main.js; a hook on push, run before it, notes where each grey dust spark starts
+    prelude: 'globalThis.__dust = []; { const push = Array.prototype.push; Array.prototype.push = function (...v) { for (const o of v) if (o && o.col === "rgba(200,200,200,0.6)") push.call(__dust, { y: o.y }); return push.apply(this, v); }; }',
+    properties: { platforms: { value: true }, figurescale: { value: scale } },
+  });
+  return { game, dust: () => context.__dust };
 }
 
 for (const scale of [174, 180, 200]) {

@@ -3,38 +3,14 @@
 // the mode, and checks how each is read (issue #175).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
-
-function seededMath(seed) {
-  const m = Object.create(Math);
-  let s = seed >>> 0;
-  m.random = () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-  return m;
-}
+import { loadMain, mulberry32 } from './load-main.mjs';
 
 function load(query) {
   const ctx = new Proxy(function () {}, { get: () => ctx, set: () => true, apply: () => ctx });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search: query },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame() {},
-    Math: seededMath(175), Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search: query, ctx, random: mulberry32(175),
+    globals: { performance: { now: () => 0 }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
   });
-  vm.runInNewContext(source, window);
   return window.__stickmanBrawl.cfg;
 }
 

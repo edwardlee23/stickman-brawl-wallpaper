@@ -3,8 +3,8 @@
 // constant fails a test (issue #272).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // An AudioParam that records its automation calls.
 const param = v => ({
@@ -45,22 +45,13 @@ class FakeAudioContext {
 
 // clock is the time performance.now() returns, in ms; tests move it by hand.
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const audio = [];
   const clock = { now: 0 };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {},
-    AudioContext: FakeAudioContext, wallpaperRegisterAudioListener(cb) { audio.push(cb); } };
-  const context = vm.createContext({
-    window, console, URLSearchParams, performance: { now: () => clock.now },
-    location: { search: '?count=2&mode=ffa&sound=1' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
+  const { game, window, context } = loadMain({ search: '?count=2&mode=ffa&sound=1',
+    window: { AudioContext: FakeAudioContext, wallpaperRegisterAudioListener(cb) { audio.push(cb); } },
+    globals: { performance: { now: () => clock.now } } });
   context.rnd = 0.5;
   vm.runInContext('Math.random = () => rnd', context);
-  const game = window.__stickmanBrawl;
   const set = p => window.wallpaperPropertyListener.applyUserProperties(p);
   return { game, audio, set, clock, context };
 }

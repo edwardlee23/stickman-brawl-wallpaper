@@ -4,26 +4,13 @@
 // smoke of shadow clones splitting and vanishing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A seeded generator (an LCG), so every run is the same (issue #161)
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
   // Sparks live inside main.js; a hook on push notes where each grey dust spark starts
-  vm.runInContext('globalThis.__dust = []; { const push = Array.prototype.push; Array.prototype.push = function (...v) { for (const o of v) if (o && o.col === "rgba(200,200,200,0.6)") push.call(__dust, { y: o.y }); return push.apply(this, v); }; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: true } });
-  const game = window.__stickmanBrawl;
+  const hook = 'globalThis.__dust = []; { const push = Array.prototype.push; Array.prototype.push = function (...v) { for (const o of v) if (o && o.col === "rgba(200,200,200,0.6)") push.call(__dust, { y: o.y }); return push.apply(this, v); }; }';
+  const { game, context } = loadMain({ seed: 1, prelude: hook, properties: { platforms: { value: true } } });
   const [a, e] = game.fighters;
   // The other fighter flinches far to the right, out of the way
   Object.assign(e, { x: 1100, z: 60, alt: 0, va: 0, vx: 0, state: 'hit', st: 0, dur: 999, hp: 1000, cool: 999, target: a });

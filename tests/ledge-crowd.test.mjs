@@ -4,24 +4,11 @@
 // standing on a ledge launches it no more often than on the floor.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load() {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=3&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A seeded generator (an LCG), so every run is the same
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: true } });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ search: '?count=3&mode=ffa', properties: { platforms: { value: true } } });
   const p = game.platforms[0], z = 60, x = (p.x0 + p.x1) / 2;
   return { game, p, z, x, ledge: game.groundY(z) - p.y };
 }

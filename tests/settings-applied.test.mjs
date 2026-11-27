@@ -5,10 +5,8 @@
 // is the same.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain, source } from './load-main.mjs';
 
-const source = readFileSync('wallpaper/main.js', 'utf8');
 // A copy of main.js that adds up, in window.__sim, the game time each frame simulates
 const SIM_ANCHOR = 'const n = clamp(Math.ceil(sim / SUBSTEP';
 assert.ok(source.includes(SIM_ANCHOR), 'the frame loop changed; update SIM_ANCHOR');
@@ -28,28 +26,28 @@ function load(query = '?count=2') {
       : k in state ? state[k] : stub,
     set: (_, k, v) => { if (k in state) state[k] = v; return true; },
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   const offscreen = () => ({ getContext: () => stub, style: {}, width: 0, height: 0 });
   const listeners = {}, audio = [], clock = { now: 0 };
   let seed = 12345;
   const math = Object.create(Math);
   math.random = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
   let next = null;
-  const window = {
-    innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
-    wallpaperRegisterAudioListener: cb => audio.push(cb),
-  };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, createElement: offscreen, body: { style: {} } },
-    location: { search: query },
-    URLSearchParams,
-    performance: { now: () => clock.now },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: math, __sim: 0, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN, Float32Array, Promise,
+  // The window also holds Math, so a test can change Math.random through it
+  const { window } = loadMain({
+    search: query, ctx, patch: () => counted,
+    document: { createElement: offscreen },
+    window: {
+      addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
+      wallpaperRegisterAudioListener: cb => audio.push(cb),
+      Math: math, __sim: 0,
+    },
+    globals: {
+      performance: { now: () => clock.now },
+      requestAnimationFrame: cb => { next = cb; },
+      Math: math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN, Float32Array, Promise,
+    },
+    random: null,
   });
-  vm.runInNewContext(counted, window);
   const game = window.__stickmanBrawl;
   const set = p => window.wallpaperPropertyListener.applyUserProperties(
     Object.fromEntries(Object.entries(p).map(([k, value]) => [k, { value }])));

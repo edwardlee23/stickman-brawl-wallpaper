@@ -5,8 +5,8 @@
 // round-end burst, Ladder's bout facing and the shot ground crack.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 // An AudioParam and an audio node that accept every call
 const param = v => ({ value: v, setValueAtTime() { return this; }, linearRampToValueAtTime() { return this; },
@@ -30,21 +30,13 @@ class FakeAudioContext {
 
 // Math.random returns context.rnd, 0.99 by default: no random jumps, dashes or blocks
 function load(query = '?count=2&mode=ffa') {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const audio = [];
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {},
-    AudioContext: FakeAudioContext, wallpaperRegisterAudioListener(cb) { audio.push(cb); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: query },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
+  const { game, window, context } = loadMain({
+    search: query, random: 0.99,
+    window: { AudioContext: FakeAudioContext, wallpaperRegisterAudioListener(cb) { audio.push(cb); } },
   });
   context.rnd = 0.99;
   vm.runInContext('Math.random = () => rnd;', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
   const set = p => window.wallpaperPropertyListener.applyUserProperties(p);
   // Sets the platforms to the given ones, in place of those of the setting
   const ledges = list => { game.platforms.length = 0; game.platforms.push(...list); };

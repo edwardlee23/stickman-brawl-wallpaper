@@ -3,8 +3,7 @@
 // shatters the ice as a hit does, with ice sparks and the freeze sound.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 const S = 720 / 540;   // World to screen scale at 1280 x 720 and figure size 100%
 const ICE = '#9fe8ff';
@@ -34,19 +33,9 @@ function load() {
     get: () => () => ({ addColorStop() {} }),
     set: (o, k, v) => { if (k === 'strokeStyle' || k === 'fillStyle') styles.push(v); return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, AudioContext: FakeAudioContext,
-    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game, window } = loadMain({ ctx, window: { AudioContext: FakeAudioContext,
+    addEventListener(type, fn) { (listeners[type] ??= []).push(fn); } } });
   game.cfg.sound = true;
   window.wallpaperPropertyListener.applyUserProperties({ clickblast: { value: true } });
   const [a, b] = game.fighters;

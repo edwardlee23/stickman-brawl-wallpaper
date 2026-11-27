@@ -5,27 +5,20 @@
 // box, the back thigh and the padded head included, can be struck.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 const DT = 1 / 60;
 const HEAD = 8;   // L.head
 
 function load([w, h] = [1280, 720]) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: w, innerHeight: h, devicePixelRatio: 1, addEventListener: (t, f) => (listeners[t] ||= []).push(f) };
-  window.resize = (w, h) => { window.innerWidth = w; window.innerHeight = h; for (const f of listeners.resize) f(); };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=4&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
+  const { game, window } = loadMain({
+    search: '?count=4&mode=ffa', width: w, height: h,
+    window: {
+      addEventListener: (t, f) => (listeners[t] ||= []).push(f),
+      resize(w, h) { this.innerWidth = w; this.innerHeight = h; for (const f of listeners.resize) f(); },
+    },
   });
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
   // Everyone stays out of the way, flinching on the floor, so no blow or round end disturbs the test
   for (const [i, f] of game.fighters.entries()) {
     Object.assign(f, { x: 300 + i * 5, z: 60, alt: 0, va: 0, vx: 0, state: 'hit', st: 0, dur: 999, hp: 1000, cool: 999 });

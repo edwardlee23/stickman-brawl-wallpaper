@@ -4,21 +4,11 @@
 // cast on the floor cannot reach an enemy up on a ledge, so neither reacts to them.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load(roll) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=3&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game, context } = loadMain({ search: '?count=3&mode=ffa' });
   for (const s of Object.keys(game.cfg.styles)) game.cfg.styles[s] = true;
   // A fixed roll picks the reaction warn() gives: 0.1 blocks, 0.3 dodges, 0.5 vanishes in smoke
   vm.runInContext('Math.random = () => ' + roll + ';', context);

@@ -4,24 +4,11 @@
 // head counts as a head hit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 function load(query = '?count=2') {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: query },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('Math.random = () => 0.5;', context);
-  vm.runInContext(source, context, { filename: 'wallpaper/main.js' });
-  return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener };
+  const { game, window } = loadMain({ search: query, random: 0.5 });
+  return { game, we: window.wallpaperPropertyListener };
 }
 
 test('a fractional ?count= is rounded to a whole number of fighters', () => {

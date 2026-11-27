@@ -4,8 +4,7 @@
 // shadow fades with the fighter.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function load(platforms) {
   const ellipses = [];
@@ -15,19 +14,9 @@ function load(platforms) {
       : k === 'globalAlpha' ? alpha : () => ({ addColorStop() {} }),
     set: (_, k, v) => { if (k === 'globalAlpha') alpha = v; return true; },
   });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
   // A seeded generator (an LCG), so every run draws the same frame
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties({ platforms: { value: platforms } });
-  return { game: window.__stickmanBrawl, ellipses };
+  const { game } = loadMain({ ctx, properties: { platforms: { value: platforms } } });
+  return { game, ellipses };
 }
 
 // Places f at x, depth 60, with its feet at altitude alt, in a flinch that runs no AI

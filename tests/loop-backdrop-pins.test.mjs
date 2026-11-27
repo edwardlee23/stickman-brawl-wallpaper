@@ -4,10 +4,7 @@
 // (issue #273).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // A 2D context that logs every method call as [name, ...args] and every property set as
 // ['=name', value]; methods return the same recorder, so gradients log their stops too.
@@ -25,21 +22,16 @@ function load({ query = '?count=2', dpr = 1 } = {}) {
   const screen = [], made = [], listeners = {};
   const canvas = { getContext: () => recorder(screen), style: {}, width: 0, height: 0 };
   const document = {
-    getElementById: () => canvas, body: { style: {} },
     createElement: () => { const c = { log: [], width: 0, height: 0, style: {} }; c.getContext = () => recorder(c.log); made.push(c); return c; },
   };
   const random = { value: 0.5 };
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: dpr,
-    addEventListener: (k, f) => { (listeners[k] ??= []).push(f); } };
-  Object.assign(window, {
-    window, document, location: { search: query }, URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: Object.assign(Object.create(Math), { random: () => random.value }),
-    Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search: query, dpr, canvas, document,
+    window: { addEventListener: (k, f) => { (listeners[k] ??= []).push(f); } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
+    random: () => random.value,
   });
-  vm.runInNewContext(source, window);
   const game = window.__stickmanBrawl;
   return {
     game, screen, made, listeners, random,

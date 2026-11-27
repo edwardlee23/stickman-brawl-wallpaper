@@ -3,33 +3,20 @@
 // non-finite x once the window gets a real size (issue #62).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper in a window of the given size and returns its debug
 // hook, the window, its resize listener and a function that runs one
 // animation frame at the given time in ms.
 function load(width, height) {
   const stub = new Proxy(function () {}, { get: () => stub, set: () => true, apply: () => stub });
-  const canvas = { getContext: () => stub, style: {}, width: 0, height: 0 };
   const listeners = {};
   let next = null;
-  const window = {
-    innerWidth: width, innerHeight: height, devicePixelRatio: 1,
-    addEventListener: (type, cb) => { listeners[type] = cb; },
-  };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search: '?count=4' },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    width, height, search: '?count=4', ctx: stub,
+    window: { addEventListener: (type, cb) => { listeners[type] = cb; } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; } },
   });
-  vm.runInNewContext(source, window);
   return { game: window.__stickmanBrawl, window, resize: () => listeners.resize(), frame: now => next(now) };
 }
 

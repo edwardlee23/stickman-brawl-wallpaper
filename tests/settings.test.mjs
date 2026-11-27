@@ -5,9 +5,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
-const source = readFileSync('wallpaper/main.js', 'utf8');
 const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
 
 // An audio node whose unknown properties are AudioParams.
@@ -47,24 +46,15 @@ function load(query = '?count=2') {
       : k in state ? state[k] : stub,
     set: (_, k, v) => { if (k in state) state[k] = v; return true; },
   });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   const listeners = {};
   let next = null;
-  const window = {
-    innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
-  };
   const body = { style: {} };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body },
-    location: { search: query },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN, Float32Array, Promise,
+  const { window } = loadMain({
+    search: query, ctx, document: { body }, random: null,
+    window: { addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; },
+      Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN, Float32Array, Promise },
   });
-  vm.runInNewContext(source, window);
   return {
     game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, window, body, calls, listeners,
     frame: now => next(now),

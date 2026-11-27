@@ -4,9 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
-const source = readFileSync('wallpaper/main.js', 'utf8');
 const project = JSON.parse(readFileSync('wallpaper/project.json', 'utf8'));
 const THEMES = project.general.properties.backgroundtheme.options.map(o => o.value);
 
@@ -21,22 +20,13 @@ function stubContext() {
 
 function load() {
   const canvas = { getContext: stubContext, style: {}, width: 0, height: 0 };
-  const document = {
-    getElementById: () => canvas,
-    body: { style: {} },
-    createElement: () => ({ getContext: stubContext, style: {}, width: 0, height: 0 }),
-  };
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: () => {} };
-  Object.assign(window, {
-    window, document,
-    location: { search: '?count=2' },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search: '?count=2', canvas,
+    document: { createElement: () => ({ getContext: stubContext, style: {}, width: 0, height: 0 }) },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
+    random: null,
   });
-  vm.runInNewContext(source, window);
   let t = 0;
   return { game: window.__stickmanBrawl, we: window.wallpaperPropertyListener, frame: () => { t += 16; next(t); } };
 }

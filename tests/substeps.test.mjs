@@ -4,41 +4,20 @@
 // fighter at 300% speed and 20 fps (issue #4).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain, mulberry32 } from './load-main.mjs';
 
 // Loads the wallpaper with the given query string and returns its debug hook
 // plus a function that runs one animation frame at the given time in ms.
 // Math.random is a seeded generator, so every run plays the same rounds.
 function load(query, seed) {
-  let s = seed >>> 0;
-  const random = () => {   // mulberry32
-    s = (s + 0x6d2b79f5) >>> 0;
-    let r = Math.imul(s ^ (s >>> 15), 1 | s);
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
-  const noop = () => {};
   // Any 2D context call or property is a no-op that returns the same stub.
   const ctx = new Proxy(function () {}, { get: () => ctx, set: () => true, apply: () => ctx });
-  const canvas = { getContext: () => ctx, style: {}, width: 0, height: 0 };
   let next = null;
-  const window = {
-    innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener: noop,
-  };
-  Object.assign(window, {
-    window,
-    document: { getElementById: () => canvas, body: { style: {} } },
-    location: { search: query },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: Object.assign(Object.create(Math), { random }), Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search: query, ctx,
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
+    random: mulberry32(seed),
   });
-  vm.runInNewContext(source, window);
   return { game: window.__stickmanBrawl, frame: now => next(now) };
 }
 

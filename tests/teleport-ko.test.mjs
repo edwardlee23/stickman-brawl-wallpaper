@@ -3,29 +3,11 @@
 // teleport ends with (issue #260), instead of popping back into view with no effect.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain, mulberry32 } from './load-main.mjs';
 
-// A seeded Math.random keeps the run the same every time
-function seeded(seed) {
-  let s = seed >>> 0;
-  return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-}
-
+// A seeded Math.random (mulberry32) keeps the run the same every time
 function load(seed) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const math = Object.create(Math);
-  math.random = seeded(seed);
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams, Math: math,
-    location: { search: '?count=3&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  return window.__stickmanBrawl;
+  return loadMain({ search: '?count=3&mode=ffa', random: mulberry32(seed) }).game;
 }
 
 // Starts a teleport at x 300 toward a target at x 700 and steps until the teleporter is

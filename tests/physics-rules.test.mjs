@@ -5,29 +5,14 @@
 // ground contact through the knees, the depth and specials weights, and the window narrowing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const SRC = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper with a seeded Math.random (an LCG). Every fighter waits flinching on the
 // floor at the far right, so only the fighters a test moves do anything.
 function load(search = '?count=4&mode=ffa', props = {}) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
   const listeners = {};
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener: (t, f) => (listeners[t] ||= []).push(f) };
+  const { game, window } = loadMain({ search, window: { addEventListener: (t, f) => (listeners[t] ||= []).push(f) }, properties: props });
   window.resize = (w, h) => { window.innerWidth = w; window.innerHeight = h; for (const f of listeners.resize) f(); };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('{ let s = 1; Math.random = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }', context);
-  vm.runInContext(SRC, context, { filename: 'wallpaper/main.js' });
-  window.wallpaperPropertyListener.applyUserProperties(props);
-  const game = window.__stickmanBrawl;
   for (const [i, f] of game.fighters.entries()) {
     Object.assign(f, { x: 900 - i * 5, z: 60, alt: 0, va: 0, vx: 0, vz: 0, state: 'hit', st: 0, dur: 999, hp: 1000, cool: 999, retarget: 999 });
     f.W = f.joints();

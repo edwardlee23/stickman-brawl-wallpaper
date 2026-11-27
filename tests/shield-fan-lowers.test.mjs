@@ -4,22 +4,10 @@
 // fan that broke it, and must not count as a fighter still firing it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain } from './load-main.mjs';
 
 function shieldAgainst(id) {
-  const ctx = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-  const canvas = { width: 0, height: 0, style: {}, getContext: () => ctx };
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1, addEventListener() {} };
-  const context = vm.createContext({
-    window, console, performance, URLSearchParams,
-    location: { search: '?count=2&mode=ffa' },
-    document: { getElementById: () => canvas, body: { style: {} } },
-    requestAnimationFrame() {},
-  });
-  vm.runInContext('{ let s = 7; Math.random = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }', context);
-  vm.runInContext(readFileSync('wallpaper/main.js', 'utf8'), context, { filename: 'wallpaper/main.js' });
-  const game = window.__stickmanBrawl;
+  const { game } = loadMain({ seed: 7 });
   const [a, e] = game.fighters;
   const all = [...game.MOVES, ...game.SUPER, ...game.MAGIC, ...game.NINJA];
   // Attacker on the left facing right, the shield holder 300 to its right facing it.

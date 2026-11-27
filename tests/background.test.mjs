@@ -4,9 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-
-const source = readFileSync('wallpaper/main.js', 'utf8');
+import { loadMain } from './load-main.mjs';
 
 // A 2D context that logs every method call as [name, ...args] and every property set
 // as ['=name', value]; methods return the same recorder, so gradients log their stops too.
@@ -31,7 +29,7 @@ function load({ offscreen = true, width = 1280, height = 720 } = {}) {
   const made = [];
   const listeners = {};
   const canvas = { getContext: () => recorder(screen), style: {}, width: 0, height: 0 };
-  const document = { getElementById: () => canvas, body: { style: {} } };
+  const document = {};
   if (offscreen) {
     document.createElement = tag => {
       assert.equal(tag, 'canvas');
@@ -42,16 +40,11 @@ function load({ offscreen = true, width = 1280, height = 720 } = {}) {
     };
   }
   let next = null;
-  const window = { innerWidth: width, innerHeight: height, devicePixelRatio: 1, addEventListener: (k, f) => { listeners[k] = f; } };
-  Object.assign(window, {
-    window, document,
-    location: { search: '?count=2' },
-    URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search: '?count=2', width, height, canvas, document, random: null,
+    window: { addEventListener: (k, f) => { listeners[k] = f; } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Math, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
   });
-  vm.runInNewContext(source, window);
   let t = 0;
   return {
     window, screen, made, listeners,

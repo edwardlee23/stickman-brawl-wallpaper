@@ -3,15 +3,11 @@
 // rooftop windows (issue #430).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import { loadMain, mulberry32 } from './load-main.mjs';
 
-// The wallpaper, with a direct eval added at the end of its closure, so a test can read and set
-// the wallpaper's own variables (sparks, shake, roundOver) and call its functions
-const main = readFileSync('wallpaper/main.js', 'utf8');
-const END = '\n})();\n';
-assert.ok(main.endsWith(END), 'main.js no longer ends its closure as this test expects');
-const source = main.slice(0, -END.length) + '\nwindow.__peek = code => eval(code);' + END;
+// A direct eval added at the end of the wallpaper's closure, so a test can read and set the
+// wallpaper's own variables (sparks, shake, roundOver) and call its functions
+const PEEK = 'window.__peek = code => eval(code);';
 
 // A 2D context that logs every method call as [name, ...args] and every property set as
 // ['=name', value]; methods return the same recorder, so gradients log their stops too.
@@ -27,32 +23,22 @@ function recorder(log, textWidth) {
 // Loads the wallpaper with a recording screen and offscreen canvases. Math.random is a seeded
 // generator (mulberry32), so every run draws the same numbers.
 function load({ query = '?count=2', seed = 1 } = {}) {
-  let s = seed >>> 0, fixed = null;
-  const random = () => {
-    if (fixed !== null) return fixed;
-    s = (s + 0x6d2b79f5) >>> 0;
-    let r = Math.imul(s ^ (s >>> 15), 1 | s);
-    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-  };
+  const seeded = mulberry32(seed);
+  let fixed = null;
+  const random = () => (fixed !== null ? fixed : seeded());
   const screen = [], made = [], listeners = {};
   const text = { width: 40 };
   const canvas = { getContext: () => recorder(screen, () => text.width), style: {}, width: 0, height: 0 };
   const document = {
-    getElementById: () => canvas, body: { style: {} },
     createElement: () => { const c = { log: [], width: 0, height: 0, style: {} }; c.getContext = () => recorder(c.log, () => text.width); made.push(c); return c; },
   };
   let next = null;
-  const window = { innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
-    addEventListener: (k, f) => { (listeners[k] ??= []).push(f); } };
-  Object.assign(window, {
-    window, document, location: { search: query }, URLSearchParams,
-    performance: { now: () => 0 },
-    requestAnimationFrame: cb => { next = cb; },
-    Math: Object.assign(Object.create(Math), { random }),
-    Object, Set, Map, JSON, Array, Number, String, Infinity, NaN,
+  const { window } = loadMain({
+    search: query, canvas, document,
+    window: { addEventListener: (k, f) => { (listeners[k] ??= []).push(f); } },
+    globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; }, Object, Set, Map, JSON, Array, Number, String, Infinity, NaN },
+    random, expose: PEEK,
   });
-  vm.runInNewContext(source, window);
   const game = window.__stickmanBrawl;
   let t = 0, clickAt = 0;
   return {
