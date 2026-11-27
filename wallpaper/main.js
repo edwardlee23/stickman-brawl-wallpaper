@@ -957,6 +957,8 @@ class Fighter {
         this.rot = this.fallSign * Math.PI / 2 * (1 - ease(u));
         if (u < 0.5) lerpPose(DOWN, CROUCH, ease(u * 2), this.pose);
         else lerpPose(CROUCH, GUARD, ease((u - 0.5) * 2), this.pose);
+        // The juggle count starts over now, not at the next updIdle(): a fighter updated later in
+        // this step may launch it first (#433)
         if (u >= 1) { this.rot = 0; this.state = 'idle'; this.cool = rand(0.2, 0.6); this.juggle = 0; }
         break;
       }
@@ -1025,8 +1027,9 @@ class Fighter {
     const h = platformAlt(this.x, this.z, feet);
     if (h > 0 && this.va <= 0 && !this.hover && platformAt(this.x, feet)) {
       this.alt = h;
-      // Came down within half a unit of the top, or topped out on it: at large figure sizes the
-      // side ledges sit at the jump ceiling, where a jump stops with va 0 (issue #245)
+      // Came down within half a unit of the top, or drifted over it while hanging at the jump
+      // ceiling with va 0: at large figure sizes the side ledges sit there (issue #245), and
+      // with its feet on the top nothing else lands it (#433)
       if (this.va < 0 || this.state === 'air') { this.va = 0; this.onLand(); }
     }
     return h;
