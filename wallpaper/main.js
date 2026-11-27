@@ -1797,6 +1797,16 @@ class Fighter {
       lerpPose(this.pose, p, Math.min(1, dt * 20), this.pose);
       if ((md.dir < 0 && this.x <= 16) || (md.dir > 0 && this.x >= worldW - 16)) {
         md.ph = 'climb'; md.t0 = this.st; md.dur = rand(0.35, 0.75);
+        // A ledge between the wall and a target below its top would catch a leap that comes down
+        // over it, so the climb stops with the feet 10 below the lowest such top and the leap
+        // flies under it (#422)
+        md.under = -Infinity;
+        if (t && t.alive) {
+          const tFeet = groundY(t.z) - t.alt;
+          for (const p of platforms) {
+            if (p.y < tFeet - 0.5 && p.x1 > Math.min(this.x, t.x) && p.x0 < Math.max(this.x, t.x)) md.under = Math.max(md.under, p.y + 10);
+          }
+        }
         this.vx = 0; this.hover = true; this.va = 440; this.alt = Math.max(this.alt, 1);
         this.rot = -Math.PI / 2;                       // Body turns sideways, feet on the wall, running upward
       }
@@ -1807,7 +1817,7 @@ class Fighter {
       p.lF += Math.sin(this.walk) * 0.7; p.lB -= Math.sin(this.walk) * 0.7;
       lerpPose(this.pose, p, Math.min(1, dt * 20), this.pose);
       if (Math.random() < 0.3) spawnSparks(this.x, groundY(this.z) - this.alt, 'rgba(200,200,200,0.6)', 1, false);
-      if (this.st - md.t0 > md.dur || this.alt >= maxAlt(this.z)) {
+      if (this.st - md.t0 > md.dur || this.alt >= maxAlt(this.z) || groundY(this.z) - this.alt <= md.under) {
         md.ph = 'leap'; this.rot = 0; this.hover = false; md.prev = null;
         this.facing = -md.dir;
         this.hover = true; md.t0 = this.st;
