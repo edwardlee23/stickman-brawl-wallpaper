@@ -1,9 +1,9 @@
 # Stickman Brawl 火柴人格鬥
 
-English | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
-
 [![CI](https://github.com/edwardlee23/stickman-brawl-wallpaper/actions/workflows/ci.yml/badge.svg)](https://github.com/edwardlee23/stickman-brawl-wallpaper/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+English | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
 
 A comic-style stickman brawl for [Wallpaper Engine](https://www.wallpaperengine.io/).
 Fighters mix boxing, Muay Thai, taekwondo, judo and wrestling with comic
@@ -11,7 +11,7 @@ specials (energy blasts, wall running, and hits that slam them into walls),
 magic (fireballs, lightning strikes, ice shards that freeze the target, and
 shields that stop a hit) and ninjutsu: shuriken, shadow clones, smoke escapes,
 and a log left behind to take a hit. A punch or kick that lands can run
-straight on into the next, in combos of up to four strikes. A knockout turns
+straight on into the next, in combos of two or three strikes. A knockout turns
 the loser into a ragdoll, and a new round starts when one side is left.
 
 ![Six fighters brawling in free-for-all mode](demo.gif)
@@ -108,9 +108,9 @@ The day and night sky at 6:00, 12:00, 18:00 and 23:00:
 
 ### Background and line colors
 
-With the Plain background, "Background color" and "Line color" set the flat
-background and the color of the lines; with "Unique color per fighter" off,
-the fighters are drawn in the line color too.
+With the Plain background, "Background color" sets the flat background.
+"Line color" sets the color of the lines with every background; with "Unique
+color per fighter" off, the fighters are drawn in the line color too.
 
 ![A light background with dark lines, and a navy background with yellow lines](docs/images/colors.png)
 
