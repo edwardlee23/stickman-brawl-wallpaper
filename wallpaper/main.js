@@ -93,7 +93,7 @@ const VICTORY = P({ t: -0.05, aF: 2.9, eF: 0.2, aB: 3.0, eB: -0.2, lF: 0.25, kF:
 // with its own motion at time t: both arms waving overhead, a fist pumped with the other hand
 // on the hip, or arms folded with a slow nod of the shoulders
 const FIST_PUMP = P({ t: -0.1, aF: 2.5, eF: 1.3, aB: -0.6, eB: 2.0, lF: 0.25, kF: 0, lB: -0.25, kB: 0 });
-const ARMS_FOLDED = P({ t: -0.12, aF: 0.8, eF: 2.5, aB: 0.75, eB: 2.5, lF: 0.2, kF: 0, lB: -0.2, kB: 0 });
+const ARMS_FOLDED = P({ t: -0.12, aF: 0.3, eF: 1.45, aB: 0.35, eB: 1.4, lF: 0.2, kF: 0, lB: -0.2, kB: 0 });
 const VICTORIES = [
   (p, t) => { Object.assign(p, VICTORY); p.aF += Math.sin(t * 6) * 0.25; p.aB += Math.sin(t * 6 + 1) * 0.25; },
   (p, t) => { Object.assign(p, FIST_PUMP); const s = Math.max(0, Math.sin(t * 8)); p.aF += s * 0.35; p.eF -= s * 0.9; },
