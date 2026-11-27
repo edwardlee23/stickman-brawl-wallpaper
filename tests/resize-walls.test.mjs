@@ -50,6 +50,19 @@ for (const rules of ['normal', 'ladder']) {
   });
 }
 
+test('a paused frame after a narrower resize draws a fighter getting up inside the wall', () => {
+  const w = load('?count=2', 1280, 720);
+  w.frames(2);
+  const f = w.game.fighters[0];
+  // Lying across x, its head toward the right wall, part way through getting up
+  Object.assign(f, { state: 'getup', st: 0.05, x: 470, alt: 0, va: 0, vx: 0, facing: 1, fallSign: 1, rot: Math.PI / 2 });
+  w.we.setPaused(true);
+  w.resize(640, 720);
+  w.frames(1);
+  const worldW = w.game.worldW;
+  for (const k of ['head', 'sh', 'hip']) assert.ok(f.W[k].x <= worldW, k + ' drawn at x ' + f.W[k].x.toFixed(1) + ' past the wall at ' + worldW);
+});
+
 // Sends the first fighter flying into the right wall until it sticks there
 function splatRight(w) {
   const f = w.game.fighters[0];

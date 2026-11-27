@@ -421,6 +421,9 @@ function resize() {
     if (wall > 0 && oldW > 0) f.x += worldW - oldW;
     else if (ladder && oldW > 0 && !wall && f.state !== 'wait' && !f.rag) f.x *= worldW / oldW;
     f.x = clamp(f.x, 14, worldW - 14);
+    // A body lying or getting up reaches past its x: brought whole inside the walls, as each
+    // step does (update()), so a paused frame does not draw its head past a narrower wall
+    if (LYING.has(f.state)) f.inWalls();
     // A thrown fighter is drawn along the throw's path, so that moves the same way (issue #388)
     if (f.state === 'thrown' && f.th) {
       for (const k of ['hx0', 'hx1', 'hx']) f.th[k] = clamp(ladder && oldW > 0 ? f.th[k] * worldW / oldW : f.th[k], 14, worldW - 14);
@@ -522,7 +525,7 @@ function slowmoView(ox, oy) {
   view = { z, x: ox * z + cx * (1 - z), y: oy * z + cy * (1 - z) };
   ctx.setTransform(dpr * S * z, 0, 0, dpr * S * z, view.x * dpr, view.y * dpr);
 }
-const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, combos: 0, splats: 0, clashes: 0, parries: 0, counters: 0, sfx: {} };
+const stats = { att: {}, hits: {}, whiff: 0, blocked: 0, shielded: 0, subs: 0, ko: 0, rounds: 0, throws: 0, launches: 0, combos: 0, splats: 0, clashes: 0, parries: 0, counters: 0, standoffs: 0, sfx: {} };
 window.__stickmanBrawl = { stats, cfg, MOVES, SUPER, MAGIC, NINJA, shots, fx, sfx, soundSetVolume, soundSetPaused, checkRound, update, pickMove, pickTarget,
   render: () => render(),
   get fighters() { return fighters; } };
@@ -634,6 +637,9 @@ function clash(a, b, Ha, Hb) {
 // warned of one answers it with its own (warn, MEET_CHANCE)
 const CLASH_DIST = 16, CLASH_STAGGER = 0.3, PARRY_CHANCE = 0.35, PARRY_STAGGER = 0.4;
 const MEET_CHANCE = 0.25;   // Share of martial-arts strikes an enemy warned of meets with a strike of its own (warn)
+// Spacing: the chance a second, while a fighter waits with its target in reach, that it backs
+// off into a standoff; how far from the target's depth it circles; the speed of the rush in
+const STANDOFF_RATE = 0.7, STANDOFF_DZ = 18, RUSH_SPEED = 520;
 // A cloud of smoke: a few grey balls that swell and fade
 function puff(x, y, size) {
   const balls = [];
@@ -1098,6 +1104,7 @@ class Fighter {
     this.smear = [];   // Where a strike's lead limb was over its last SMEAR_AGE seconds (updSmear)
     this.subFrom = null; this.subT = 0;   // A substitution readied against this attacker, for subT seconds
     this.reachT = 0;                      // Seconds the queued move has been out of reach
+    this.standoff = 0; this.standoffD = 0; this.circle = 1;   // Spacing: seconds left, distance held, way round in depth
     this.V = null; this.resetLook();      // The drawn joints, and the spring offset they are drawn with
   }
   get alive() { return this.state !== 'ko'; }
@@ -1392,8 +1399,22 @@ class Fighter {
       this.nextMove = withStaff(this, this.nextMove);
       const m = this.nextMove, dx = t.x - this.x, dist = Math.abs(dx), dz = t.z - this.z;
       if (dist > 1) this.facing = sgn(dx);
+      // Spacing: now and then, waiting with the target in reach of a martial-arts strike, back
+      // off to hold it just out of reach, circling in depth, then rush in and strike (standoff).
+      // Not with a throw queued, which closes in to grab
+      if (this.standoff <= 0 && this.cool > 0 && t.hittable && !m.type && !m.grab && dist <= m.range[1] + 40 &&
+        Math.random() < dt * STANDOFF_RATE) {
+        this.standoff = rand(0.6, 1.4); this.standoffD = m.range[1] + rand(35, 70);
+        this.circle = Math.random() < 0.5 ? 1 : -1; stats.standoffs++;
+      }
+      if (this.standoff > 0 && (!t.hittable || m.type || m.grab)) this.standoff = 0;
       let dir;
       if (!t.hittable) dir = dist < 60 ? -1 : dist > 90 ? 1 : 0;
+      else if (this.standoff > 0) {
+        dir = dist < this.standoffD - 8 ? -1 : dist > this.standoffD + 8 ? 1 : Math.sin(this.time * 2.3 + this.id) * 0.35;
+        this.standoff -= dt;
+        if (this.standoff <= 0) this.rush(m, dist);
+      }
       else if (dist > m.range[1] - 2) dir = 1;
       else if (dist < m.range[0] + 2) dir = -1;
       else dir = Math.sin(this.time * 2.3 + this.id) * 0.35;   // Footwork shuffle
@@ -1408,11 +1429,18 @@ class Fighter {
       // (#421), is waited out for as long, then replaced too (#459)
       const unfit = m.type && !specialFits(this, m, t);
       this.reachT = t.hittable && (dist < m.range[0] || dist > m.range[1] || unfit) ? this.reachT + dt : 0;
+      if (this.standoff > 0) this.reachT = 0;   // Out of reach on purpose
       if (pinned || this.reachT > 1.5) { this.nextMove = pickMove(this, t, dist); this.reachT = 0; }
-      if (pinned) dir = 0;   // A wall stops it anyway; a ledge end does not
+      if (pinned) { dir = 0; this.standoff = 0; }   // A wall stops it anyway; a ledge end does not
       if (this.evade <= 0 && this.dash <= 0) {
         this.vx = approach(this.vx, dir * this.facing * 110, 600 * dt);
-        this.vz = approach(this.vz, clamp(dz * 4, -45, 45), 300 * dt);
+        // Circling while spacing: round the target in depth, turning back at STANDOFF_DZ from its
+        // depth or at the front and back of the floor. Not on a ledge, whose top is a height on
+        // screen, so a step in depth would step off it
+        if (this.standoff > 0 && !ledge) {
+          if ((this.z - t.z) * this.circle > STANDOFF_DZ || this.z + this.circle * 6 < 0 || this.z + this.circle * 6 > DEPTH) this.circle = -this.circle;
+          this.vz = approach(this.vz, this.circle * 40, 300 * dt);
+        } else this.vz = approach(this.vz, clamp(dz * 4, -45, 45), 300 * dt);
         // Dash when far away
         if (dir > 0 && dist > 200 && Math.random() < dt * 0.9) {
           this.vx = this.facing * 520; this.dash = 0.22; this.trailOn = true;
@@ -1430,7 +1458,7 @@ class Fighter {
         return;
       }
       const altOK = m.type ? specialFits(this, m, t) : Math.abs(t.alt - this.alt) < 35;
-      if (this.cool <= 0 && t.hittable && altOK && dist >= m.range[0] && dist <= m.range[1] && Math.abs(dz) < 9) {
+      if (this.cool <= 0 && this.standoff <= 0 && t.hittable && altOK && dist >= m.range[0] && dist <= m.range[1] && Math.abs(dz) < 9) {
         // Walking to an item turns the fighter away; every move starts facing the target
         if (dist > 1) this.facing = sgn(dx);
         this.startMove(m);
@@ -1443,6 +1471,16 @@ class Fighter {
     const b = Math.sin(this.time * 7 + this.id);
     tp.kF += b * 0.07; tp.kB += b * 0.07; tp.t += b * 0.02;
     lerpPose(this.pose, tp, Math.min(1, dt * 14), this.pose);
+  }
+
+  // The end of a standoff: a short dash that stops in the middle of move m's reach, from dist
+  // away, ready to strike at once
+  rush(m, dist) {
+    this.cool = 0;
+    const gap = dist - (m.range[0] + m.range[1]) / 2;
+    if (gap <= 0 || this.evade > 0) return;
+    this.vx = this.facing * RUSH_SPEED; this.dash = Math.min(0.22, gap / RUSH_SPEED); this.trailOn = true;
+    dust(this.x, groundY(this.z) - this.alt, 3, -this.facing);
   }
 
   updAir(dt) {
