@@ -96,7 +96,8 @@ const hsl = f => `hsl(${f.hue},80%,66%)`;
 function bodies(calls) {
   const out = [];
   calls.forEach((c, i) => {
-    if (c[0] !== '=lineWidth' || c[1] !== 3.2) return;
+    // A body starts where its color and width are set together: its limbs set widths of their own
+    if (c[0] !== '=lineWidth' || c[1] !== 3.2 || calls[i - 1]?.[0] !== '=strokeStyle') return;
     let col;
     for (let j = i - 1; j >= 0; j--) if (calls[j][0] === '=strokeStyle') { col = calls[j][1]; break; }
     const alphas = calls.slice(i).filter(c => c[0] === '=globalAlpha').slice(0, 2).map(c => c[1]);
