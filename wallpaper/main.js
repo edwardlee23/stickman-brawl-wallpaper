@@ -37,6 +37,16 @@ const ease = u => (u < 0.5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u));
 const easeOut = u => 1 - (1 - u) * (1 - u);
 const sgn = v => (v >= 0 ? 1 : -1);
 const pick = a => a[Math.floor(Math.random() * a.length)];
+// Cosmetic randomness (dust, debris) comes from a generator of its own, a mulberry32, so an
+// effect added or changed never shifts Math.random, and with it the fight a seed gives
+let fxSeed = 0x9e3779b9;
+const fxRand = (a, b) => {
+  fxSeed = (fxSeed + 0x6D2B79F5) >>> 0;
+  let t = fxSeed;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return a + (((t ^ (t >>> 14)) >>> 0) / 4294967296) * (b - a);
+};
 const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
 // Query string, for a plain browser: numbers are clamped to the settings panel's ranges,
@@ -585,9 +595,34 @@ function puff(x, y, size) {
   for (let i = 0; i < 7; i++) balls.push({ dx: rand(-14, 14) * size, dy: rand(-20, 20) * size, r: rand(8, 15) * size });
   addFx({ type: 'puff', x, y, balls, dur: 0.5 });
 }
+// Dust kicked up from the floor at x, y: n flat puffs that drift out toward dir (0: both
+// ways), swell and settle, drawn behind the fighters
+function dust(x, y, n, dir = 0, size = 1) {
+  const balls = [];
+  for (let i = 0; i < n; i++) {
+    const d = dir || (i % 2 ? 1 : -1);
+    balls.push({ dx: fxRand(-4, 4) * size, vx: d * fxRand(25, 80) * size, vy: -fxRand(6, 18) * size, r: fxRand(3, 6) * size });
+  }
+  addFx({ type: 'dust', x, y, balls, dur: fxRand(0.45, 0.6) });
+}
+// n chips of wall or floor flung from x, y toward dir (0: both ways) that fall to the floor at
+// fy and stop there
+function debris(x, y, n, dir, fy) {
+  const bits = [];
+  for (let i = 0; i < n; i++) {
+    const vx = (dir || (i % 2 ? 1 : -1)) * fxRand(40, 220), vy = -fxRand(60, 260);
+    // When it reaches the floor: y + vy t + G t^2 = fy, with fy at or below y
+    const tl = (-vy + Math.sqrt(vy * vy + 4 * DEBRIS_G * Math.max(0, fy - y))) / (2 * DEBRIS_G);
+    bits.push({ vx, vy, tl, s: fxRand(1.5, 3.5), spin: fxRand(-12, 12) });
+  }
+  addFx({ type: 'debris', x, y, bits, dur: 0.9 });
+}
+const DEBRIS_G = 450;   // Half the pull on a chip, in world units a second per second
 function quake(x, y, r) {
   addFx({ type: 'ring', x, y, r0: 6, r1: r, dur: 0.4, w: 3, flat: true });
   crack(x, y, 'ground', r * 0.7);
+  debris(x, y - 2, Math.round(r / 6), 0, y);
+  dust(x, y, 6, 0, r / 60);
   sfx('boom', x, r / 110);
   spawnSparks(x, y, 'rgba(210,210,210,0.75)', 22, true, 2);
   shake = Math.max(shake, 10);
@@ -1015,6 +1050,7 @@ class Fighter {
     this.th = null; this.rag = null; this.hipH = 44; this.W = null; this.downDur = 1; this.koPending = false;
     this.aura = 0; this.alpha = 1; this.invis = false; this.ghost = false;
     this.trail = []; this.trailOn = false; this.trailT = 0;
+    this.smear = [];   // Where a strike's lead limb was over its last SMEAR_AGE seconds (updSmear)
     this.subFrom = null; this.subT = 0;   // A substitution readied against this attacker, for subT seconds
     this.reachT = 0;                      // Seconds the queued move has been out of reach
     this.V = null; this.resetLook();      // The drawn joints, and the spring offset they are drawn with
@@ -1254,6 +1290,7 @@ class Fighter {
   onLand() {
     this.dashed = false; this.dj = false;
     spawnSparks(this.x, groundY(this.z) - this.alt, 'rgba(200,200,200,0.6)', 5, true);
+    dust(this.x, groundY(this.z) - this.alt, 4);
     if (this.state === 'air') { this.state = 'idle'; this.st = 0; this.trailOn = false; }
     // A wall run ends on landing after its leap; its run goes on, as from the middle ledge it
     // drops to a side ledge or the floor on the way to the wall (#346)
@@ -1308,6 +1345,7 @@ class Fighter {
         // Dash when far away
         if (dir > 0 && dist > 200 && Math.random() < dt * 0.9) {
           this.vx = this.facing * 520; this.dash = 0.22; this.trailOn = true;
+          dust(this.x, groundY(this.z) - this.alt, 3, -this.facing);
         }
         seekItem(this, dt);
       }
@@ -2417,6 +2455,8 @@ class Fighter {
     }
     this.dur = 0.16 + dmg * 0.025;
     this.vx = dir * ((m.push || 30) + dmg * 2) * 2.2;
+    // A hard push slides the feet back over the floor, kicking up dust
+    if (!this.aloft() && Math.abs(this.vx) > 150) dust(this.x, groundY(this.z) - this.alt, 3, dir, 0.8);
   }
 
   launch(vx, va, quiet) {
@@ -2482,6 +2522,7 @@ class Fighter {
         this.alt = Math.max(this.alt, 0);
         const wy = groundY(this.z) - this.alt - 14;
         crack(side < 0 ? 0 : worldW, wy, 'wall', 70);
+        debris(side < 0 ? 0 : worldW, wy, 10, -side, groundY(this.z));
         addFx({ type: 'ring', x: side < 0 ? 0 : worldW, y: wy, r0: 4, r1: 60, dur: 0.3, w: 3 });
         shake = Math.max(shake, 10); hitStop(0.07);
         this.state = 'splat'; this.st = 0; this.vx = 0; this.va = 0; this.splatSide = side;
@@ -2977,6 +3018,21 @@ Object.assign(window.__stickmanBrawl, { L, fk, MOVE_BY, STAFF_MOVE, STAFF_STRIKE
   ragCorners, updateShots, updateItems, steerBoomerang, LOOK, GUARD, WALK, walkPose, FOLLOW, LAG });
 Object.defineProperty(window.__stickmanBrawl, 'worldW', { get: () => worldW });
 
+// A smear frame: through a strike's active time, the band its lead limb sweeps over the last
+// SMEAR_AGE seconds is drawn as a faded fill (drawFighter), so a fast kick reads as a blur of motion
+const SMEAR_AGE = 0.07;   // Seconds of the sweep a smear covers
+const SMEAR_ROOT = { hF: 'eF', hB: 'eB', eF: 'sh', eB: 'sh', fF: 'kF', fB: 'kB', kF: 'hip', kB: 'hip' };
+function updSmear(f) {
+  const m = f.move, D = f.V || f.W;
+  const on = f.state === 'attack' && m && !m.type && SMEAR_ROOT[m.hit] && !f.rag && D &&
+    f.st >= m.wind && f.st < m.wind + m.act;
+  if (!on) { f.smear.length = 0; return; }
+  const e = D[m.hit], r = D[SMEAR_ROOT[m.hit]];
+  // A step that took no time adds nothing, so the list only ever holds SMEAR_AGE seconds
+  if (f.smear.length && f.time <= f.smear[f.smear.length - 1].t) return;
+  f.smear.push({ t: f.time, ex: e.x, ey: e.y, rx: r.x, ry: r.y });
+  while (f.time - f.smear[0].t > SMEAR_AGE) f.smear.shift();
+}
 function update(dt, real = dt) {
   roundRulesStep();
   for (const f of fighters) f.update(dt);
@@ -3008,6 +3064,7 @@ function update(dt, real = dt) {
     f.stepLook(dt);
     f.W = f.rag ? f.rag.pts : f.joints();
     f.V = f.rag ? f.rag.pts : f.viewJoints();
+    updSmear(f);
     if (f.koPending) { f.koPending = false; f.ko(0, -40); f.W = f.V = f.rag.pts; }
     // Afterimages
     if (f.trailOn && !f.invis) {
@@ -3123,17 +3180,25 @@ function path(...pts) {
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
 }
+const LIMB_UPPER = 0.9, LIMB_LOWER = 0.72;
 function drawSkeleton(J, col, alpha, width, headFill) {
   ctx.strokeStyle = col; ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   const glow = musicGlow(); if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 10 * glow; }
+  // Line weight thins from the torso out, as a brush stroke does toward the hands and feet:
+  // upper arms and thighs at LIMB_UPPER of the width, forearms and shins at LIMB_LOWER
+  const limb = (a, b, c) => {
+    ctx.lineWidth = width * LIMB_UPPER; path(a, b);
+    ctx.lineWidth = width * LIMB_LOWER; path(b, c);
+  };
   ctx.globalAlpha = alpha * 0.55;
-  path(J.sh, J.eB, J.hB); path(J.hip, J.kB, J.fB);
+  limb(J.sh, J.eB, J.hB); limb(J.hip, J.kB, J.fB);
+  ctx.lineWidth = width;
   ctx.globalAlpha = alpha;
   path(J.hip, J.sh, J.head);
-  path(J.hip, J.kF, J.fF); path(J.sh, J.eF, J.hF);
   ctx.beginPath(); ctx.arc(J.head.x, J.head.y, L.head, 0, Math.PI * 2);
   if (headFill) { ctx.fillStyle = headCol; ctx.fill(); }
   ctx.stroke();
+  limb(J.hip, J.kF, J.fF); limb(J.sh, J.eF, J.hF);
   if (glow) ctx.shadowBlur = 0;
 }
 function drawAura(f, col) {
@@ -3156,6 +3221,31 @@ function drawFighter(f) {
   if (!J || f.invis) return;
   const col = colorOf(f);
   for (const tr of f.trail) drawSkeleton(tr.p, col, tr.life * 0.3 * f.alpha, 2, false);
+  // Speed lines streaming behind a dashing fighter; their places come from bgHash and the
+  // fighter's clock, so a paused redraw draws the same lines
+  if (f.dash > 0 && Math.abs(f.vx) > 300 && !cfg.reduceMotion) {
+    const back = -sgn(f.vx), top = J.head.y, bot = Math.max(J.fF.y, J.fB.y), k = Math.floor(f.time * 30);
+    ctx.strokeStyle = col; ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      const h = bgHash(f.id * 97 + k * 7 + i), y = top + (bot - top) * (i + 0.2 + h * 0.6) / 5;
+      const x = f.x + back * (10 + h * 8), len = 25 + bgHash(f.id * 53 + k * 5 + i) * 35;
+      ctx.globalAlpha = (0.2 + h * 0.25) * f.alpha;
+      path({ x, y }, { x: x + back * len, y });
+    }
+    ctx.globalAlpha = 1;
+  }
+  // The smear of a strike (updSmear): the tip's path out and the root's path back
+  if (f.smear.length > 1) {
+    const s = f.smear, a = s[0], b = s[s.length - 1];
+    if (Math.hypot(b.ex - a.ex, b.ey - a.ey) > 8) {
+      ctx.globalAlpha = 0.35 * f.alpha; ctx.fillStyle = col;
+      ctx.beginPath();
+      for (const p of s) ctx.lineTo(p.ex, p.ey);
+      for (let i = s.length - 1; i >= 0; i--) ctx.lineTo(s[i].rx, s[i].ry);
+      ctx.closePath(); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
   if (f.aura > 0 && f.alive) drawAura(f, col);
   if (f.move && f.move.type === 'clones' && f.md && f.md.clones) {
     // Shadow clones: faded copies in the fighter's pose; fac -1 mirrors one to face the other way
@@ -3249,6 +3339,24 @@ function drawFx(o, layer) {
       ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       ctx.stroke();
+    }
+  } else if (o.type === 'dust' && layer === 0) {
+    const k = easeOut(u);
+    ctx.fillStyle = cfg.line;
+    for (const b of o.balls) {
+      ctx.globalAlpha = 0.22 * (1 - u);
+      ctx.beginPath();
+      ctx.ellipse(o.x + b.dx + b.vx * o.dur * k, o.y + b.vy * o.dur * k, b.r * (0.7 + u), b.r * (0.4 + u * 0.5), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (o.type === 'debris' && layer === 1) {
+    ctx.fillStyle = cfg.line; ctx.globalAlpha = 0.8 * (1 - u * u);
+    for (const b of o.bits) {
+      const t = Math.min(o.t, b.tl);
+      const x = clamp(o.x + b.vx * t, 0, worldW), y = o.y + b.vy * t + DEBRIS_G * t * t;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(b.spin * t);
+      ctx.fillRect(-b.s / 2, -b.s / 2, b.s, b.s);
+      ctx.restore();
     }
   } else if (o.type === 'puff' && layer === 1) {
     ctx.fillStyle = SMOKE;
