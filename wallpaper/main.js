@@ -1251,6 +1251,15 @@ class Fighter {
       const lx = J[k].x - px, ly = J[k].y - py;
       W[k] = { x: ax + fac * (lx * c - ly * s), y: ay + lx * s + ly * c };
     }
+    // Splatted, tumbling or getting up, the body is held by its hip or turned on its side, so a
+    // limb can reach below the floor line; it is lifted onto it, as the ragdoll a knockout makes
+    // of it would be, so the limbs do not sink into the floor and a knockout does not jump (#496)
+    if (this.state === 'launched' || this.state === 'splat' || this.state === 'getup') {
+      const fy = groundY(this.z) - this.surfaceAlt();
+      let lift = 0;
+      for (const k in W) lift = Math.max(lift, W[k].y - (fy - (k === 'head' ? L.head : 1.5)));
+      if (lift > 0) for (const k in W) W[k].y -= lift;
+    }
     return W;
   }
 
