@@ -1387,7 +1387,15 @@ class Fighter {
     if (!t || !t.alive || this.retarget <= 0) { t = this.target = pickTarget(this); this.retarget = rand(1.2, 3); }
     // A sidestep in depth (#416) slows to a stop in about a third of a second
     if (this.evade > 0) { this.evade -= dt; this.vx = approach(this.vx, 0, 500 * dt); this.vz = approach(this.vz, 0, 700 * dt); }
-    if (this.dash > 0) { this.dash -= dt; if (this.dash <= 0) this.trailOn = false; }
+    if (this.dash > 0) {
+      this.dash -= dt;
+      if (this.dash <= 0) {
+        this.trailOn = false;
+        // A rush stops where it was aimed, in reach, instead of sliding on past the target, and
+        // walks on in depth from there (#494)
+        if (this.rushing) { this.vx = 0; this.vz = t ? clamp((t.z - this.z) * 4, -45, 45) : 0; }
+      }
+    }
     if (!t) {
       this.vx = approach(this.vx, 0, 300 * dt); this.vz = approach(this.vz, 0, 200 * dt);
       if (roundOver) {
@@ -1443,7 +1451,7 @@ class Fighter {
         } else this.vz = approach(this.vz, clamp(dz * 4, -45, 45), 300 * dt);
         // Dash when far away
         if (dir > 0 && dist > 200 && Math.random() < dt * 0.9) {
-          this.vx = this.facing * 520; this.dash = 0.22; this.trailOn = true;
+          this.vx = this.facing * 520; this.dash = 0.22; this.trailOn = true; this.rushing = false;
           dust(this.x, groundY(this.z) - this.alt, 3, -this.facing);
         }
         seekItem(this, dt);
@@ -1474,12 +1482,16 @@ class Fighter {
   }
 
   // The end of a standoff: a short dash that stops in the middle of move m's reach, from dist
-  // away, ready to strike at once
+  // away, ready to strike at once. The circling can leave it up to STANDOFF_DZ off the target's
+  // depth, more than a strike allows, so the dash closes that too (#494)
   rush(m, dist) {
     this.cool = 0;
     const gap = dist - (m.range[0] + m.range[1]) / 2;
     if (gap <= 0 || this.evade > 0) return;
     this.vx = this.facing * RUSH_SPEED; this.dash = Math.min(0.22, gap / RUSH_SPEED); this.trailOn = true;
+    this.rushing = true;
+    const t = this.target;
+    if (t) this.vz = clamp((t.z - this.z) / this.dash, -150, 150);
     dust(this.x, groundY(this.z) - this.alt, 3, -this.facing);
   }
 
@@ -1498,7 +1510,7 @@ class Fighter {
     if (!this.dashed && r < 0.3 && Math.abs(dx) > 80) {
       // Air dash
       this.dashed = true; this.vx = this.facing * 560; this.va = Math.max(this.va, 60);
-      this.dash = 0.25; this.trailOn = true; this.cool = rand(0.1, 0.3);
+      this.dash = 0.25; this.trailOn = true; this.cool = rand(0.1, 0.3); this.rushing = false;
     } else if (!this.dj && r < 0.45 && altSeen(this, t) > this.alt - 20) {
       // Double jump, at a target not below; its height is seen from this depth, as above (#386)
       this.dj = true; this.va = 560; this.cool = rand(0.1, 0.3);
