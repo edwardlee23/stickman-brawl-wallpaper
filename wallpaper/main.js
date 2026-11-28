@@ -3263,7 +3263,13 @@ function updSmear(f) {
 function update(dt, real = dt) {
   roundRulesStep();
   for (const f of fighters) f.update(dt);
-  // Avoid overlap
+  // Avoid overlap. A fighter standing on a ledge is pushed no further than its end: 1-2 px past
+  // it, each step it turned to air, its walk brought it back to land and the push moved it off
+  // again (#503)
+  const span = f => {
+    const p = f.alt > 0 && !f.aloft() ? platformAt(f.x, groundY(f.z) - f.alt) : null;
+    return p ? [Math.max(14, p.x0), Math.min(worldW - 14, p.x1)] : [14, worldW - 14];
+  };
   for (let i = 0; i < fighters.length; i++) {
     const a = fighters[i];
     // Height above the floor or ledge it stands on, so fighters on one ledge are pushed apart too
@@ -3275,7 +3281,8 @@ function update(dt, real = dt) {
       const dx = b.x - a.x, ad = Math.abs(dx);
       if (ad < 16) {
         const s = dx !== 0 ? sgn(dx) : (a.id < b.id ? 1 : -1), push = (16 - ad) * 0.5;
-        a.x = clamp(a.x - s * push, 14, worldW - 14); b.x = clamp(b.x + s * push, 14, worldW - 14);
+        const ka = span(a), kb = span(b);
+        a.x = clamp(a.x - s * push, ka[0], ka[1]); b.x = clamp(b.x + s * push, kb[0], kb[1]);
         // Teammates bunched together also spread front to back
         if (!isEnemy(a, b)) {
           const sz = dz !== 0 ? sgn(dz) : (a.id < b.id ? 1 : -1), pz = (10 - adz) * 0.08;
