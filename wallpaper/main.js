@@ -3398,7 +3398,7 @@ function drawSkeleton(J, col, alpha, width, headFill) {
   ctx.globalAlpha = alpha;
   path(J.hip, J.sh, J.head);
   ctx.beginPath(); ctx.arc(J.head.x, J.head.y, L.head, 0, Math.PI * 2);
-  if (headFill) { ctx.fillStyle = headCol; ctx.fill(); }
+  if (headFill) { ctx.fillStyle = headSky ? bg.dayNightAt(headSky, J.head.x, J.head.y) : headCol; ctx.fill(); }
   ctx.stroke();
   limb(J.hip, J.kF, J.fF); limb(J.sh, J.eF, J.hF);
   if (glow) ctx.shadowBlur = 0;
@@ -3650,16 +3650,36 @@ const bg = {
     return h < 5 || h >= 20.5 ? 'night' : h < 7.5 ? 'dawn' : h < 18 ? 'day' : 'dusk';
   },
   // The fill inside a head: the backdrop behind the fighters' heads (the wall or the sky), so a
-  // head reads as an outline over the theme rather than a dark disc
+  // head reads as an outline over the theme rather than a dark disc. Day and night has none
+  // here: its heads stand over a bright sky, near-black buildings or the floor, so each head
+  // takes the color at its own place (dayNightAt, issue #497)
   headFill(theme, date) {
     if (theme === 'dojo') return '#1a1510';
     if (theme === 'rooftop') return bg.SKY.night[1];
     if (theme === 'comic') return '#16141d';
-    if (theme === 'daynight') return bg.SKY[bg.skyPhase(date)][1];
     return cfg.bg;
+  },
+  // The color bgPaint gives Day and night at the world point (x, y) under the sky stops given:
+  // the floor, a skyline building (its lit windows aside) or the sky gradient at that height
+  dayNightAt(stops, x, y) {
+    const px = x * S, py = y * S, floorY = floorTop * S;
+    if (py >= floorY) return '#0c0d12';
+    for (const b of bgBuildings(floorY)) {
+      if (b.x > px) break;
+      if (px < b.x + b.w + 1 && py >= floorY - b.h) return '#0a0c14';
+    }
+    const t = clamp(py / floorY, 0, 1) * (stops.length - 1), i = Math.min(Math.floor(t), stops.length - 2);
+    const c0 = stops[i], c1 = stops[i + 1], k = t - i;
+    let out = '#';
+    for (let j = 1; j < 7; j += 2) {
+      const a = parseInt(c0.slice(j, j + 2), 16), b = parseInt(c1.slice(j, j + 2), 16);
+      out += Math.round(a + (b - a) * k).toString(16).padStart(2, '0');
+    }
+    return out;
   },
 };
 let headCol = cfg.bg;      // This frame's head fill, set by render()
+let headSky = null;        // This frame's Day and night sky stops, or null under any other theme
 // A fixed pseudo-random value in [0, 1) for an index, so the drawing never touches
 // Math.random and looks the same every time it is repainted
 const bgHash = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -3668,15 +3688,21 @@ function bgSky(c, top, bottom, colors) {
   colors.forEach((col, i) => g.addColorStop(i / (colors.length - 1), col));
   c.fillStyle = g; c.fillRect(0, 0, SW, bottom);
 }
-function bgSkyline(c, floorY, lit) {
+// The skyline's buildings, left to right, as { i, x, w, h } in screen pixels
+function* bgBuildings(floorY) {
   for (let x = -10, i = 0; x < SW; i++) {
     const w = 40 + bgHash(i) * 90, h = floorY * (0.18 + bgHash(i + 50) * 0.32);
+    yield { i, x, w, h };
+    x += w + 4 + bgHash(i + 99) * 14;
+  }
+}
+function bgSkyline(c, floorY, lit) {
+  for (const { i, x, w, h } of bgBuildings(floorY)) {
     c.fillStyle = '#0a0c14'; c.fillRect(x, floorY - h, w + 1, h);
     c.fillStyle = '#3a3420';
     for (let wy = floorY - h + 10; wy < floorY - 12; wy += 16)
       for (let wx = x + 7, j = 0; wx < x + w - 10; wx += 13, j++)
         if (bgHash(i * 131 + wy * 7 + j) < lit) c.fillRect(wx, wy, 5, 7);
-    x += w + 4 + bgHash(i + 99) * 14;
   }
 }
 function bgPaint(c, theme, date) {
@@ -3775,6 +3801,7 @@ function render() {
     bg.canvas.width = bg.canvas.height = 0; bg.canvas = null; bg.key = '';
   }
   headCol = bg.headFill(cfg.bgTheme, bg.now());
+  headSky = cfg.bgTheme === 'daynight' ? bg.SKY[bg.skyPhase(bg.now())] : null;
   ctx.setTransform(dpr * S, 0, 0, dpr * S, ox * dpr, oy * dpr);
   view = { z: 1, x: ox, y: oy };
   slowmoView(ox, oy);
