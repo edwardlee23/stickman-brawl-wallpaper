@@ -71,9 +71,9 @@ off.
 ### Reduce flashing and screen shake
 
 "Reduce flashing and screen shake" is on by default: it hides the
-full-screen white flash of energy blasts and lightning and the speed lines of
-big hits, and stops the screen shaking. Turn it off for the full comic look,
-as below.
+full-screen white flash of energy beams and lightning, the speed lines of big
+hits and dashes, and stops the screen shaking. Turn it off for the full comic
+look, as below.
 
 ![The full comic look with flashes, speed lines and screen shake](docs/images/reduce-motion-off.gif)
 
