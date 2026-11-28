@@ -140,11 +140,12 @@ test('the same sound does not play again within 40 ms, and does after (#355)', (
   assert.equal(game.sfx('hit', 100), true, 'again after 41 ms');
 });
 
-test('the limiter after the master starts at -10 dB (#355)', () => {
+test('the limiter after the master starts at -10 dB with a 6 dB knee (#355, #507)', () => {
   const { game } = load();
   game.cfg.sound = true;
   game.sfx('hit', 100);
-  assert.equal(FakeAudioContext.last.compressors[0].threshold.value, -10);
+  const lim = FakeAudioContext.last.compressors[0];
+  assert.deepEqual([lim.threshold.value, lim.knee.value, lim.ratio.value, lim.attack.value, lim.release.value], [-10, 6, 12, 0.002, 0.2]);
 });
 
 // ---------- Shots ----------
