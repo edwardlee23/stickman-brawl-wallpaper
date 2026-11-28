@@ -2668,6 +2668,9 @@ class Fighter {
     const feet = groundY(this.z) - this.alt;
     this.va -= G * dt;
     this.x += this.vx * dt; this.alt += this.va * dt; this.rot += this.rotV * dt;
+    // Depth speed slows as in a flinch, so a knockback does not carry the walking depth
+    // speed across the floor for the whole flight (issue #502)
+    this.vz = approach(this.vz, 0, 300 * dt);
     this.z = clamp(this.z + this.vz * dt, 0, DEPTH);
     lerpPose(this.pose, TUMBLE, Math.min(1, dt * 8), this.pose);
     const top = maxAlt(this.z);
