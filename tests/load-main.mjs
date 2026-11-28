@@ -68,7 +68,7 @@ export function loadMain({
   if (prelude) vm.runInContext(prelude, context);
   let code = patch ? patch(source) : source;
   if (stiff) {
-    for (const VIEW of ['f.V = f.rag ? f.rag.pts : f.viewJoints();', 'f.V = f.viewJoints();']) {
+    for (const VIEW of ['f.V = f.rag ? ragView(f.rag) : f.viewJoints();', 'f.V = f.viewJoints();']) {
       if (!code.includes(VIEW)) throw new Error('main.js no longer sets ' + VIEW);
       code = code.replaceAll(VIEW, 'f.V = null;');
     }
