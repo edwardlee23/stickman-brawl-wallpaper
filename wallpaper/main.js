@@ -2091,7 +2091,8 @@ class Fighter {
     // at a target that cannot be hit, and it picks a move again instead (#419)
     if (!this.target || !this.target.hittable) { this.endMove(); return; }
     const ids = TELEPORT_FOLLOW.filter(id => cfg.styles[MOVE_BY[id].style]);
-    this.startMove(MOVE_BY[pick(ids.length ? ids : TELEPORT_FOLLOW)], true);
+    // Through withStaff, as parries, meets and combos are: a held staff swings it (#504)
+    this.startMove(withStaff(this, MOVE_BY[pick(ids.length ? ids : TELEPORT_FOLLOW)]), true);
   }
 
   // ---- Ninjutsu ----
