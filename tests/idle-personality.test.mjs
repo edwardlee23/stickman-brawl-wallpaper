@@ -18,7 +18,9 @@ function pair() {
 test('breathing and taunts draw nothing from Math.random: a seed gives the same fight without them', () => {
   const run = patch => {
     let n = 0;
-    const rnd = lcg(11);
+    // A seed whose 60 s holds a round; drawing no longer takes from Math.random (#501), which
+    // shifted the fight seed 11 gave
+    const rnd = lcg(12);
     const game = load({ search: '?count=4&mode=ffa', patch, random: () => { n++; return rnd(); } });
     let rounds = 0;
     for (let i = 0; i < 3600; i++) { game.update(1 / 60); if (i % 2) game.render(); rounds = game.stats.rounds; }

@@ -3450,12 +3450,15 @@ function drawAura(f, col) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.shadowColor = col; ctx.shadowBlur = 12;
+  // Places come from drawRand and the fighter's clock, so a paused redraw draws the same wisps
+  const k = Math.floor(f.time * 30);
   for (let i = 0; i < 12; i++) {
-    const j = J[pick(JOINTS)];
-    const x = j.x + rand(-9, 9), y = j.y + rand(-6, 6);
-    ctx.globalAlpha = rand(0.2, 0.6) * f.aura;
+    const s = f.id * 977 + k * 61 + i * 13;
+    const j = J[JOINTS[Math.floor(bgHash(s) * JOINTS.length)]];
+    const x = j.x + drawRand(s + 0.1, -9, 9), y = j.y + drawRand(s + 0.2, -6, 6);
+    ctx.globalAlpha = drawRand(s + 0.3, 0.2, 0.6) * f.aura;
     ctx.beginPath(); ctx.moveTo(x, y);
-    ctx.quadraticCurveTo(x + rand(-7, 7), y - rand(8, 16), x + rand(-4, 4), y - rand(18, 32));
+    ctx.quadraticCurveTo(x + drawRand(s + 0.4, -7, 7), y - drawRand(s + 0.5, 8, 16), x + drawRand(s + 0.6, -4, 4), y - drawRand(s + 0.7, 18, 32));
     ctx.stroke();
   }
   ctx.restore();
@@ -3536,11 +3539,13 @@ function drawFighter(f) {
     ctx.restore();
   }
   if (f.ghost) {
-    // Rapid punches: several afterimage fists
+    // Rapid punches: several afterimage fists, placed by drawRand and the fighter's clock
     ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+    const k = Math.floor(f.time * 30);
     for (let i = 0; i < 7; i++) {
-      const p = { x: J.sh.x + f.facing * rand(16, 38), y: J.sh.y + rand(-16, 10) };
-      ctx.globalAlpha = rand(0.25, 0.6);
+      const s = f.id * 769 + k * 59 + i * 17;
+      const p = { x: J.sh.x + f.facing * drawRand(s, 16, 38), y: J.sh.y + drawRand(s + 0.1, -16, 10) };
+      ctx.globalAlpha = drawRand(s + 0.2, 0.25, 0.6);
       path(J.sh, p);
       ctx.beginPath(); ctx.arc(p.x, p.y, 2.6, 0, Math.PI * 2); ctx.stroke();
     }
@@ -3563,7 +3568,7 @@ function drawFighter(f) {
       ctx.fillStyle = '#ffffff';
       ctx.beginPath(); ctx.arc(md.O.x, md.O.y, md.w * 1.3, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = col; ctx.globalAlpha = 0.7;
-      ctx.beginPath(); ctx.arc(md.E.x, md.E.y, md.w * rand(1.8, 2.8), 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(md.E.x, md.E.y, md.w * drawRand(f.id * 397 + Math.floor(f.time * 30) * 53, 1.8, 2.8), 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
   }
@@ -3638,11 +3643,14 @@ function drawFx(o, layer) {
     ctx.restore();
   } else if (o.type === 'flame' && layer === 1) {
     // A few flickering tongues of fire that shrink away
+    // Their flicker comes from drawRand and the effect's clock, so a paused redraw keeps it
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const k = Math.floor(o.t * 30);
     for (let i = 0; i < 5; i++) {
-      const x = o.x + (i - 2) * 5, h = (14 + rand(0, 8)) * (1 - u) * (i % 2 ? 0.7 : 1);
+      const s = o.x * 3.1 + o.y * 1.7 + k * 61 + i * 13;
+      const x = o.x + (i - 2) * 5, h = (14 + drawRand(s, 0, 8)) * (1 - u) * (i % 2 ? 0.7 : 1);
       ctx.globalAlpha = 0.7 * (1 - u); ctx.fillStyle = i % 2 ? '#ffe28a' : ELEMENT.fire;
-      ctx.beginPath(); ctx.moveTo(x - 4, o.y); ctx.quadraticCurveTo(x + rand(-3, 3), o.y - h * 1.4, x + 4, o.y); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x - 4, o.y); ctx.quadraticCurveTo(x + drawRand(s + 0.1, -3, 3), o.y - h * 1.4, x + 4, o.y); ctx.fill();
     }
     ctx.restore();
   } else if (o.type === 'ring' && layer === 1) {
@@ -3653,11 +3661,12 @@ function drawFx(o, layer) {
     else ctx.arc(o.x, o.y, r, 0, Math.PI * 2);
     ctx.stroke();
   } else if (o.type === 'focus' && layer === 2) {
-    // Speed lines
-    const R = Math.hypot(worldW, worldH);
+    // Speed lines, placed by drawRand and the effect's clock like the flames above
+    const R = Math.hypot(worldW, worldH), k = Math.floor(o.t * 30);
     ctx.globalAlpha = 0.35 * (1 - u); ctx.fillStyle = cfg.line;
     for (let i = 0; i < 46; i++) {
-      const a = rand(0, Math.PI * 2), w = rand(0.004, 0.014), rin = rand(70, 130);
+      const s = o.x * 3.1 + o.y * 1.7 + k * 61 + i * 13;
+      const a = drawRand(s, 0, Math.PI * 2), w = drawRand(s + 0.1, 0.004, 0.014), rin = drawRand(s + 0.2, 70, 130);
       ctx.beginPath();
       ctx.moveTo(o.x + Math.cos(a) * rin, o.y + Math.sin(a) * rin);
       ctx.lineTo(o.x + Math.cos(a - w) * R, o.y + Math.sin(a - w) * R);
@@ -3725,6 +3734,10 @@ let headSky = null;        // This frame's Day and night sky stops, or null unde
 // A fixed pseudo-random value in [0, 1) for an index, so the drawing never touches
 // Math.random and looks the same every time it is repainted
 const bgHash = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+// A number from a to b that bgHash picks for the key s: effects drawn each frame take their
+// flicker from it, never from Math.random, so a paused redraw draws the same picture and
+// drawing never shifts the fight's random sequence (issue #501)
+const drawRand = (s, a, b) => a + bgHash(s) * (b - a);
 function bgSky(c, top, bottom, colors) {
   const g = c.createLinearGradient(0, top, 0, bottom);
   colors.forEach((col, i) => g.addColorStop(i / (colors.length - 1), col));
