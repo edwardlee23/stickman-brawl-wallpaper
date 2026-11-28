@@ -442,7 +442,7 @@ function resize() {
   }
   // The joints drawn are taken once a step; a frame drawn before the next one (paused, or
   // in a hit stop) would show the bodies where they stood before the resize (issue #388)
-  for (const f of fighters) if (f.W) { f.W = f.rag ? f.rag.pts : f.joints(); f.V = f.rag ? f.rag.pts : f.viewJoints(); }
+  for (const f of fighters) if (f.W) { f.W = f.rag ? f.rag.pts : f.joints(); f.V = f.rag ? ragView(f.rag) : f.viewJoints(); }
   // Items on the floor too, or one left past the edge could never be picked up
   for (const it of items) it.x = clamp(it.x, 40, worldW - 40);
   // A crack in the right wall moves with that wall, or it floats mid-screen (issue #388)
@@ -494,7 +494,9 @@ let slowmoT = -1, slowmoOn = null, lastKO = null;   // slowmoT: real time since 
 // The world transform render() last drew with, in CSS pixels: screen = world * S * z + (x, y).
 // A click is turned back into world units with it, zoom and screen shake included.
 let view = { z: 1, x: 0, y: 0 };
-function startSlowmo() { if (cfg.slowmo) { slowmoT = 0; slowmoOn = lastKO; } }
+// The slow motion takes the place of the knockout's hit stop: a hit stop counted in game time
+// would last four times as long under it and hold the body still for most of it (issue #495)
+function startSlowmo() { if (cfg.slowmo) { slowmoT = 0; slowmoOn = lastKO; freeze = 0; } }
 // 1 while time is slow, easing to 0 as full speed comes back
 function slowmoLevel() {
   if (slowmoT < 0) return 0;
@@ -806,6 +808,18 @@ function makeRag(J, vx, vy) {
   }
   const bones = BONES.map(([a, b]) => [a, b, Math.hypot(J[a].x - J[b].x, J[a].y - J[b].y)]);
   return { pts, bones, acc: 0, age: 0 };
+}
+// The points a ragdoll is drawn at: each moved on by the share of a step its clock has run
+// past the last one, at the speed of that step. A ragdoll steps every RAG_H s of game time,
+// so in slow motion or at a low Speed a frame often holds no step, and drawing the points as
+// they are would hold the body still for several frames at a time (issue #495).
+function ragView(r) {
+  const a = r.acc / RAG_H, p = r.pts, v = r.view || (r.view = {});
+  for (const k in p) {
+    const o = p[k], q = v[k] || (v[k] = { x: 0, y: 0 });
+    q.x = o.x + (o.x - o.px) * a; q.y = o.y + (o.y - o.py) * a;
+  }
+  return v;
 }
 function stepRag(r, gy) {
   const p = r.pts;
@@ -3242,7 +3256,7 @@ function update(dt, real = dt) {
     if (LYING.has(f.state)) f.inWalls();
     f.stepLook(dt);
     f.W = f.rag ? f.rag.pts : f.joints();
-    f.V = f.rag ? f.rag.pts : f.viewJoints();
+    f.V = f.rag ? ragView(f.rag) : f.viewJoints();
     updSmear(f);
     if (f.koPending) { f.koPending = false; f.ko(0, -40); f.W = f.V = f.rag.pts; }
     // Afterimages
