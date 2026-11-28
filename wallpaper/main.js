@@ -445,9 +445,11 @@ function resize() {
   for (const f of fighters) if (f.W) { f.W = f.rag ? f.rag.pts : f.joints(); f.V = f.rag ? ragView(f.rag) : f.viewJoints(); }
   // Items on the floor too, or one left past the edge could never be picked up
   for (const it of items) it.x = clamp(it.x, 40, worldW - 40);
-  // A crack in the right wall moves with that wall, or it floats mid-screen (issue #388)
+  // A crack in the right wall moves with that wall, or it floats mid-screen (issue #388), and so
+  // do the chips flung off it (issue #500)
   if (oldW > 0 && worldW !== oldW) {
     for (const o of fx) {
+      if (o.type === 'debris' && o.x === oldW) { o.x = worldW; continue; }
       if (o.type !== 'crack' || o.kind !== 'wall' || o.x !== oldW) continue;
       const dx = worldW - oldW;
       o.x = worldW;
@@ -659,22 +661,34 @@ function dust(x, y, n, dir = 0, size = 1) {
   addFx({ type: 'dust', x, y, balls, dur: fxRand(0.45, 0.6) });
 }
 // n chips of wall or floor flung from x, y toward dir (0: both ways) that fall to the floor at
-// fy and stop there
+// fy, or onto a platform top they come down on, and stop there
 function debris(x, y, n, dir, fy) {
   const bits = [];
   for (let i = 0; i < n; i++) {
     const vx = (dir || (i % 2 ? 1 : -1)) * fxRand(40, 220), vy = -fxRand(60, 260);
-    // When it reaches the floor: y + vy t + G t^2 = fy, with fy at or below y
-    const tl = (-vy + Math.sqrt(vy * vy + 4 * DEBRIS_G * Math.max(0, fy - y))) / (2 * DEBRIS_G);
-    bits.push({ vx, vy, tl, s: fxRand(1.5, 3.5), spin: fxRand(-12, 12) });
+    bits.push({ vx, vy, tl: chipLand(x, y, vx, vy, fy), s: fxRand(1.5, 3.5), spin: fxRand(-12, 12) });
   }
   addFx({ type: 'debris', x, y, bits, dur: 0.9 });
 }
 const DEBRIS_G = 450;   // Half the pull on a chip, in world units a second per second
-function quake(x, y, r) {
+// When a chip flung from x, y lands: y + vy t + G t^2 = h at the later root, on the first platform
+// top it comes down onto with its x (kept inside the walls, as drawn) over that platform, or else
+// on the floor at fy. A chip off a ledge end falls past it to the floor (issue #500).
+function chipLand(x, y, vx, vy, fy) {
+  const down = h => (-vy + Math.sqrt(vy * vy + 4 * DEBRIS_G * Math.max(0, h - y))) / (2 * DEBRIS_G);
+  let tl = down(fy);
+  for (const p of platforms) {
+    if (p.y >= fy || vy * vy + 4 * DEBRIS_G * (p.y - y) < 0) continue;   // Below the floor, or above its peak
+    const t = down(p.y), px = clamp(x + vx * t, 0, worldW);
+    if (t < tl && px >= p.x0 && px <= p.x1) tl = t;
+  }
+  return tl;
+}
+// fy: the floor under the quake, when it is on a platform at y
+function quake(x, y, r, fy = y) {
   addFx({ type: 'ring', x, y, r0: 6, r1: r, dur: 0.4, w: 3, flat: true });
   crack(x, y, 'ground', r * 0.7);
-  debris(x, y - 2, Math.round(r / 6), 0, y);
+  debris(x, y - 2, Math.round(r / 6), 0, fy);
   dust(x, y, 6, 0, r / 60);
   sfx('boom', x, r / 110);
   spawnSparks(x, y, 'rgba(210,210,210,0.75)', 22, true, 2);
@@ -1291,7 +1305,7 @@ class Fighter {
         this.rot = this.fallSign * Math.PI / 2 * u * u;
         lerpPose(this.from, DOWN, ease(u), this.pose);
         if (u >= 1) {
-          quake(this.x, groundY(this.z) - this.alt, 50);
+          quake(this.x, groundY(this.z) - this.alt, 50, groundY(this.z));
           this.state = 'down'; this.st = 0; this.downDur = rand(0.7, 1.4);
           if (this.hp <= 0) this.koPending = true;
         }
@@ -1327,7 +1341,7 @@ class Fighter {
         this.rot = 1.5 * Math.PI * e;
         lerpPose(this.from, DOWN, Math.min(1, u * 1.5), this.pose);
         if (u >= 1) {
-          quake(th.hx, groundY(this.z) - this.alt, 90);
+          quake(th.hx, groundY(this.z) - this.alt, 90, groundY(this.z));
           impact(th.hx, groundY(this.z) - this.alt - 6, true);
           this.rot = -Math.PI / 2; this.fallSign = -1;
           this.x = clamp(th.hx1 + this.facing * th.lie, 14, worldW - 14);
@@ -1806,7 +1820,7 @@ class Fighter {
       md.O = O; md.E = E; md.ground = ground;
       this.vx = -this.facing * 25;
       shake = Math.max(shake, 3);
-      if (ground && !md.cracked) { md.cracked = true; quake(md.E.x, md.E.y, 110); }
+      if (ground && !md.cracked) { md.cracked = true; quake(md.E.x, md.E.y, 110, groundY(this.z)); }
       if (Math.random() < 0.5) spawnSparks(md.E.x, md.E.y, '#ffffff', 2, false, 1.5);
       for (const e of fighters) {
         if (!isEnemy(this, e) || md.hit.has(e) || !e.hittable || Math.abs(e.z - this.z) > 22 || !e.W) continue;
@@ -1977,7 +1991,7 @@ class Fighter {
       if (this.aloft() && this.st > 2.5) { this.endMove(); return; }
       if (!this.aloft()) {
         this.alt = this.surfaceAlt(); this.va = 0; this.hover = false; this.vx = 0; this.vz = 0;
-        quake(this.x, groundY(this.z) - this.alt, 70);
+        quake(this.x, groundY(this.z) - this.alt, 70, groundY(this.z));
         md.ph = 'rec'; md.t0 = this.st;
       }
     } else {
@@ -2011,7 +2025,7 @@ class Fighter {
         const gx = this.x, gy = groundY(this.z) - this.alt;
         // Landed on a platform: the shockwave runs along its top, and the floor below is out of reach
         const ledge = this.alt > 0 ? platformAt(gx, gy) : null;
-        quake(gx, gy, 160);
+        quake(gx, gy, 160, groundY(this.z));
         shake = Math.max(shake, 13); hitStop(0.08);
         for (const e of fighters) {
           const h = ledge ? ledge.y - (groundY(e.z) - e.alt) : e.alt;   // Height above the slammed surface
@@ -2753,7 +2767,7 @@ class Fighter {
       if (this.va < -450) {
         // Slam into the ground and bounce
         this.va = -this.va * 0.42; this.vx *= 0.6; this.rotV *= 0.7;
-        quake(this.x, gy, 80);
+        quake(this.x, gy, 80, groundY(this.z));
       } else {
         this.trailOn = false;
         const r = ((this.rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
