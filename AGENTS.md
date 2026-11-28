@@ -47,7 +47,9 @@ item drop or move no longer shows needs another seed or start in the list.
 Then run the check: it replays each GIF in the browser, as the recorder does,
 and fails when an event its `shows` field names (the caption's moves, a
 flash, the item that drops, a fighter launched by the click) does not happen
-in the clip.
+in the clip. The check covers only the GIFs: nothing checks a still PNG, so
+look at each one against its caption yourself (the score in Show score, the
+crown in King).
 
 ```bash
 node scripts/record-settings.mjs                  # every picture
