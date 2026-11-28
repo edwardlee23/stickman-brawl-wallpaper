@@ -77,3 +77,55 @@ test('standoffs happen in a fight', () => {
   }
   assert.ok(n >= 6, n + ' standoffs in 3 minutes');
 });
+
+// The gates of a standoff, one at a time (#506): a fighter set in the middle of one, holding
+// 100 away from a target 40 off, in reach of its cross
+function holding(d = 40) {
+  const s = pair(d);
+  Object.assign(s.a, { standoff: 1, standoffD: 100, circle: 1, cool: 0 });
+  s.state.fixed = 0.5;   // No jump, no dash
+  return s;
+}
+
+test('#506 a fighter in a standoff does not strike, even with the target in reach and no wait left', () => {
+  const { a } = holding();
+  run(a, 1);
+  assert.notEqual(a.state, 'attack');
+});
+
+test('#506 a standoff ends when the target cannot be hit, or a throw is queued', () => {
+  const s1 = holding();
+  s1.b.invis = true;
+  run(s1.a, 1);
+  assert.equal(s1.a.standoff, 0, 'a standoff on with the target out of reach of any hit');
+  const s2 = holding();
+  s2.a.nextMove = s2.game.MOVES.find(m => m.id === 'osotogari');
+  run(s2.a, 1);
+  assert.equal(s2.a.standoff, 0, 'a standoff on with a throw queued');
+});
+
+test('#506 a standoff does not count as the queued move being out of reach', () => {
+  const { a, jab } = holding(80);
+  a.reachT = 0.5;
+  run(a, 1);
+  assert.equal(a.reachT, 0);
+  assert.equal(a.nextMove, jab);
+});
+
+test('#506 a standoff ends backed against a wall', () => {
+  const { a, b } = holding();
+  a.x = 16; b.x = 56;
+  for (const f of [a, b]) f.W = f.joints();
+  run(a, 1);
+  assert.equal(a.standoff, 0);
+});
+
+test('#506 circling in a standoff turns back at the front and the back of the floor', () => {
+  for (const [z, tz, circle] of [[3, 10, -1], [117, 110, 1]]) {
+    const { a, b } = holding();
+    Object.assign(a, { z, circle }); b.z = tz;
+    for (const f of [a, b]) f.W = f.joints();
+    run(a, 1);
+    assert.equal(a.circle, -circle, 'circling on past z ' + z);
+  }
+});
