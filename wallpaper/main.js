@@ -978,12 +978,15 @@ function boltOverhead(t) {
   const x = clamp(t.x + t.vx * 0.25, 14, worldW - 14), feet = groundY(t.z) - t.alt;
   return platforms.some(p => x >= p.x0 && x <= p.x1 && p.y < feet - 0.5);
 }
-// Whether a special started now can reach t: its height (#338), and from a ledge a beam, shot or
-// bolt that would come down on that ledge instead (#387, #420, #421)
+// Whether a special started now can reach t: its height (#338), from a ledge a beam, shot or
+// bolt that would come down on that ledge instead (#387, #420, #421), and a dive with no room to jump (#498)
 function specialFits(me, m, t) {
   if (!altFits(me, m, t)) return false;
   if (m.type === 'beam' && beamOnOwnLedge(me, t)) return false;
   if (shotsOnOwnLedge(me, t, m.type)) return false;
+  // A dive from a ledge at the jump ceiling (large figure sizes) has no room to jump: it lands at
+  // once and does nothing (#498)
+  if (m.type === 'dive' && !me.aloft() && me.surfaceAlt() >= maxAlt(me.z) - 1) return false;
   return !(m.type === 'lightning' && boltOverhead(t));
 }
 function pickMove(me, t, dist) {
@@ -2269,10 +2272,17 @@ class Fighter {
       // With its target gone there is nothing to steer at: fall like any airborne fighter
       if (!t || !t.alive) { this.endMove(); return; }
       this.homeTo(t, 700, 3, dt);
-      // Steering upward at a target that cannot be hit, or at the top of the screen, means the
-      // leap has missed (#261, as #215 for the dive): stop climbing and fall like any airborne fighter
-      if (this.va > 0 && (!t.hittable || this.alt >= maxAlt(this.z) - 1)) {
+      // Steering upward at a target that cannot be hit means the leap has missed (#261, as #215
+      // for the dive): stop climbing and fall like any airborne fighter.
+      if (this.va > 0 && !t.hittable) {
         this.va = 0; this.hover = false; this.vz = 0; this.endMove(); return;
+      }
+      // So does one at the top of the screen, except at a target standing on a ledge: at large
+      // figure sizes the side ledges sit at or near the jump ceiling, and a target on one has its
+      // body above it, in reach of a kick that flies level along the ceiling (#498)
+      if (this.va > 0 && this.alt >= maxAlt(this.z) - 1) {
+        if (t.aloft() || t.alt <= 0) { this.va = 0; this.hover = false; this.vz = 0; this.endMove(); return; }
+        this.va = 0;
       }
       if (Math.abs(this.vx) > 1) this.facing = sgn(this.vx);
       // End on landing, hitting the other wall, or flying too long
