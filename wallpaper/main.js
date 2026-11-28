@@ -1633,7 +1633,7 @@ class Fighter {
         // elbow or knee) so the two can clash: a strike of a style that is on, quick enough
         // to be out as soon as the other, reaching across the gap the two lunges close
         const d = Math.abs(e.x - this.x), kind = this.move.hit[0];
-        const fits = MOVES.filter(n => cfg.styles[n.style] && !n.grab && n.hit[0] === kind && n.wind <= this.move.wind + 0.02 &&
+        const fits = MOVES.filter(n => martialOn(n.style) && !n.grab && n.hit[0] === kind && n.wind <= this.move.wind + 0.02 &&
           d <= n.range[1] + 20);
         if (fits.length) { e.facing = sgn(this.x - e.x); e.target = this; e.startMove(withStaff(e, pick(fits)), true); }
       }
@@ -2442,7 +2442,7 @@ class Fighter {
     att.state = 'hit'; att.st = 0; att.dur = PARRY_STAGGER; att.vx = -att.facing * 90;
     this.state = 'idle'; this.st = 0;
     const dist = Math.abs(att.x - this.x);
-    const fits = MOVES.filter(n => cfg.styles[n.style] && !n.grab && dist >= n.range[0] && dist + 10 <= n.range[1]);
+    const fits = MOVES.filter(n => martialOn(n.style) && !n.grab && dist >= n.range[0] && dist + 10 <= n.range[1]);
     if (!fits.length) return;
     if (dist > 1) this.facing = sgn(att.x - this.x);
     this.target = att; stats.counters++;
@@ -2461,7 +2461,7 @@ class Fighter {
     // aimed at where it will be when the strike lands, halfway through its active time
     const away = e.vx * sgn(dx), slide = T => Math.abs(away) / 520 < T ? away * Math.abs(away) / 1040 : away * T - 260 * T * T;
     // Each candidate as it would be thrown: with a staff held, a staff strike with its own reach
-    const next = COMBO_NEXT[(m.bare || m).id].filter(id => cfg.styles[MOVE_BY[id].style]).map(id => withStaff(this, MOVE_BY[id]));
+    const next = COMBO_NEXT[(m.bare || m).id].filter(id => martialOn(MOVE_BY[id].style)).map(id => withStaff(this, MOVE_BY[id]));
     const fits = next.filter(n => {
       const T = n.wind + n.act * 0.5, d = dist + slide(T);
       // In the far half of the reach, short of its very end: thrown from closer, the fist or foot
@@ -2991,6 +2991,12 @@ for (const id of STAFF_STRIKES) {
 const STRIKING = ['boxing', 'muaythai', 'taekwondo'];
 function staffUsable() {
   return STRIKING.some(s => cfg.styles[s]) || !Object.values(cfg.styles).some(Boolean);
+}
+// Whether a martial-arts move of style s may be picked outside pickMove (a combo's next strike, a
+// parry counter, a strike meeting a strike): its style is on, or every style is off, when
+// fighters use every martial-arts move as pickMove does (#493)
+function martialOn(s) {
+  return cfg.styles[s] || !Object.values(cfg.styles).some(Boolean);
 }
 // The move a fighter makes of a queued one: a strike becomes a staff strike while it holds
 // a staff with strikes left, and a staff strike queued, or chained on in a combo (#462), once the
