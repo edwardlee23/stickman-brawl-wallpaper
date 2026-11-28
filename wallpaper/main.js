@@ -1843,9 +1843,14 @@ class Fighter {
   // ledge returned lets the move stop its leftover walking speed at the platform's ends instead
   // of carrying it past them into mid-air (issue #383, as the beam does for #344)
   castFooting() {
-    const ledge = this.alt > 0 && !this.aloft() ? platformAt(this.x, groundY(this.z) - this.alt) : null;
+    const ledge = this.standingLedge();
     if (this.alt > 0 && !ledge) { this.hover = true; this.va = 0; }
     return ledge;
+  }
+  // The platform this fighter stands on, or null. A move that does not hover its fighter in the
+  // air uses it to stop at the platform's ends too: shield, lightning, boomerang, barrage (#505)
+  standingLedge() {
+    return this.alt > 0 && !this.aloft() ? platformAt(this.x, groundY(this.z) - this.alt) : null;
   }
   keepOnLedge(ledge, dt) {
     if (ledge) this.vx = clamp(this.vx, (ledge.x0 - this.x) / dt, (ledge.x1 - this.x) / dt);
@@ -1892,7 +1897,7 @@ class Fighter {
   }
 
   u_barrage(dt) {
-    const md = this.md, m = this.move;
+    const md = this.md, m = this.move, ledge = this.standingLedge();
     if (this.st < 0.95) {
       const k = Math.floor(this.st / 0.045) % 2;
       lerpPose(this.pose, k ? MOVE_BY.cross.A : MOVE_BY.jab.A, Math.min(1, dt * 40), this.pose);
@@ -1915,6 +1920,7 @@ class Fighter {
       lerpPose(this.pose, GUARD, Math.min(1, dt * 8), this.pose);
       if (this.st > 1.3) this.endMove();
     }
+    this.keepOnLedge(ledge, dt);
   }
 
   u_rising(dt) {
@@ -2386,8 +2392,9 @@ class Fighter {
     md.gy = md.ledge ? md.ledge.y : groundY(md.z);
   }
   u_lightning(dt) {
-    const md = this.md, m = this.move, t = this.target;
+    const md = this.md, m = this.move, t = this.target, ledge = this.standingLedge();
     this.vx = approach(this.vx, 0, 700 * dt);
+    this.keepOnLedge(ledge, dt);
     if (md.ph === 'cast') {
       lerpPose(this.pose, CALL, Math.min(1, dt * 14), this.pose);
       this.aura = 0.6;
@@ -2429,8 +2436,9 @@ class Fighter {
 
   u_shield(dt) {
     // Faces the attacker it was raised against, which need not be its own target
-    const md = this.md, t = md.from && md.from.alive ? md.from : this.target;
+    const md = this.md, t = md.from && md.from.alive ? md.from : this.target, ledge = this.standingLedge();
     this.vx = approach(this.vx, 0, 700 * dt);
+    this.keepOnLedge(ledge, dt);
     if (md.ph === 'up') {
       if (t && t.alive && Math.abs(t.x - this.x) > 1) this.facing = sgn(t.x - this.x);
       lerpPose(this.pose, WARD, Math.min(1, dt * 20), this.pose);
@@ -3092,9 +3100,10 @@ function seekItem(f, dt) {
   f.vz = approach(f.vz, clamp((best.z - f.z) * 4, -45, 45), 600 * dt);
 }
 Fighter.prototype.u_boomerang = function (dt) {
-  const md = this.md, t = this.target;
+  const md = this.md, t = this.target, ledge = this.standingLedge();
   if (t && t.alive) this.facing = sgn(t.x - this.x);
   this.vx = approach(this.vx, 0, 700 * dt);
+  this.keepOnLedge(ledge, dt);
   if (!md.t0) {
     lerpPose(this.pose, FLING, Math.min(1, dt * 20), this.pose);
     if (this.st >= 0.16 && this.W) {
