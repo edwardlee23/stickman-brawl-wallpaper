@@ -63,6 +63,21 @@ test('the clip watcher notes what starts in the clip, not what was there before 
     { moves: ['fireball'], fx: ['flash'], drops: ['boomerang'], pickups: ['boomerang'], launched: 0, ko: false });
 });
 
+test('the clip watcher notes a knockout in the clip, not one before it (#508)', () => {
+  // Down before the clip and still down: no knockout in the clip
+  const down = { alive: false, state: 'down', move: null, held: null };
+  const before = page([]);
+  before.__fighters = () => [down];
+  assert.equal(watchClip([3, []], before).ko, false);
+  // Standing when the clip starts, knocked out in it
+  const f = { alive: true, state: 'idle', move: null, held: null };
+  const during = page([]);
+  const step = during.__step; let n = 0;
+  during.__step = () => { step(); if (++n === 2) f.alive = false; };
+  during.__fighters = () => [down, f];
+  assert.equal(watchClip([3, []], during).ko, true);
+});
+
 test('--check takes the same picture names as a recording', () => {
   assert.deepEqual(parseArgs(['--check', 'items']).check, true);
   assert.deepEqual(parseArgs(['--check', 'items']).shots.map(s => s.name), ['items']);
