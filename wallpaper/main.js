@@ -1144,10 +1144,11 @@ class Fighter {
   stepLook(dt) {
     if (this.state === 'frozen' || this.rag) { this.resetLook(); return; }
     // A taunt eases in while the fighter stands waiting for its target to get up, and out once
-    // it moves; each one is picked from the fighter and how many it has made, not Math.random
+    // it moves; each one is picked from the fighter and how many it has made, not Math.random.
+    // Out of idle it is gone at once: a strike, block or flinch is drawn as the fight sees it (#499)
     const fl = this.flair, want = this.taunting();
     if (want && fl.w === 0) { fl.n++; fl.k = Math.floor(bgHash(this.id * 31 + fl.n * 7) * TAUNTS.length); }
-    fl.w = approach(fl.w, want ? 1 : 0, dt * 4);
+    fl.w = this.state === 'idle' ? approach(fl.w, want ? 1 : 0, dt * 4) : 0;
     // A step shorter than a sub-step (the sliver frame() can leave as a hit stop ends) is
     // carried into the next one: speeds taken over a sliver would kick the springs wildly
     const look = this.look;
@@ -1214,7 +1215,7 @@ class Fighter {
       const still = 1 - Math.min(1, Math.abs(this.vx) / 60), b = Math.sin(this.time * BREATH + this.id * 1.7) * still;
       p.t -= 0.03 * b; p.aF += 0.05 * b; p.aB += 0.05 * b;
     }
-    const w = this.flair.w;
+    const w = this.state === 'idle' ? this.flair.w : 0;
     if (w > 0) {
       TAUNTS[this.flair.k](FLAIR, this.time);
       const u = ease(w);
