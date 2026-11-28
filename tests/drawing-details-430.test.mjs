@@ -442,7 +442,9 @@ test('an aura is as strong as the fighter\'s aura level (#430)', () => {
     w.render();
     const as = alphasAt(w.screen, e => e[0] === 'quadraticCurveTo');
     assert.equal(as.length, 12, as.length + ' wisps');
-    for (const a of as) assert.ok(near(a, 0.4 * level), 'aura ' + level + ' alpha ' + a);
+    // Each wisp's alpha is 0.2 to 0.6 times the level, picked by drawRand (#501)
+    for (const a of as) assert.ok(a >= 0.2 * level - 1e-9 && a <= 0.6 * level + 1e-9, 'aura ' + level + ' alpha ' + a);
+    assert.ok(Math.max(...as) > 0.4 * level, 'aura ' + level + ' never stronger than 0.4: ' + as);
   }
 });
 

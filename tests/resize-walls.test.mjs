@@ -7,12 +7,12 @@ import assert from 'node:assert/strict';
 import { loadMain } from './load-main.mjs';
 
 // Loads the wallpaper at the given size with a seeded Math.random (an LCG, as the other tests
-// seed it), and returns its debug hook, the window, its resize listener and a frame runner
+// seed it; seed 3 since drawing stopped taking from Math.random, #501), and returns its debug hook, the window, its resize listener and a frame runner
 function load(search, width, height) {
   const listeners = {};
   let next = null, t = 0;
   const { window } = loadMain({
-    search, width, height, seed: 1,
+    search, width, height, seed: 3,
     window: { addEventListener: (k, f) => { listeners[k] = f; } },
     globals: { performance: { now: () => 0 }, requestAnimationFrame: cb => { next = cb; } },
   });
