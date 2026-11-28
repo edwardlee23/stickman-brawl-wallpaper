@@ -217,13 +217,51 @@ test('heads are filled with a color close to each theme\'s backdrop (#128)', () 
     assert.ok(fills.length >= 2, theme + ': no head was filled');
     for (const f of fills) assert.equal(f, col, theme);
   }
-  // Day and night follows the sky of the hour
-  for (const [hour, phase] of [[12, 'day'], [23, 'night']]) {
-    const w = load();
-    w.game.bg.now = () => new Date(2026, 0, 1, hour, 0);
-    w.we.applyUserProperties({ backgroundtheme: { value: 'daynight' } });
-    w.frame(); w.frame();
-    for (const f of headFills(w)) assert.equal(f, w.game.bg.SKY[phase][1], phase);
+});
+
+// The color the Day and night backdrop cache painted at (px, py): the last flat fill under it,
+// leaving out lit windows and stars, or 'sky' where the last fill there is the gradient
+function backdropAt(log, px, py) {
+  let style = null, under = null;
+  for (const [k, ...a] of log) {
+    if (k === '=fillStyle') style = a[0];
+    else if (k === 'fillRect' && style !== '#3a3420' && style !== '#5a6078') {
+      const [x, y, rw, rh] = a;
+      if (px >= x && px < x + rw && py >= y && py < y + rh) under = typeof style === 'string' ? style : 'sky';
+    }
+  }
+  return under;
+}
+const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+test('Day and night fills each head with the backdrop behind it: skyline, floor or sky, in every phase (#497)', () => {
+  for (const [width, height] of [[1920, 1080], [1080, 1920], [1280, 1024]]) {
+    for (const [hour, phase] of [[6, 'dawn'], [12, 'day'], [19, 'dusk'], [23, 'night']]) {
+      const w = load({ width, height });
+      w.game.bg.now = () => new Date(2026, 0, 1, hour, 0);
+      w.we.applyUserProperties({ backgroundtheme: { value: 'daynight' } });
+      const cache = () => w.made.find(c => c.log.length);
+      const S = width / w.game.worldW;
+      const stops = w.game.bg.SKY[phase].map(rgb);
+      let heads = 0;
+      for (let n = 0; n < 40; n++) {
+        w.frame();
+        for (let i = 0; i + 2 < w.screen.length; i++) {
+          const [a, b, c] = w.screen.slice(i, i + 3);
+          if (!(a[0] === 'arc' && b[0] === '=fillStyle' && c[0] === 'fill')) continue;
+          heads++;
+          const want = backdropAt(cache().log, a[1] * S, a[2] * S), at = `${width}x${height} ${phase}`;
+          if (want !== 'sky') { assert.equal(b[1], want, at); continue; }
+          // Over the sky: a color of the sky's own gradient
+          assert.match(b[1], /^#[0-9a-f]{6}$/, at);
+          rgb(b[1]).forEach((v, ch) => {
+            const vs = stops.map(s => s[ch]);
+            assert.ok(v >= Math.min(...vs) && v <= Math.max(...vs), `${at}: ${b[1]} is not a ${phase} sky color`);
+          });
+        }
+      }
+      assert.ok(heads > 0, 'no head was filled');
+    }
   }
 });
 
